@@ -1,0 +1,30 @@
+{
+  "kind": "openplazma.experiment_context",
+  "version": "0.1",
+  "studyId": "sample-001-plasma-current-study",
+  "createdAt": "2026-05-23T00:00:00.000Z",
+  "shotRef": {
+    "provider": "STATIC_FIXTURE",
+    "shotId": "sample-001"
+  },
+  "signals": [
+    {
+      "signalId": "plasma-current",
+      "label": "Plasma Current",
+      "quantity": "current",
+      "unit": "kA"
+    }
+  ],
+  "view": {
+    "timeRange": [0.0, 0.05]
+  },
+  "observations": [
+    {
+      "text": "This context references STATIC_FIXTURE data only."
+    }
+  ],
+  "limitations": [
+    "This is not FAIR MAST data.",
+    "This is not a validated fusion simulation or hardware experiment."
+  ]
+}

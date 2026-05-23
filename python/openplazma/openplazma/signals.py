@@ -1,0 +1,28 @@
+from __future__ import annotations
+
+from typing import Any
+
+from ._validation import require_keys, require_number_list, require_string
+
+
+def validate_signal_series(signal: dict[str, Any]) -> dict[str, Any]:
+    require_keys(signal, ["signalId", "label", "quantity", "unit", "timeUnit", "time", "values"], "SignalSeries")
+    require_string(signal["signalId"], "SignalSeries.signalId")
+    require_string(signal["label"], "SignalSeries.label")
+    require_string(signal["quantity"], "SignalSeries.quantity")
+    require_string(signal["unit"], "SignalSeries.unit")
+    if signal["timeUnit"] != "s":
+        raise ValueError("SignalSeries.timeUnit must be 's'.")
+
+    time = require_number_list(signal["time"], "SignalSeries.time")
+    values = require_number_list(signal["values"], "SignalSeries.values")
+    if len(time) == 0:
+        raise ValueError("SignalSeries.time must include at least one sample.")
+    if len(time) != len(values):
+        raise ValueError("SignalSeries.time and SignalSeries.values must have matching lengths.")
+
+    for index in range(1, len(time)):
+        if time[index] <= time[index - 1]:
+            raise ValueError("SignalSeries.time values must be strictly increasing.")
+
+    return signal
