@@ -1,0 +1,22 @@
+{
+  "name": "@openplazma/lab",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@openplazma/core": "workspace:*",
+    "@openplazma/data-client": "workspace:*",
+    "@openplazma/schema": "workspace:*",
+    "@openplazma/signal-viewer": "workspace:*",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^6.0.7"
+  }
+}

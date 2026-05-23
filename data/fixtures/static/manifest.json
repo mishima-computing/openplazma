@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "0.1.0",
+  "provider": "STATIC_FIXTURE",
+  "inspiredBy": "FAIR_MAST",
+  "datasetId": "static-fixture-v0",
+  "shots": [
+    {
+      "shotId": "sample-001",
+      "path": "data/fixtures/static/sample-001/study-record.json"
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "0.1.0",
+  "context": {
+    "projectId": "openplazma",
+    "datasetId": "static-fixture-v0",
+    "facility": "Static teaching fixture",
+    "campaign": "contract-seed",
+    "description": "Small static signal-shaped record for validating OpenPlazma data contracts.",
+    "safetyClassification": "public-educational-fixture",
+    "createdAt": "2026-05-23T00:00:00.000Z"
+  },
+  "shot": {
+    "shotId": "sample-001",
+    "displayName": "Sample 001",
+    "deviceName": "Static fixture source",
+    "recordedAt": "2026-05-23T00:00:00.000Z",
+    "source": {
+      "kind": "fixture",
+      "provider": "STATIC_FIXTURE",
+      "inspiredBy": "FAIR_MAST",
+      "uri": "data/fixtures/static/sample-001/study-record.json",
+      "license": "CC0-1.0"
+    },
+    "signalIds": ["loop-voltage", "plasma-current"],
+    "tags": ["fixture", "contract-test", "static"],
+    "notes": "Educational static data only. Values are illustrative for UI and schema validation, not FAIR MAST measurements."
+  },
+  "signals": [
+    {
+      "signalId": "loop-voltage",
+      "label": "Loop Voltage",
+      "quantity": "voltage",
+      "unit": "V",
+      "timeUnit": "s",
+      "time": [0, 0.01, 0.02, 0.03, 0.04, 0.05],
+      "values": [0, 1.2, 2.4, 2, 1.1, 0.3]
+    },
+    {
+      "signalId": "plasma-current",
+      "label": "Plasma Current",
+      "quantity": "current",
+      "unit": "kA",
+      "timeUnit": "s",
+      "time": [0, 0.01, 0.02, 0.03, 0.04, 0.05],
+      "values": [0, 4, 12, 18, 14, 5]
+    }
+  ]
+}
