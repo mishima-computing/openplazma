@@ -24,6 +24,26 @@ pnpm test
 pnpm --filter @openplazma/lab dev
 ```
 
+## Notebook Bridge MVP
+
+The notebook bridge reads Lab-exported ExperimentContext JSON, loads a matching `STATIC_FIXTURE` signal, plots it, and saves a notebook-side StudyRecord JSON. It does not start Jupyter, fetch external data, run JupyterLite, or perform AI-assisted analysis.
+
+Install and test the Python SDK locally:
+
+```sh
+cd python/openplazma
+python -m pip install -e ".[dev]"
+python -m pytest
+```
+
+Run the Jupytext percent-format template as a plain Python script from the repository root after installing the SDK:
+
+```sh
+python notebooks/templates/experiment_notebook.py
+```
+
+The template uses `notebooks/examples/sample-experiment-context.json`, which mirrors the Lab-exported context shape for selecting `sample-001` and one static signal. This M2 bridge uses `provider: "STATIC_FIXTURE"` only.
+
 ## Current Scope
 
 The initial project scope is contract-first. Fixture data is static and local. External data fetching, toy physics, real-device integration, and operational procedures for hazardous equipment are out of scope.

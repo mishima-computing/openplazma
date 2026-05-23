@@ -16,5 +16,8 @@ __pycache__/
 .pytest_cache/
 .venv/
 *.pyc
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
 openplazma-*.png
 openplazma-real-signal-room-*.png
