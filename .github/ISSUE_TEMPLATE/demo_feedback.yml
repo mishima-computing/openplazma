@@ -1,0 +1,45 @@
+name: Demo feedback
+description: Share feedback about the public STATIC_FIXTURE demo.
+title: "[Demo feedback]: "
+labels:
+  - feedback
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Public demo: https://mishima-computing.github.io/openplazma/
+
+        The demo uses STATIC_FIXTURE data only. It does not fetch external fusion data, provide AI assist, control hardware, or run a validated fusion simulation.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Feedback area
+      options:
+        - Lab signal room
+        - JupyterLite Workbench
+        - ExperimentContext handoff
+        - Documentation
+        - Accessibility or usability
+    validations:
+      required: true
+  - type: textarea
+    id: feedback
+    attributes:
+      label: Feedback
+      description: What was confusing, broken, useful, or missing from the public demo?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What would have made the demo clearer or easier to use?
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: This feedback is about the STATIC_FIXTURE public demo, not real device operation.
+          required: true
+        - label: This feedback does not include secrets, credentials, or private data.
+          required: true

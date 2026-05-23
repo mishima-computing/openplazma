@@ -1,0 +1,51 @@
+name: Scientific scope or safety concern
+description: Report unclear scientific claims, provenance concerns, or safety boundary issues.
+title: "[Scope/Safety]: "
+labels:
+  - safety
+  - scientific-scope
+body:
+  - type: markdown
+    attributes:
+      value: |
+        OpenPlazma is a fusion-data learning lab using STATIC_FIXTURE data. It is not a validated fusion simulator and is not a real hardware control system.
+
+        Do not include high-voltage, vacuum, laser, radiation, or other hazardous experiment procedures in this issue.
+  - type: dropdown
+    id: concern_type
+    attributes:
+      label: Concern type
+      options:
+        - Scientific claim is too strong or unclear
+        - Data provenance is unclear
+        - Safety boundary is unclear
+        - Documentation suggests out-of-scope hardware behavior
+        - Other scope concern
+    validations:
+      required: true
+  - type: textarea
+    id: concern
+    attributes:
+      label: Concern
+      description: Describe the specific claim, provenance text, or safety boundary issue.
+    validations:
+      required: true
+  - type: input
+    id: location
+    attributes:
+      label: Location
+      description: Link, page, file path, or UI text where this appears.
+  - type: textarea
+    id: suggested_change
+    attributes:
+      label: Suggested wording or correction
+      description: Optional concise safer wording.
+  - type: checkboxes
+    id: safety_confirmation
+    attributes:
+      label: Safety confirmation
+      options:
+        - label: This issue does not include hazardous experiment procedures or real hardware operation instructions.
+          required: true
+        - label: This issue does not request external fusion data ingestion or validated simulation claims.
+          required: true
