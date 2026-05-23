@@ -19,5 +19,6 @@ __pycache__/
 *.egg-info/
 .mypy_cache/
 .ruff_cache/
+notebooks/examples/sample-study-record-from-notebook.json
 openplazma-*.png
 openplazma-real-signal-room-*.png
