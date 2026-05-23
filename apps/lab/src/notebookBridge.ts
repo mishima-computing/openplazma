@@ -7,6 +7,12 @@ export const OPENPLAZMA_EXPERIMENT_CONTEXT_STORAGE_KEY = "openplazma.experimentC
 export const DEFAULT_WORKBENCH_LITE_URL =
   "http://127.0.0.1:8000/lab/index.html?path=openplazma/experiment_notebook.ipynb";
 
+export const PAGES_WORKBENCH_LITE_URL =
+  "/openplazma/workbench/lab/index.html?path=openplazma/experiment_notebook.ipynb";
+
+export const LOCAL_STATIC_WORKBENCH_LITE_URL =
+  "/workbench/lab/index.html?path=openplazma/experiment_notebook.ipynb";
+
 export interface NotebookExperimentContext {
   kind: "openplazma.experiment_context";
   version: "0.1";
@@ -101,15 +107,31 @@ export function encodeBase64UrlJson(value: unknown): string {
   throw new Error("Base64 encoding is not available in this runtime.");
 }
 
+function isAbsoluteUrl(value: string): boolean {
+  return /^[a-z][a-z\d+.-]*:/iu.test(value);
+}
+
 export function buildWorkbenchLiteUrl(baseUrl: string, context: NotebookExperimentContext): string {
-  const url = new URL(baseUrl);
+  const absolute = isAbsoluteUrl(baseUrl);
+  const origin = typeof window === "undefined" ? "http://localhost" : window.location.origin;
+  const url = new URL(baseUrl, origin);
   url.searchParams.set("opContext", encodeBase64UrlJson(context));
-  return url.toString();
+  return absolute ? url.toString() : `${url.pathname}${url.search}${url.hash}`;
 }
 
 export function configuredWorkbenchLiteUrl(value: string | undefined): string | undefined {
   const clean = value?.trim();
   return clean === "" ? undefined : clean;
+}
+
+export function defaultWorkbenchLiteUrl(isProduction: boolean, pathname?: string): string | undefined {
+  if (!isProduction) {
+    return undefined;
+  }
+  const currentPath = pathname ?? (typeof window === "undefined" ? "/" : window.location.pathname);
+  return currentPath === "/openplazma" || currentPath.startsWith("/openplazma/")
+    ? PAGES_WORKBENCH_LITE_URL
+    : LOCAL_STATIC_WORKBENCH_LITE_URL;
 }
 
 export function storeNotebookExperimentContext(context: NotebookExperimentContext, storage: Storage = localStorage) {

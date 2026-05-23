@@ -3,6 +3,7 @@ import {
   buildNotebookExperimentContext,
   buildWorkbenchLiteUrl,
   configuredWorkbenchLiteUrl,
+  defaultWorkbenchLiteUrl,
   storeNotebookExperimentContext
 } from "./notebookBridge";
 import { toPrettyJson } from "./studyExports";
@@ -33,7 +34,9 @@ export function NotebookLauncherButton({
           observation,
           hypothesis
         });
-        const configuredUrl = configuredWorkbenchLiteUrl(import.meta.env.VITE_OPENPLAZMA_WORKBENCH_LITE_URL);
+        const configuredUrl =
+          configuredWorkbenchLiteUrl(import.meta.env.VITE_OPENPLAZMA_WORKBENCH_LITE_URL) ??
+          defaultWorkbenchLiteUrl(import.meta.env.PROD);
 
         try {
           storeNotebookExperimentContext(context);
