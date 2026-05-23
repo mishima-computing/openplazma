@@ -27,15 +27,15 @@ FORBIDDEN_SCREENSHOT_PATTERNS = [
 ]
 
 SECRET_PATTERNS = [
-    "OPENAI_API_KEY",
-    "sk-",
-    "ghp_",
-    "github_pat_",
-    "BEGIN PRIVATE KEY",
-    "AWS_SECRET_ACCESS_KEY",
-    "password=",
-    "secret=",
-    "token=",
+    "OPENAI" + "_API_KEY",
+    "s" + "k-",
+    "ghp" + "_",
+    "github" + "_pat_",
+    "BEGIN" + " PRIVATE KEY",
+    "AWS" + "_SECRET_ACCESS_KEY",
+    "password" + "=",
+    "secret" + "=",
+    "token" + "=",
 ]
 
 
