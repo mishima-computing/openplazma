@@ -75,7 +75,31 @@ Point the Lab at the local Workbench:
 VITE_OPENPLAZMA_WORKBENCH_LITE_URL=http://127.0.0.1:8000/lab/index.html?path=openplazma/experiment_notebook.ipynb
 ```
 
-Limitations: this MVP uses `STATIC_FIXTURE` data only, fetches no external data, has no AI assist, has no real hardware instructions, and does not deploy to GitHub Pages yet.
+Limitations: this MVP uses `STATIC_FIXTURE` data only, fetches no external data, has no AI assist, and has no real hardware instructions.
+
+## GitHub Pages Static Demo
+
+The expected public demo URL is:
+
+```text
+https://mishima-computing.github.io/openplazma/
+```
+
+The static demo contains the OpenPlazma Lab, the JupyterLite Workbench, and a `STATIC_FIXTURE` signal notebook. It is built as static files under `dist/pages/`; that generated output must not be committed.
+
+Build locally:
+
+```sh
+python scripts/build-pages-site.py
+```
+
+Serve locally:
+
+```sh
+python -m http.server -d dist/pages -b 127.0.0.1 8000
+```
+
+Limitations: the demo uses `STATIC_FIXTURE` data only, fetches no external fusion data, has no AI assist, has no real hardware instructions, and is not a validated fusion simulator.
 
 ## Current Scope
 

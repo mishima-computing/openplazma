@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { sampleFixtureStudyRecord } from "@openplazma/data-client";
 import {
+  LOCAL_STATIC_WORKBENCH_LITE_URL,
   OPENPLAZMA_EXPERIMENT_CONTEXT_STORAGE_KEY,
+  PAGES_WORKBENCH_LITE_URL,
   buildNotebookExperimentContext,
   buildWorkbenchLiteUrl,
-  configuredWorkbenchLiteUrl
+  configuredWorkbenchLiteUrl,
+  defaultWorkbenchLiteUrl
 } from "./notebookBridge";
 
 describe("notebook bridge helpers", () => {
@@ -16,6 +19,12 @@ describe("notebook bridge helpers", () => {
     expect(configuredWorkbenchLiteUrl(undefined)).toBeUndefined();
     expect(configuredWorkbenchLiteUrl("   ")).toBeUndefined();
     expect(configuredWorkbenchLiteUrl(" http://127.0.0.1:8000/lab ")).toBe("http://127.0.0.1:8000/lab");
+  });
+
+  it("uses the Pages Workbench Lite URL only for production defaults", () => {
+    expect(defaultWorkbenchLiteUrl(false)).toBeUndefined();
+    expect(defaultWorkbenchLiteUrl(true, "/openplazma/")).toBe(PAGES_WORKBENCH_LITE_URL);
+    expect(defaultWorkbenchLiteUrl(true, "/")).toBe(LOCAL_STATIC_WORKBENCH_LITE_URL);
   });
 
   it("generates a notebook ExperimentContext for the selected signal", () => {
@@ -48,5 +57,19 @@ describe("notebook bridge helpers", () => {
     expect(parsed.searchParams.get("opContext")).toBeTruthy();
     expect(parsed.searchParams.get("opContext")).not.toContain("+");
     expect(parsed.searchParams.get("opContext")).not.toContain("/");
+  });
+
+  it("builds a Pages Workbench Lite URL with encoded opContext", () => {
+    const context = buildNotebookExperimentContext({
+      record: sampleFixtureStudyRecord,
+      selectedSignalId: "plasma-current"
+    });
+    const url = buildWorkbenchLiteUrl(PAGES_WORKBENCH_LITE_URL, context);
+
+    const parsed = new URL(url, "https://mishima-computing.github.io");
+    expect(url.startsWith("/openplazma/workbench/lab/index.html?")).toBe(true);
+    expect(parsed.pathname).toBe("/openplazma/workbench/lab/index.html");
+    expect(parsed.searchParams.get("path")).toBe("openplazma/experiment_notebook.ipynb");
+    expect(parsed.searchParams.get("opContext")).toBeTruthy();
   });
 });

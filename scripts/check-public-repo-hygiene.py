@@ -23,7 +23,7 @@ FORBIDDEN_PATH_SUFFIXES = [
     ".egg-info",
 ]
 
-FORBIDDEN_SCREENSHOT_PATTERNS = [
+FORBIDDEN_GENERATED_FILE_PATTERNS = [
     "openplazma-*.png",
     "openplazma-real-signal-room-*.png",
     "*.tgz",
@@ -67,9 +67,9 @@ def path_reasons(filename: str) -> list[str]:
             reasons.append(f"tracked generated metadata directory: *{suffix}/")
 
     basename = path.name
-    for pattern in FORBIDDEN_SCREENSHOT_PATTERNS:
+    for pattern in FORBIDDEN_GENERATED_FILE_PATTERNS:
         if fnmatch.fnmatch(basename, pattern):
-            reasons.append(f"tracked generated screenshot: {pattern}")
+            reasons.append(f"tracked generated file: {pattern}")
 
     return reasons
 
