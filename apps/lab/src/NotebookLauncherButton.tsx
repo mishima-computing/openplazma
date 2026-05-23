@@ -1,8 +1,8 @@
 import type { StudyRecord } from "@openplazma/core";
 import {
-  DEFAULT_WORKBENCH_LITE_URL,
   buildNotebookExperimentContext,
   buildWorkbenchLiteUrl,
+  configuredWorkbenchLiteUrl,
   storeNotebookExperimentContext
 } from "./notebookBridge";
 import { toPrettyJson } from "./studyExports";
@@ -33,10 +33,21 @@ export function NotebookLauncherButton({
           observation,
           hypothesis
         });
-        const configuredUrl = import.meta.env.VITE_OPENPLAZMA_WORKBENCH_LITE_URL || DEFAULT_WORKBENCH_LITE_URL;
+        const configuredUrl = configuredWorkbenchLiteUrl(import.meta.env.VITE_OPENPLAZMA_WORKBENCH_LITE_URL);
 
         try {
           storeNotebookExperimentContext(context);
+        } catch (error) {
+          console.warn("ExperimentContext could not be saved to localStorage.", error);
+        }
+
+        if (configuredUrl === undefined) {
+          console.log("Experiment notebook context", toPrettyJson(context));
+          onDownloadJson(`${record.shot.shotId}-experiment-context.json`, context);
+          return;
+        }
+
+        try {
           const workbenchUrl = buildWorkbenchLiteUrl(configuredUrl, context);
           window.open(workbenchUrl, "_blank", "noopener,noreferrer");
         } catch (error) {

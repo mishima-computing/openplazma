@@ -107,6 +107,11 @@ export function buildWorkbenchLiteUrl(baseUrl: string, context: NotebookExperime
   return url.toString();
 }
 
+export function configuredWorkbenchLiteUrl(value: string | undefined): string | undefined {
+  const clean = value?.trim();
+  return clean === "" ? undefined : clean;
+}
+
 export function storeNotebookExperimentContext(context: NotebookExperimentContext, storage: Storage = localStorage) {
   storage.setItem(OPENPLAZMA_EXPERIMENT_CONTEXT_STORAGE_KEY, JSON.stringify(context));
 }

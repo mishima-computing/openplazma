@@ -3,12 +3,19 @@ import { sampleFixtureStudyRecord } from "@openplazma/data-client";
 import {
   OPENPLAZMA_EXPERIMENT_CONTEXT_STORAGE_KEY,
   buildNotebookExperimentContext,
-  buildWorkbenchLiteUrl
+  buildWorkbenchLiteUrl,
+  configuredWorkbenchLiteUrl
 } from "./notebookBridge";
 
 describe("notebook bridge helpers", () => {
   it("uses the expected localStorage key", () => {
     expect(OPENPLAZMA_EXPERIMENT_CONTEXT_STORAGE_KEY).toBe("openplazma.experimentContext.v0");
+  });
+
+  it("treats a blank Workbench Lite URL as unconfigured", () => {
+    expect(configuredWorkbenchLiteUrl(undefined)).toBeUndefined();
+    expect(configuredWorkbenchLiteUrl("   ")).toBeUndefined();
+    expect(configuredWorkbenchLiteUrl(" http://127.0.0.1:8000/lab ")).toBe("http://127.0.0.1:8000/lab");
   });
 
   it("generates a notebook ExperimentContext for the selected signal", () => {
