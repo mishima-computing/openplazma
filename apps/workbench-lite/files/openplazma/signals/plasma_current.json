@@ -1,0 +1,23 @@
+{
+  "signalId": "plasma-current",
+  "label": "Plasma Current",
+  "quantity": "current",
+  "unit": "kA",
+  "timeUnit": "s",
+  "time": [
+    0,
+    0.01,
+    0.02,
+    0.03,
+    0.04,
+    0.05
+  ],
+  "values": [
+    0,
+    4,
+    12,
+    18,
+    14,
+    5
+  ]
+}

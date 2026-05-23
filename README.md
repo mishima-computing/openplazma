@@ -51,9 +51,31 @@ Run these before opening or updating a pull request:
 ```sh
 corepack pnpm typecheck
 corepack pnpm test
-cd python/openplazma && python -m pytest
+(cd python/openplazma && python -m pytest)
 python scripts/check-public-repo-hygiene.py
 ```
+
+## JupyterLite Workbench MVP
+
+The JupyterLite Workbench is a browser-only notebook surface for `STATIC_FIXTURE` OpenPlazma examples. It lets the Lab pass a selected ExperimentContext into `apps/workbench-lite/files/openplazma/experiment_notebook.ipynb` through browser `localStorage` and an `opContext` URL query parameter.
+
+Build and serve it locally:
+
+```sh
+python scripts/prepare-workbench-lite.py
+cd apps/workbench-lite
+python -m pip install -r requirements.txt
+jupyter lite build --lite-dir . --output-dir _output
+jupyter lite serve --lite-dir . --output-dir _output
+```
+
+Point the Lab at the local Workbench:
+
+```sh
+VITE_OPENPLAZMA_WORKBENCH_LITE_URL=http://127.0.0.1:8000/lab/index.html?path=openplazma/experiment_notebook.ipynb
+```
+
+Limitations: this MVP uses `STATIC_FIXTURE` data only, fetches no external data, has no AI assist, has no real hardware instructions, and does not deploy to GitHub Pages yet.
 
 ## Current Scope
 

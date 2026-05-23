@@ -19,6 +19,11 @@ __pycache__/
 *.egg-info/
 .mypy_cache/
 .ruff_cache/
+apps/workbench-lite/_output/
+apps/workbench-lite/.cache/
+apps/workbench-lite/*.tgz
+apps/workbench-lite/.jupyterlite.doit.db
+.jupyterlite.doit.db
 notebooks/examples/sample-study-record-from-notebook.json
 openplazma-*.png
 openplazma-real-signal-room-*.png

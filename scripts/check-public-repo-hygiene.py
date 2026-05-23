@@ -15,6 +15,8 @@ FORBIDDEN_PATH_PARTS = [
     "__pycache__",
     ".pytest_cache",
     ".venv",
+    "_output",
+    ".cache",
 ]
 
 FORBIDDEN_PATH_SUFFIXES = [
@@ -24,6 +26,8 @@ FORBIDDEN_PATH_SUFFIXES = [
 FORBIDDEN_SCREENSHOT_PATTERNS = [
     "openplazma-*.png",
     "openplazma-real-signal-room-*.png",
+    "*.tgz",
+    ".jupyterlite.doit.db",
 ]
 
 SECRET_PATTERNS = [
