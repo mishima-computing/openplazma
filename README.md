@@ -44,6 +44,17 @@ python notebooks/templates/experiment_notebook.py
 
 The template uses `notebooks/examples/sample-experiment-context.json`, which mirrors the Lab-exported context shape for selecting `sample-001` and one static signal. This M2 bridge uses `provider: "STATIC_FIXTURE"` only.
 
+## Development Checks
+
+Run these before opening or updating a pull request:
+
+```sh
+corepack pnpm typecheck
+corepack pnpm test
+cd python/openplazma && python -m pytest
+python scripts/check-public-repo-hygiene.py
+```
+
 ## Current Scope
 
 The initial project scope is contract-first. Fixture data is static and local. External data fetching, toy physics, real-device integration, and operational procedures for hazardous equipment are out of scope.
