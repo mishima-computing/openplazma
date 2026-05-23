@@ -170,7 +170,13 @@ export function RealSignalRoom() {
               <p className="eyebrow">Exports</p>
               <h2 id="export-heading">Validated JSON</h2>
             </div>
-            <NotebookLauncherButton record={record} onDownloadJson={downloadJson} />
+            <NotebookLauncherButton
+              record={record}
+              selectedSignalId={selectedSignalId}
+              observation={observation}
+              hypothesis={hypothesis}
+              onDownloadJson={downloadJson}
+            />
           </div>
           <div className="export-actions">
             <button
