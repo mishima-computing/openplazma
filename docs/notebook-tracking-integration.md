@@ -15,6 +15,7 @@ The notebook workflow connects:
 5. Local RunStore logging.
 
 The result is an inspectable local Run under `.openplazma/runs/...`.
+The local Observatory can export a read-only HTML view of those Runs.
 
 ## Local Workflow
 
@@ -71,6 +72,14 @@ RunStore output is written under:
 
 This directory is ignored by git and should not be committed.
 
+To inspect the local Runs as static HTML:
+
+```sh
+python scripts/export-observatory.py --run-store .openplazma
+```
+
+Then open `.openplazma/observatory/index.html`.
+
 ## Python Helpers
 
 The SDK includes small notebook-oriented helpers:
@@ -100,7 +109,7 @@ The helpers do not fetch external data, change capabilities, or connect to exter
 - `STATIC_FIXTURE` data only.
 - No cloud sync.
 - No public data ingestion.
-- No Observatory UI yet.
+- Read-only local Observatory export only.
 - No AI assist.
 - No real hardware instructions.
 - Not a validated fusion simulator.

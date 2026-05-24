@@ -2,7 +2,7 @@
 
 The M5 RunStore is a local-first, inspectable tracking layer for Python and local Notebook workflows. It records Runs, metrics, artifacts, events, and manifests as JSON and JSONL files.
 
-This MVP is intentionally small. It does not add Observatory UI, cloud sync, external data ingestion, AI assist, simulation, facility operation, or real hardware control.
+This MVP is intentionally small. The local Observatory can read RunStore output, but the RunStore itself does not add cloud sync, external data ingestion, AI assist, simulation, facility operation, or real hardware control.
 
 ## Purpose
 
@@ -87,7 +87,7 @@ metrics = op.load_metrics(runs[0]["runId"])
 manifest = op.load_manifest(runs[0]["runId"])
 ```
 
-See [Notebook tracking integration](notebook-tracking-integration.md) for the full local notebook workflow.
+See [Notebook tracking integration](notebook-tracking-integration.md) for the full local notebook workflow. See [Observatory UI MVP](observatory-mvp.md) for read-only local HTML inspection.
 
 ## Safety And Scope
 
@@ -117,7 +117,7 @@ OpenPlazma is not a validated fusion simulator, not a reactor design tool, and n
 
 - Local files only.
 - JSON and JSONL only.
-- No Observatory UI yet.
+- Read-only local Observatory export only.
 - No public data ingestion.
 - No external data fetch.
 - No cloud sync.
