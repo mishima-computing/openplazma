@@ -8,7 +8,13 @@ describe("StaticFixtureDataSource", () => {
     await expect(dataSource.listShots()).resolves.toHaveLength(1);
     await expect(dataSource.getStudyRecord("sample-001")).resolves.toMatchObject({
       context: {
-        datasetId: "static-fixture-v0"
+        datasetId: "static-fixture-v0",
+        target: {
+          type: "static_fixture"
+        },
+        capabilities: {
+          controlFacility: false
+        }
       },
       shot: {
         source: {

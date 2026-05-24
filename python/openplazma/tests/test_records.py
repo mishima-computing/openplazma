@@ -13,18 +13,25 @@ FIXTURE_RECORD = REPO_ROOT / "data" / "fixtures" / "static" / "sample-001" / "st
 def test_load_static_study_record():
     record = op.load_study_record(FIXTURE_RECORD)
 
-    assert record["schemaVersion"] == "0.1.0"
+    assert record["kind"] == "openplazma.study_record"
+    assert record["version"] == "0.1.0"
     assert record["shot"]["source"]["provider"] == "STATIC_FIXTURE"
+    assert record["observations"]
+    assert record["limitations"]
 
 
 def test_save_notebook_study_record(tmp_path):
     output = tmp_path / "study-record.json"
     record = {
         "kind": "openplazma.study_record",
-        "version": "0.1",
+        "version": "0.1.0",
         "studyId": "test-study",
         "createdAt": "2026-05-23T00:00:00.000Z",
-        "source": {"provider": "STATIC_FIXTURE", "shotId": "sample-001"},
+        "source": {
+            "provider": "STATIC_FIXTURE",
+            "sourceLabel": "STATIC_FIXTURE sample signal",
+            "shotId": "sample-001",
+        },
         "signalsViewed": [{"signalId": "plasma-current"}],
         "observations": [{"text": "Static fixture signal was loaded."}],
         "limitations": ["STATIC_FIXTURE data only."],
@@ -38,4 +45,19 @@ def test_save_notebook_study_record(tmp_path):
 
 def test_missing_required_study_record_field_is_rejected():
     with pytest.raises(ValueError, match="missing required"):
-        op.validate_study_record({"schemaVersion": "0.1.0"})
+        op.validate_study_record({"version": "0.1.0"})
+
+
+def test_missing_required_kind_version_is_rejected():
+    record = {
+        "kind": "openplazma.study_record",
+        "studyId": "test-study",
+        "createdAt": "2026-05-23T00:00:00.000Z",
+        "source": {"provider": "STATIC_FIXTURE", "shotId": "sample-001"},
+        "signalsViewed": [{"signalId": "plasma-current"}],
+        "observations": [{"text": "Static fixture signal was loaded."}],
+        "limitations": ["STATIC_FIXTURE data only."],
+    }
+
+    with pytest.raises(ValueError, match="missing required"):
+        op.validate_study_record(record)

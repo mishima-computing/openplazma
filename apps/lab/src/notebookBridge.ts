@@ -1,4 +1,4 @@
-import type { SignalSeries, StudyRecord } from "@openplazma/core";
+import type { ExperimentContext, SignalSeries, StudyRecord } from "@openplazma/core";
 import { experimentContextSchema } from "@openplazma/schema";
 import { getSelectedSignal } from "./studyExports";
 
@@ -13,30 +13,7 @@ export const PAGES_WORKBENCH_LITE_URL =
 export const LOCAL_STATIC_WORKBENCH_LITE_URL =
   "/workbench/lab/index.html?path=openplazma/experiment_notebook.ipynb";
 
-export interface NotebookExperimentContext {
-  kind: "openplazma.experiment_context";
-  version: "0.1";
-  studyId: string;
-  createdAt: string;
-  shotRef: {
-    provider: "STATIC_FIXTURE";
-    shotId: string;
-  };
-  signals: Array<{
-    signalId: string;
-    label: string;
-    quantity: string;
-    unit: string;
-  }>;
-  view: {
-    timeRange: [number, number];
-  };
-  observations: Array<{
-    text: string;
-  }>;
-  hypothesis?: string;
-  limitations: string[];
-}
+export type NotebookExperimentContext = ExperimentContext;
 
 function trimmed(value: string | undefined): string | undefined {
   const clean = value?.trim();
@@ -60,9 +37,32 @@ export function buildNotebookExperimentContext(input: {
 
   const context: NotebookExperimentContext = {
     kind: "openplazma.experiment_context",
-    version: "0.1",
-    studyId: `${input.record.shot.shotId}-${signal.signalId}-study`,
+    version: "0.1.0",
+    contextId: `${input.record.shot.shotId}-${signal.signalId}-context`,
+    projectId: input.record.context.projectId,
+    datasetId: input.record.context.datasetId,
+    campaign: input.record.context.campaign,
+    description: input.record.context.description,
+    safetyClassification: "public-educational-fixture",
     createdAt: input.record.context.createdAt,
+    target: {
+      type: "static_fixture",
+      id: input.record.shot.shotId,
+      label: "STATIC_FIXTURE sample"
+    },
+    source: {
+      provider: "STATIC_FIXTURE",
+      sourceLabel: input.record.shot.source.sourceLabel,
+      inspiredBy: input.record.shot.source.inspiredBy
+    },
+    capabilities: {
+      readData: true,
+      writeArtifacts: true,
+      runSimulation: false,
+      submitComputeJob: false,
+      readFacilityTelemetry: false,
+      controlFacility: false
+    },
     shotRef: {
       provider: "STATIC_FIXTURE",
       shotId: input.record.shot.shotId
@@ -78,10 +78,11 @@ export function buildNotebookExperimentContext(input: {
     view: {
       timeRange: signalTimeRange(signal)
     },
-    observations: observation === undefined ? [] : [{ text: observation }],
+    observations: observation === undefined ? [] : [{ text: observation, signalId: signal.signalId }],
     limitations: [
       "This context uses STATIC_FIXTURE data only.",
-      "This is not a validated fusion simulation or hardware experiment."
+      "This is not a validated fusion simulation, reactor design artifact, or hardware experiment.",
+      "This context has no facility control capability."
     ]
   };
 
@@ -89,7 +90,7 @@ export function buildNotebookExperimentContext(input: {
     context.hypothesis = hypothesis;
   }
 
-  return context;
+  return experimentContextSchema.parse(context) as NotebookExperimentContext;
 }
 
 export function encodeBase64UrlJson(value: unknown): string {

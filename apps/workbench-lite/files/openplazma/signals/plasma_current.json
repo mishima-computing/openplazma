@@ -1,4 +1,6 @@
 {
+  "kind": "openplazma.signal_series",
+  "version": "0.1.0",
   "signalId": "plasma-current",
   "label": "Plasma Current",
   "quantity": "current",

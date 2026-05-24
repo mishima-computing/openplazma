@@ -1,25 +1,80 @@
 export type DataProvenanceKind = "fixture" | "measured" | "derived" | "synthetic";
-export type DataProvider = "STATIC_FIXTURE" | "FAIR_MAST";
+export type DataProvider = "STATIC_FIXTURE";
 export type InspiredBySource = "FAIR_MAST";
+export type TargetType = "static_fixture" | "local_run_store";
+
+export interface TargetRef {
+  type: TargetType;
+  id: string;
+  label: string;
+}
+
+export interface SourceRef {
+  provider: DataProvider;
+  sourceLabel: string;
+  inspiredBy?: InspiredBySource | undefined;
+}
+
+export interface CapabilitySet {
+  readData: true;
+  writeArtifacts: true;
+  runSimulation: false;
+  submitComputeJob: false;
+  readFacilityTelemetry: false;
+  controlFacility: false;
+}
+
+export interface SignalRef {
+  signalId: string;
+  label?: string | undefined;
+  quantity?: string | undefined;
+  unit?: string | undefined;
+}
+
+export interface Observation {
+  text: string;
+  signalId?: string | undefined;
+  timeRange?: [number, number] | undefined;
+}
 
 export interface ExperimentContext {
+  kind: "openplazma.experiment_context";
+  version: "0.1.0";
+  contextId: string;
   projectId: string;
   datasetId: string;
-  facility: string;
   campaign?: string | undefined;
   description: string;
   safetyClassification: "public-educational-fixture";
   createdAt: string;
+  target: TargetRef;
+  source: SourceRef;
+  capabilities: CapabilitySet;
+  shotRef: {
+    provider: DataProvider;
+    shotId: string;
+  };
+  signals: SignalRef[];
+  view?: {
+    timeRange?: [number, number] | undefined;
+  };
+  observations: Observation[];
+  hypothesis?: string | undefined;
+  limitations: string[];
 }
 
 export interface ShotMetadata {
+  kind: "openplazma.shot_metadata";
+  version: "0.1.0";
   shotId: string;
   displayName: string;
-  deviceName: string;
+  sourceLabel: string;
+  deviceName?: string | undefined;
   recordedAt: string;
   source: {
     kind: DataProvenanceKind;
     provider: DataProvider;
+    sourceLabel: string;
     inspiredBy?: InspiredBySource | undefined;
     uri: string;
     license: string;
@@ -30,6 +85,8 @@ export interface ShotMetadata {
 }
 
 export interface SignalSeries {
+  kind: "openplazma.signal_series";
+  version: "0.1.0";
   signalId: string;
   label: string;
   quantity: string;
@@ -40,14 +97,29 @@ export interface SignalSeries {
 }
 
 export interface StudyRecord {
-  schemaVersion: "0.1.0";
+  kind: "openplazma.study_record";
+  version: "0.1.0";
+  studyId: string;
+  createdAt: string;
+  source: SourceRef & {
+    shotId: string;
+  };
+  shotRef: {
+    provider: DataProvider;
+    shotId: string;
+  };
+  signalsViewed: SignalRef[];
+  observations: Observation[];
+  hypothesis?: string | undefined;
+  limitations: string[];
   context: ExperimentContext;
   shot: ShotMetadata;
   signals: SignalSeries[];
 }
 
 export interface FixtureManifest {
-  schemaVersion: "0.1.0";
+  kind: "openplazma.fixture_manifest";
+  version: "0.1.0";
   provider: "STATIC_FIXTURE";
   inspiredBy?: InspiredBySource | undefined;
   datasetId: string;
