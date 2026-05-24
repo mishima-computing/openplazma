@@ -25,6 +25,7 @@ Public readiness docs:
 - [Local RunStore MVP](docs/runstore-mvp.md)
 - [Notebook tracking integration](docs/notebook-tracking-integration.md)
 - [Observatory UI MVP](docs/observatory-mvp.md)
+- [Observatory Compare MVP](docs/observatory-compare-mvp.md)
 
 ## Workspace
 
@@ -82,6 +83,8 @@ python scripts/export-observatory.py --run-store .openplazma
 ```
 
 This writes local static HTML under `.openplazma/observatory/`. The public Pages demo does not read a user's local `.openplazma/` files.
+
+To compare two local Runs, see [Observatory Compare MVP](docs/observatory-compare-mvp.md).
 
 ## Development Checks
 

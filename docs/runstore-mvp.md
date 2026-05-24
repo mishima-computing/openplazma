@@ -87,7 +87,7 @@ metrics = op.load_metrics(runs[0]["runId"])
 manifest = op.load_manifest(runs[0]["runId"])
 ```
 
-See [Notebook tracking integration](notebook-tracking-integration.md) for the full local notebook workflow. See [Observatory UI MVP](observatory-mvp.md) for read-only local HTML inspection.
+See [Notebook tracking integration](notebook-tracking-integration.md) for the full local notebook workflow. See [Observatory UI MVP](observatory-mvp.md) for read-only local HTML inspection and [Observatory Compare MVP](observatory-compare-mvp.md) for comparing two local Runs.
 
 ## Safety And Scope
 
@@ -117,7 +117,7 @@ OpenPlazma is not a validated fusion simulator, not a reactor design tool, and n
 
 - Local files only.
 - JSON and JSONL only.
-- Read-only local Observatory export only.
+- Read-only local Observatory export and two-Run compare page only.
 - No public data ingestion.
 - No external data fetch.
 - No cloud sync.
