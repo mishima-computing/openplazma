@@ -4,6 +4,8 @@ OpenPlazma will later introduce a local-first tracking layer. This milestone onl
 
 The Notebook Workbench is expected to be the first major client of that layer.
 
+Current Notebook-generated StudyRecord files are transitional artifacts. A future RunStore will store StudyRecords, SignalSeries, plots, and Notebook outputs as run artifacts.
+
 Future OpenPlazma-native concepts:
 
 - Run

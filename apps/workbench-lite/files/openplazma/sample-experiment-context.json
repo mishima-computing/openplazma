@@ -1,8 +1,31 @@
 {
   "kind": "openplazma.experiment_context",
-  "version": "0.1",
-  "studyId": "sample-001-plasma-current-study",
+  "version": "0.1.0",
+  "contextId": "ctx-sample-001-plasma-current-notebook",
+  "projectId": "openplazma",
+  "datasetId": "static-fixture-v0",
+  "campaign": "contract-seed",
+  "description": "Notebook-ready context for the STATIC_FIXTURE sample signal.",
+  "safetyClassification": "public-educational-fixture",
   "createdAt": "2026-05-23T00:00:00.000Z",
+  "target": {
+    "type": "static_fixture",
+    "id": "sample-001",
+    "label": "STATIC_FIXTURE sample"
+  },
+  "source": {
+    "provider": "STATIC_FIXTURE",
+    "sourceLabel": "STATIC_FIXTURE sample signal",
+    "inspiredBy": "FAIR_MAST"
+  },
+  "capabilities": {
+    "readData": true,
+    "writeArtifacts": true,
+    "runSimulation": false,
+    "submitComputeJob": false,
+    "readFacilityTelemetry": false,
+    "controlFacility": false
+  },
   "shotRef": {
     "provider": "STATIC_FIXTURE",
     "shotId": "sample-001"
@@ -28,6 +51,7 @@
   ],
   "limitations": [
     "This is not FAIR MAST data.",
-    "This is not a validated fusion simulation or hardware experiment."
+    "This is not a validated fusion simulation, reactor design artifact, or hardware experiment.",
+    "This context has no facility control capability."
   ]
 }

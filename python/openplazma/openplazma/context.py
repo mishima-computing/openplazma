@@ -7,18 +7,76 @@ from ._validation import require_keys, require_list, require_mapping, require_st
 
 
 def validate_experiment_context(context: dict[str, Any]) -> dict[str, Any]:
-    require_keys(context, ["kind", "version", "studyId", "createdAt", "shotRef", "signals"], "ExperimentContext")
+    require_keys(
+        context,
+        [
+            "kind",
+            "version",
+            "contextId",
+            "projectId",
+            "datasetId",
+            "description",
+            "safetyClassification",
+            "createdAt",
+            "target",
+            "source",
+            "capabilities",
+            "shotRef",
+            "signals",
+            "observations",
+            "limitations",
+        ],
+        "ExperimentContext",
+    )
     if context["kind"] != "openplazma.experiment_context":
         raise ValueError("ExperimentContext kind must be 'openplazma.experiment_context'.")
+    if context["version"] != "0.1.0":
+        raise ValueError("ExperimentContext.version must be 0.1.0.")
 
-    require_string(context["version"], "ExperimentContext.version")
-    require_string(context["studyId"], "ExperimentContext.studyId")
+    require_string(context["contextId"], "ExperimentContext.contextId")
+    require_string(context["projectId"], "ExperimentContext.projectId")
+    require_string(context["datasetId"], "ExperimentContext.datasetId")
+    require_string(context["description"], "ExperimentContext.description")
     require_string(context["createdAt"], "ExperimentContext.createdAt")
+    if context["safetyClassification"] != "public-educational-fixture":
+        raise ValueError("ExperimentContext.safetyClassification must be public-educational-fixture.")
+
+    target = require_mapping(context["target"], "ExperimentContext.target")
+    require_keys(target, ["type", "id", "label"], "ExperimentContext.target")
+    if target["type"] not in {"static_fixture", "local_run_store"}:
+        raise ValueError("ExperimentContext.target.type must be static_fixture or local_run_store.")
+    require_string(target["id"], "ExperimentContext.target.id")
+    require_string(target["label"], "ExperimentContext.target.label")
+
+    source = require_mapping(context["source"], "ExperimentContext.source")
+    require_keys(source, ["provider", "sourceLabel"], "ExperimentContext.source")
+    if source["provider"] != "STATIC_FIXTURE":
+        raise ValueError("ExperimentContext.source.provider must be STATIC_FIXTURE.")
+    require_string(source["sourceLabel"], "ExperimentContext.source.sourceLabel")
+
+    capabilities = require_mapping(context["capabilities"], "ExperimentContext.capabilities")
+    require_keys(
+        capabilities,
+        [
+            "readData",
+            "writeArtifacts",
+            "runSimulation",
+            "submitComputeJob",
+            "readFacilityTelemetry",
+            "controlFacility",
+        ],
+        "ExperimentContext.capabilities",
+    )
+    if capabilities["controlFacility"] is not False:
+        raise ValueError("ExperimentContext.capabilities.controlFacility must be false.")
+    for field in ["runSimulation", "submitComputeJob", "readFacilityTelemetry"]:
+        if capabilities[field] is not False:
+            raise ValueError(f"ExperimentContext.capabilities.{field} must be false.")
 
     shot_ref = require_mapping(context["shotRef"], "ExperimentContext.shotRef")
     require_keys(shot_ref, ["provider", "shotId"], "ExperimentContext.shotRef")
     if shot_ref["provider"] != "STATIC_FIXTURE":
-        raise ValueError("ExperimentContext.shotRef.provider must be STATIC_FIXTURE for M2.")
+        raise ValueError("ExperimentContext.shotRef.provider must be STATIC_FIXTURE.")
     require_string(shot_ref["shotId"], "ExperimentContext.shotRef.shotId")
 
     signals = require_list(context["signals"], "ExperimentContext.signals")
@@ -29,6 +87,11 @@ def validate_experiment_context(context: dict[str, Any]) -> dict[str, Any]:
         signal = require_mapping(signal_ref, f"ExperimentContext.signals[{index}]")
         require_keys(signal, ["signalId"], f"ExperimentContext.signals[{index}]")
         require_string(signal["signalId"], f"ExperimentContext.signals[{index}].signalId")
+
+    require_list(context["observations"], "ExperimentContext.observations")
+    limitations = require_list(context["limitations"], "ExperimentContext.limitations")
+    if len(limitations) == 0:
+        raise ValueError("ExperimentContext.limitations must include at least one limitation.")
 
     return context
 

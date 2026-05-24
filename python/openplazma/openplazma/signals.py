@@ -6,7 +6,11 @@ from ._validation import require_keys, require_number_list, require_string
 
 
 def validate_signal_series(signal: dict[str, Any]) -> dict[str, Any]:
-    require_keys(signal, ["signalId", "label", "quantity", "unit", "timeUnit", "time", "values"], "SignalSeries")
+    require_keys(signal, ["kind", "version", "signalId", "label", "quantity", "unit", "timeUnit", "time", "values"], "SignalSeries")
+    if signal["kind"] != "openplazma.signal_series":
+        raise ValueError("SignalSeries.kind must be openplazma.signal_series.")
+    if signal["version"] != "0.1.0":
+        raise ValueError("SignalSeries.version must be 0.1.0.")
     require_string(signal["signalId"], "SignalSeries.signalId")
     require_string(signal["label"], "SignalSeries.label")
     require_string(signal["quantity"], "SignalSeries.quantity")

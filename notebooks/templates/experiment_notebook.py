@@ -23,11 +23,13 @@ op.plot_signal(
 
 record = {
     "kind": "openplazma.study_record",
-    "version": "0.1",
-    "studyId": ctx["studyId"],
+    "version": "0.1.0",
+    "studyId": f"{ctx['contextId']}-notebook-study",
     "createdAt": "2026-05-23T00:00:00.000Z",
     "source": {
         "provider": ctx["shotRef"]["provider"],
+        "sourceLabel": ctx["source"]["sourceLabel"],
+        "inspiredBy": ctx["source"].get("inspiredBy"),
         "shotId": ctx["shotRef"]["shotId"],
     },
     "signalsViewed": ctx["signals"],

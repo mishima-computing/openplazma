@@ -1,22 +1,110 @@
 {
-  "schemaVersion": "0.1.0",
+  "kind": "openplazma.study_record",
+  "version": "0.1.0",
+  "studyId": "sample-001-static-fixture-study",
+  "createdAt": "2026-05-23T00:00:00.000Z",
+  "source": {
+    "provider": "STATIC_FIXTURE",
+    "sourceLabel": "STATIC_FIXTURE sample signal",
+    "inspiredBy": "FAIR_MAST",
+    "shotId": "sample-001"
+  },
+  "shotRef": {
+    "provider": "STATIC_FIXTURE",
+    "shotId": "sample-001"
+  },
+  "signalsViewed": [
+    {
+      "signalId": "loop-voltage",
+      "label": "Loop Voltage",
+      "quantity": "voltage",
+      "unit": "V"
+    },
+    {
+      "signalId": "plasma-current",
+      "label": "Plasma Current",
+      "quantity": "current",
+      "unit": "kA"
+    }
+  ],
+  "observations": [
+    {
+      "text": "Static fixture values support UI and schema validation only."
+    }
+  ],
+  "limitations": [
+    "This record uses STATIC_FIXTURE data only.",
+    "This is not FAIR MAST data.",
+    "This is not a validated fusion simulation, reactor design artifact, or hardware experiment."
+  ],
   "context": {
+    "kind": "openplazma.experiment_context",
+    "version": "0.1.0",
+    "contextId": "ctx-sample-001-static-fixture",
     "projectId": "openplazma",
     "datasetId": "static-fixture-v0",
-    "facility": "Static teaching fixture",
     "campaign": "contract-seed",
     "description": "Small static signal-shaped record for validating OpenPlazma data contracts.",
     "safetyClassification": "public-educational-fixture",
-    "createdAt": "2026-05-23T00:00:00.000Z"
+    "createdAt": "2026-05-23T00:00:00.000Z",
+    "target": {
+      "type": "static_fixture",
+      "id": "sample-001",
+      "label": "STATIC_FIXTURE sample"
+    },
+    "source": {
+      "provider": "STATIC_FIXTURE",
+      "sourceLabel": "STATIC_FIXTURE sample signal",
+      "inspiredBy": "FAIR_MAST"
+    },
+    "capabilities": {
+      "readData": true,
+      "writeArtifacts": true,
+      "runSimulation": false,
+      "submitComputeJob": false,
+      "readFacilityTelemetry": false,
+      "controlFacility": false
+    },
+    "shotRef": {
+      "provider": "STATIC_FIXTURE",
+      "shotId": "sample-001"
+    },
+    "signals": [
+      {
+        "signalId": "loop-voltage",
+        "label": "Loop Voltage",
+        "quantity": "voltage",
+        "unit": "V"
+      },
+      {
+        "signalId": "plasma-current",
+        "label": "Plasma Current",
+        "quantity": "current",
+        "unit": "kA"
+      }
+    ],
+    "observations": [
+      {
+        "text": "This context references STATIC_FIXTURE data only."
+      }
+    ],
+    "limitations": [
+      "This context uses STATIC_FIXTURE data only.",
+      "This is not FAIR MAST data.",
+      "This is not a validated fusion simulation, reactor design artifact, or hardware experiment."
+    ]
   },
   "shot": {
+    "kind": "openplazma.shot_metadata",
+    "version": "0.1.0",
     "shotId": "sample-001",
     "displayName": "Sample 001",
-    "deviceName": "Static fixture source",
+    "sourceLabel": "STATIC_FIXTURE sample signal",
     "recordedAt": "2026-05-23T00:00:00.000Z",
     "source": {
       "kind": "fixture",
       "provider": "STATIC_FIXTURE",
+      "sourceLabel": "STATIC_FIXTURE sample signal",
       "inspiredBy": "FAIR_MAST",
       "uri": "data/fixtures/static/sample-001/study-record.json",
       "license": "CC0-1.0"
@@ -27,6 +115,8 @@
   },
   "signals": [
     {
+      "kind": "openplazma.signal_series",
+      "version": "0.1.0",
       "signalId": "loop-voltage",
       "label": "Loop Voltage",
       "quantity": "voltage",
@@ -36,6 +126,8 @@
       "values": [0, 1.2, 2.4, 2, 1.1, 0.3]
     },
     {
+      "kind": "openplazma.signal_series",
+      "version": "0.1.0",
       "signalId": "plasma-current",
       "label": "Plasma Current",
       "quantity": "current",

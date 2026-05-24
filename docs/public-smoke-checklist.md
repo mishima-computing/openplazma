@@ -33,6 +33,7 @@ https://mishima-computing.github.io/openplazma/
 - Confirm the notebook path is `openplazma/experiment_notebook.ipynb`.
 - Confirm no real hardware instructions appear.
 - Confirm no validated-simulator claim appears.
+- Confirm no reactor-design claim appears.
 - Confirm no reactor-control or facility-control action appears.
 - Confirm no external data is fetched.
 - Confirm the public demo remains educational and safe.

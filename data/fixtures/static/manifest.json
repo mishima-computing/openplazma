@@ -1,5 +1,6 @@
 {
-  "schemaVersion": "0.1.0",
+  "kind": "openplazma.fixture_manifest",
+  "version": "0.1.0",
   "provider": "STATIC_FIXTURE",
   "inspiredBy": "FAIR_MAST",
   "datasetId": "static-fixture-v0",

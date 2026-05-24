@@ -42,8 +42,29 @@ export function getSelectedSignal(record: StudyRecord, selectedSignalId: string)
 export function buildStudyRecordExport(input: StudyExportInput): StudyRecord {
   const selectedSignal = getSelectedSignal(input.record, input.selectedSignalId);
   const notes = buildNotes(input.record, input.observation, input.hypothesis);
+  const observation = cleanText(input.observation);
+  const hypothesis = cleanText(input.hypothesis);
   const candidate: StudyRecord = {
     ...input.record,
+    signalsViewed: [
+      {
+        signalId: selectedSignal.signalId,
+        label: selectedSignal.label,
+        quantity: selectedSignal.quantity,
+        unit: selectedSignal.unit
+      }
+    ],
+    observations:
+      observation === undefined
+        ? input.record.observations
+        : [
+            ...input.record.observations,
+            {
+              text: observation,
+              signalId: selectedSignal.signalId,
+              timeRange: [Math.min(...selectedSignal.time), Math.max(...selectedSignal.time)]
+            }
+          ],
     shot: {
       ...input.record.shot,
       signalIds: [selectedSignal.signalId],
@@ -52,11 +73,17 @@ export function buildStudyRecordExport(input: StudyExportInput): StudyRecord {
     signals: [selectedSignal]
   };
 
-  return studyRecordSchema.parse(candidate);
+  if (hypothesis !== undefined) {
+    candidate.hypothesis = hypothesis;
+  } else {
+    delete candidate.hypothesis;
+  }
+
+  return studyRecordSchema.parse(candidate) as StudyRecord;
 }
 
 export function buildExperimentContextExport(record: StudyRecord): ExperimentContext {
-  return experimentContextSchema.parse(record.context);
+  return experimentContextSchema.parse(record.context) as ExperimentContext;
 }
 
 export function toPrettyJson(value: unknown): string {

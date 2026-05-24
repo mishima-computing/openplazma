@@ -30,8 +30,10 @@ def test_prepare_workbench_lite_outputs_current_fixture_files():
     context = json.loads((WORKBENCH_OPENPLAZMA / "sample-experiment-context.json").read_text(encoding="utf-8"))
     signal = json.loads((WORKBENCH_OPENPLAZMA / "signals" / "plasma_current.json").read_text(encoding="utf-8"))
 
-    assert context["shotRef"]["provider"] == "STATIC_FIXTURE"
+    assert context["source"]["provider"] == "STATIC_FIXTURE"
+    assert context["capabilities"]["controlFacility"] is False
     assert context["signals"][0]["signalId"] == "plasma-current"
+    assert signal["kind"] == "openplazma.signal_series"
     assert signal["signalId"] == "plasma-current"
 
 
@@ -41,7 +43,8 @@ def test_openplazma_lite_loads_fallback_context_and_signal():
     context = lite.load_context_from_file(WORKBENCH_OPENPLAZMA / "sample-experiment-context.json")
     signal = lite.load_signal(WORKBENCH_OPENPLAZMA / "signals" / "plasma_current.json")
 
-    assert context["shotRef"]["provider"] == "STATIC_FIXTURE"
+    assert context["source"]["provider"] == "STATIC_FIXTURE"
+    assert context["capabilities"]["controlFacility"] is False
     assert signal["signalId"] == "plasma-current"
 
 

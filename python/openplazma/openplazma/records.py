@@ -11,30 +11,88 @@ from .signals import validate_signal_series
 def _validate_ts_context(context: dict[str, Any]) -> None:
     require_keys(
         context,
-        ["projectId", "datasetId", "facility", "description", "safetyClassification", "createdAt"],
+        [
+            "kind",
+            "version",
+            "contextId",
+            "projectId",
+            "datasetId",
+            "description",
+            "safetyClassification",
+            "createdAt",
+            "target",
+            "source",
+            "capabilities",
+            "shotRef",
+            "signals",
+            "observations",
+            "limitations",
+        ],
         "StudyRecord.context",
     )
+    if context["kind"] != "openplazma.experiment_context":
+        raise ValueError("StudyRecord.context.kind must be openplazma.experiment_context.")
+    if context["version"] != "0.1.0":
+        raise ValueError("StudyRecord.context.version must be 0.1.0.")
+    require_string(context["contextId"], "StudyRecord.context.contextId")
     require_string(context["projectId"], "StudyRecord.context.projectId")
     require_string(context["datasetId"], "StudyRecord.context.datasetId")
-    require_string(context["facility"], "StudyRecord.context.facility")
     require_string(context["description"], "StudyRecord.context.description")
     require_string(context["createdAt"], "StudyRecord.context.createdAt")
     if context["safetyClassification"] != "public-educational-fixture":
         raise ValueError("StudyRecord.context.safetyClassification must be public-educational-fixture.")
 
+    target = require_mapping(context["target"], "StudyRecord.context.target")
+    require_keys(target, ["type", "id", "label"], "StudyRecord.context.target")
+    if target["type"] not in {"static_fixture", "local_run_store"}:
+        raise ValueError("StudyRecord.context.target.type must be static_fixture or local_run_store.")
+
+    source = require_mapping(context["source"], "StudyRecord.context.source")
+    require_keys(source, ["provider", "sourceLabel"], "StudyRecord.context.source")
+    if source["provider"] != "STATIC_FIXTURE":
+        raise ValueError("StudyRecord.context.source.provider must be STATIC_FIXTURE.")
+
+    capabilities = require_mapping(context["capabilities"], "StudyRecord.context.capabilities")
+    require_keys(
+        capabilities,
+        [
+            "readData",
+            "writeArtifacts",
+            "runSimulation",
+            "submitComputeJob",
+            "readFacilityTelemetry",
+            "controlFacility",
+        ],
+        "StudyRecord.context.capabilities",
+    )
+    for field in ["runSimulation", "submitComputeJob", "readFacilityTelemetry", "controlFacility"]:
+        if capabilities[field] is not False:
+            raise ValueError(f"StudyRecord.context.capabilities.{field} must be false.")
+    require_list(context["observations"], "StudyRecord.context.observations")
+    require_list(context["limitations"], "StudyRecord.context.limitations")
+
 
 def _validate_ts_shot(shot: dict[str, Any]) -> None:
-    require_keys(shot, ["shotId", "displayName", "deviceName", "recordedAt", "source", "signalIds", "tags"], "StudyRecord.shot")
+    require_keys(
+        shot,
+        ["kind", "version", "shotId", "displayName", "sourceLabel", "recordedAt", "source", "signalIds", "tags"],
+        "StudyRecord.shot",
+    )
+    if shot["kind"] != "openplazma.shot_metadata":
+        raise ValueError("StudyRecord.shot.kind must be openplazma.shot_metadata.")
+    if shot["version"] != "0.1.0":
+        raise ValueError("StudyRecord.shot.version must be 0.1.0.")
     require_string(shot["shotId"], "StudyRecord.shot.shotId")
     require_string(shot["displayName"], "StudyRecord.shot.displayName")
-    require_string(shot["deviceName"], "StudyRecord.shot.deviceName")
+    require_string(shot["sourceLabel"], "StudyRecord.shot.sourceLabel")
     require_string(shot["recordedAt"], "StudyRecord.shot.recordedAt")
 
     source = require_mapping(shot["source"], "StudyRecord.shot.source")
-    require_keys(source, ["kind", "provider", "uri", "license"], "StudyRecord.shot.source")
+    require_keys(source, ["kind", "provider", "sourceLabel", "uri", "license"], "StudyRecord.shot.source")
     if source["provider"] != "STATIC_FIXTURE":
-        raise ValueError("StudyRecord.shot.source.provider must be STATIC_FIXTURE for M2.")
+        raise ValueError("StudyRecord.shot.source.provider must be STATIC_FIXTURE.")
     require_string(source["kind"], "StudyRecord.shot.source.kind")
+    require_string(source["sourceLabel"], "StudyRecord.shot.source.sourceLabel")
     require_string(source["uri"], "StudyRecord.shot.source.uri")
     require_string(source["license"], "StudyRecord.shot.source.license")
 
@@ -54,14 +112,15 @@ def _validate_notebook_record(record: dict[str, Any]) -> dict[str, Any]:
     )
     if record["kind"] != "openplazma.study_record":
         raise ValueError("StudyRecord.kind must be openplazma.study_record.")
-    require_string(record["version"], "StudyRecord.version")
+    if record["version"] != "0.1.0":
+        raise ValueError("StudyRecord.version must be 0.1.0.")
     require_string(record["studyId"], "StudyRecord.studyId")
     require_string(record["createdAt"], "StudyRecord.createdAt")
 
     source = require_mapping(record["source"], "StudyRecord.source")
     require_keys(source, ["provider", "shotId"], "StudyRecord.source")
     if source["provider"] != "STATIC_FIXTURE":
-        raise ValueError("StudyRecord.source.provider must be STATIC_FIXTURE for M2.")
+        raise ValueError("StudyRecord.source.provider must be STATIC_FIXTURE.")
     require_string(source["shotId"], "StudyRecord.source.shotId")
 
     signals_viewed = require_list(record["signalsViewed"], "StudyRecord.signalsViewed")
@@ -73,12 +132,10 @@ def _validate_notebook_record(record: dict[str, Any]) -> dict[str, Any]:
 
 
 def validate_study_record(record: dict[str, Any]) -> dict[str, Any]:
-    if record.get("kind") == "openplazma.study_record":
-        return _validate_notebook_record(record)
-
-    require_keys(record, ["schemaVersion", "context", "shot", "signals"], "StudyRecord")
-    if record["schemaVersion"] != "0.1.0":
-        raise ValueError("StudyRecord.schemaVersion must be 0.1.0.")
+    _validate_notebook_record(record)
+    if "context" not in record:
+        return record
+    require_keys(record, ["context", "shot", "signals"], "StudyRecord")
 
     context = require_mapping(record["context"], "StudyRecord.context")
     shot = require_mapping(record["shot"], "StudyRecord.shot")

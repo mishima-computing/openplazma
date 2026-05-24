@@ -13,7 +13,12 @@ describe("study export helpers", () => {
     });
 
     expect(() => studyRecordSchema.parse(studyRecord)).not.toThrow();
+    expect(studyRecord.kind).toBe("openplazma.study_record");
+    expect(studyRecord.version).toBe("0.1.0");
     expect(studyRecord.signals).toHaveLength(1);
+    expect(studyRecord.signalsViewed).toHaveLength(1);
+    expect(studyRecord.observations.at(-1)?.text).toContain("Voltage rises");
+    expect(studyRecord.limitations.length).toBeGreaterThan(0);
     expect(studyRecord.shot.signalIds).toEqual(["loop-voltage"]);
     expect(studyRecord.shot.notes).toContain("Observation:");
     expect(studyRecord.shot.source.provider).toBe("STATIC_FIXTURE");
@@ -23,6 +28,9 @@ describe("study export helpers", () => {
     const context = buildExperimentContextExport(sampleFixtureStudyRecord);
 
     expect(() => experimentContextSchema.parse(context)).not.toThrow();
+    expect(context.kind).toBe("openplazma.experiment_context");
     expect(context.datasetId).toBe("static-fixture-v0");
+    expect(context.target.type).toBe("static_fixture");
+    expect(context.capabilities.controlFacility).toBe(false);
   });
 });
