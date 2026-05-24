@@ -1,0 +1,85 @@
+name: Demo feedback
+description: Share feedback about the public STATIC_FIXTURE demo.
+title: "[Demo feedback]: "
+labels:
+  - feedback
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Public demo: https://mishima-computing.github.io/openplazma/
+
+        The demo uses STATIC_FIXTURE data only. It does not fetch external fusion data, provide AI assist, control hardware, or run a validated fusion simulation.
+  - type: dropdown
+    id: user_type
+    attributes:
+      label: User type
+      options:
+        - Student
+        - Teacher
+        - Developer
+        - Researcher
+        - Science communicator
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Feedback area
+      options:
+        - Lab signal room
+        - JupyterLite Workbench
+        - ExperimentContext handoff
+        - Documentation
+        - Accessibility or usability
+    validations:
+      required: true
+  - type: textarea
+    id: feedback
+    attributes:
+      label: What was understandable?
+      description: What made sense in the public demo?
+    validations:
+      required: true
+  - type: textarea
+    id: confusing
+    attributes:
+      label: What was confusing?
+      description: What was unclear, surprising, or hard to use?
+    validations:
+      required: true
+  - type: textarea
+    id: lab_flow
+    attributes:
+      label: Lab flow
+      description: Did the Lab flow make sense?
+  - type: textarea
+    id: notebook_flow
+    attributes:
+      label: Notebook flow
+      description: Did the Notebook Workbench flow make sense?
+  - type: textarea
+    id: expected_next
+    attributes:
+      label: Expected next step
+      description: What did you expect OpenPlazma to do next?
+  - type: dropdown
+    id: quote_permission
+    attributes:
+      label: May maintainers quote this feedback in project planning?
+      options:
+        - "No"
+        - "Yes, anonymously"
+        - "Yes, with my GitHub username"
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: This feedback is about the STATIC_FIXTURE public demo, not real device operation.
+          required: true
+        - label: This feedback does not include secrets, credentials, or private data.
+          required: true

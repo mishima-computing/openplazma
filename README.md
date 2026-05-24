@@ -1,8 +1,27 @@
 # OpenPlazma
 
-OpenPlazma is an OSS fusion-data learning lab. The project starts with data contracts, fixture validation, and a game-like UI shell for exploring signal records.
+[![TypeScript CI](https://github.com/mishima-computing/openplazma/actions/workflows/ci-typescript.yml/badge.svg)](https://github.com/mishima-computing/openplazma/actions/workflows/ci-typescript.yml)
+[![Python CI](https://github.com/mishima-computing/openplazma/actions/workflows/ci-python.yml/badge.svg)](https://github.com/mishima-computing/openplazma/actions/workflows/ci-python.yml)
+[![Repository Hygiene](https://github.com/mishima-computing/openplazma/actions/workflows/ci-hygiene.yml/badge.svg)](https://github.com/mishima-computing/openplazma/actions/workflows/ci-hygiene.yml)
+[![JupyterLite CI](https://github.com/mishima-computing/openplazma/actions/workflows/ci-jupyterlite.yml/badge.svg)](https://github.com/mishima-computing/openplazma/actions/workflows/ci-jupyterlite.yml)
+[![Pages Build CI](https://github.com/mishima-computing/openplazma/actions/workflows/ci-pages-build.yml/badge.svg)](https://github.com/mishima-computing/openplazma/actions/workflows/ci-pages-build.yml)
+[![Deploy GitHub Pages](https://github.com/mishima-computing/openplazma/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/mishima-computing/openplazma/actions/workflows/deploy-pages.yml)
 
-OpenPlazma is not a validated fusion simulator. It is not a real hardware control system. The repository must not include instructions for high voltage, vacuum systems, lasers, radiation sources, or hazardous experiments.
+OpenPlazma is a local-first experiment and learning system for safe plasma and fusion-data workflows. The project starts with data contracts, fixture validation, and a game-like UI shell for exploring signal records.
+
+OpenPlazma is not a validated fusion simulator, not a reactor design tool, and not a real hardware control system. The repository must not include instructions for high voltage, vacuum systems, lasers, radiation sources, hazardous materials, physical plasma hardware, or hazardous experiments.
+
+Live demo: https://mishima-computing.github.io/openplazma/
+
+The public demo uses `STATIC_FIXTURE` data only. It does not fetch external fusion data, does not include AI assist, does not include real hardware instructions, and is not a validated fusion simulator.
+
+Public readiness docs:
+
+- [Public smoke checklist](docs/public-smoke-checklist.md)
+- [Feedback intake](docs/feedback-intake.md)
+- [Known issues](docs/known-issues.md)
+- [0.1-alpha.0 release note draft](docs/releases/0.1-alpha.0.md)
+- [Tracking notes](docs/tracking-notes.md)
 
 ## Workspace
 
@@ -79,7 +98,7 @@ Limitations: this MVP uses `STATIC_FIXTURE` data only, fetches no external data,
 
 ## GitHub Pages Static Demo
 
-The expected public demo URL is:
+Public demo:
 
 ```text
 https://mishima-computing.github.io/openplazma/

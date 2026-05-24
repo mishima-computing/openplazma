@@ -1,0 +1,92 @@
+name: Bug report
+description: Report a reproducible problem in the OpenPlazma Lab, Workbench, or docs.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. OpenPlazma currently uses STATIC_FIXTURE data only and is not a validated fusion simulator or hardware control system.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the actual behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: Describe what you expected instead.
+    validations:
+      required: true
+  - type: dropdown
+    id: build_context
+    attributes:
+      label: Where did this happen?
+      options:
+        - Public demo
+        - Local build
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Affected surface
+      options:
+        - Lab
+        - Workbench
+        - Documentation
+        - Build or CI
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: List the smallest steps that reproduce the problem.
+      placeholder: |
+        1. Open ...
+        2. Click ...
+        3. See ...
+    validations:
+      required: true
+  - type: input
+    id: url
+    attributes:
+      label: URL or path
+      description: Public demo URL, local URL, or repository path where the issue appears.
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser, OS, local command, or commit if relevant.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console output or logs
+      description: Paste relevant errors. Do not include secrets, tokens, keys, or credentials.
+      render: text
+  - type: dropdown
+    id: blocks_first_demo_flow
+    attributes:
+      label: Does this block the first demo flow?
+      options:
+        - "Yes"
+        - "No"
+        - Not sure
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: This report does not include secrets, credentials, or private data.
+          required: true
+        - label: This report does not include real hardware instructions or hazardous experiment procedures.
+          required: true
