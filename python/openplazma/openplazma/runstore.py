@@ -12,6 +12,8 @@ from typing import Any
 from ._json import load_json, save_json
 from ._validation import require_keys, require_mapping, require_string
 from .context import validate_experiment_context
+from .records import validate_study_record
+from .signals import validate_signal_series
 
 SAFE_CAPABILITIES = {
     "readData": True,
@@ -442,3 +444,23 @@ def load_metrics(run_id: str, run_store: str | Path = ".openplazma") -> list[dic
 
 def load_manifest(run_id: str, run_store: str | Path = ".openplazma") -> dict[str, Any]:
     return load_json(_run_dir(run_id, run_store) / "manifest.json")
+
+
+def log_context_signal_and_study_record(
+    run: Run,
+    context: dict[str, Any],
+    signal: dict[str, Any],
+    study_record: dict[str, Any],
+) -> dict[str, dict[str, Any]]:
+    validated_context = validate_experiment_context(context)
+    validated_signal = validate_signal_series(signal)
+    validated_study_record = validate_study_record(study_record)
+    return {
+        "experiment_context": run.log_artifact("experiment_context", "experiment_context", validated_context),
+        "signal_series": run.log_artifact("signal_series", "signal_series", validated_signal),
+        "study_record": run.log_artifact("study_record", "study_record", validated_study_record),
+    }
+
+
+def runstore_output_hint(run: Run) -> str:
+    return run.run_dir.as_posix()

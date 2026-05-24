@@ -42,7 +42,7 @@ RunRecord will become the unit of tracked execution. ArtifactRecord will describ
 
 ## Notebook As First Tracking Client
 
-The Notebook Workbench is expected to be the first major client of the tracking layer.
+The local Python and local Jupyter notebook workflow is the first major client of the tracking layer.
 
 Planned flow:
 
@@ -53,7 +53,7 @@ Planned flow:
 5. RunStore keeps inspectable local records.
 6. Observatory later compares Runs, Artifacts, Reports, Metrics, and Lineage.
 
-Notebook-generated StudyRecord files in the current project are transitional artifacts. A future RunStore will store StudyRecords, SignalSeries, plots, and Notebook outputs as run artifacts.
+Notebook-generated StudyRecord files can now be stored as local RunStore artifacts. Browser JupyterLite remains a STATIC_FIXTURE-only public demo and does not need persistent local RunStore writes.
 
 ## Target And Capability Boundaries
 
@@ -117,7 +117,7 @@ Direction:
 - No cloud dependency in the MVP.
 - No account required in the MVP.
 
-See [Local RunStore MVP](runstore-mvp.md) for Python API examples and current limitations.
+See [Local RunStore MVP](runstore-mvp.md) and [Notebook tracking integration](notebook-tracking-integration.md) for Python API examples and current limitations.
 
 ## Out Of Scope
 
@@ -135,6 +135,5 @@ OpenPlazma remains a local-first experiment and learning system for safe plasma 
 
 ## Next Milestones
 
-- Extend local RunStore records only after the MVP has been reviewed.
-- Connect Notebook Workbench outputs to RunStore in a later milestone.
+- Extend local RunStore records only after the notebook tracking workflow has been reviewed.
 - Build Observatory later for comparing Runs, Artifacts, Reports, Metrics, and Lineage.

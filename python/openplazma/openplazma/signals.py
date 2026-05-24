@@ -30,3 +30,14 @@ def validate_signal_series(signal: dict[str, Any]) -> dict[str, Any]:
             raise ValueError("SignalSeries.time values must be strictly increasing.")
 
     return signal
+
+
+def summarize_signal(signal: dict[str, Any]) -> dict[str, float | int]:
+    validated = validate_signal_series(signal)
+    values = validated["values"]
+    return {
+        "point_count": len(values),
+        "min": min(values),
+        "max": max(values),
+        "mean": sum(values) / len(values),
+    }
