@@ -21,7 +21,7 @@ Public readiness docs:
 - [Feedback intake](docs/feedback-intake.md)
 - [Known issues](docs/known-issues.md)
 - [0.1-alpha.0 release note draft](docs/releases/0.1-alpha.0.md)
-- [Tracking notes](docs/tracking-notes.md)
+- [Tracking architecture](docs/tracking-architecture.md) and [ADR-0005](docs/adr/0005-openplazma-tracking-layer-and-downstream-target-boundaries.md)
 
 ## Workspace
 
