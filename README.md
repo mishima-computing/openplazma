@@ -23,6 +23,7 @@ Public readiness docs:
 - [0.1-alpha.0 release note draft](docs/releases/0.1-alpha.0.md)
 - [Tracking architecture](docs/tracking-architecture.md) and [ADR-0005](docs/adr/0005-openplazma-tracking-layer-and-downstream-target-boundaries.md)
 - [Local RunStore MVP](docs/runstore-mvp.md)
+- [Notebook tracking integration](docs/notebook-tracking-integration.md)
 
 ## Workspace
 
@@ -71,6 +72,7 @@ python notebooks/examples/local_runstore_example.py
 ```
 
 This writes inspectable local files under `.openplazma/`, which is ignored by git.
+For the full local notebook tracking flow, see [Notebook tracking integration](docs/notebook-tracking-integration.md).
 
 ## Development Checks
 

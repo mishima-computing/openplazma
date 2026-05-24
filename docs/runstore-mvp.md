@@ -66,10 +66,16 @@ with op.start_run(
     context=ctx,
     config={"source": "local notebook"},
 ) as run:
-    run.log_artifact("experiment_context", "experiment_context", ctx)
-    run.log_artifact("signal_series", "signal_series", signal)
-    run.log_metric("signal_point_count", len(signal["time"]))
-    run.log_metric("signal_peak", max(signal["values"]))
+    record = op.create_study_record(
+        context=ctx,
+        observations=[{"text": "Observed the selected STATIC_FIXTURE signal."}],
+    )
+    summary = op.summarize_signal(signal)
+    op.log_context_signal_and_study_record(run, ctx, signal, record)
+    run.log_metric("signal_point_count", summary["point_count"])
+    run.log_metric("signal_min", summary["min"])
+    run.log_metric("signal_max", summary["max"])
+    run.log_metric("signal_mean", summary["mean"])
 ```
 
 Read records back:
@@ -80,6 +86,8 @@ record = op.load_run(runs[0]["runId"])
 metrics = op.load_metrics(runs[0]["runId"])
 manifest = op.load_manifest(runs[0]["runId"])
 ```
+
+See [Notebook tracking integration](notebook-tracking-integration.md) for the full local notebook workflow.
 
 ## Safety And Scope
 

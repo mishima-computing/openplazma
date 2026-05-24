@@ -1,11 +1,36 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from ._json import load_json, save_json
 from ._validation import require_keys, require_list, require_mapping, require_string
+from .context import validate_experiment_context
 from .signals import validate_signal_series
+
+DEFAULT_STUDY_LIMITATIONS = [
+    "STATIC_FIXTURE data only.",
+    "Not a validated fusion simulator.",
+    "Not a reactor design tool.",
+    "Not a real hardware control system.",
+]
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def _normalize_observations(observations: list[dict[str, Any] | str] | None) -> list[dict[str, Any]]:
+    normalized: list[dict[str, Any]] = []
+    for observation in observations or []:
+        if isinstance(observation, str):
+            normalized.append({"text": observation})
+        elif isinstance(observation, dict):
+            normalized.append(dict(observation))
+        else:
+            raise ValueError("StudyRecord observations must be strings or JSON objects.")
+    return normalized
 
 
 def _validate_ts_context(context: dict[str, Any]) -> None:
@@ -178,3 +203,39 @@ def load_study_record(path: str | Path) -> dict[str, Any]:
 
 def save_study_record(record: dict[str, Any], path: str | Path) -> None:
     save_json(validate_study_record(record), path)
+
+
+def create_study_record(
+    *,
+    context: dict[str, Any],
+    signals_viewed: list[dict[str, Any]] | None = None,
+    observations: list[dict[str, Any] | str] | None = None,
+    hypothesis: str | None = None,
+    limitations: list[str] | None = None,
+    study_id: str | None = None,
+    created_at: str | None = None,
+) -> dict[str, Any]:
+    validated_context = validate_experiment_context(context)
+    selected_signals = signals_viewed or validated_context["signals"]
+    selected_observations = _normalize_observations(validated_context.get("observations", []))
+    selected_observations.extend(_normalize_observations(observations))
+
+    record: dict[str, Any] = {
+        "kind": "openplazma.study_record",
+        "version": "0.1.0",
+        "studyId": study_id or f"{validated_context['contextId']}-study",
+        "createdAt": created_at or _now(),
+        "source": {
+            "provider": validated_context["shotRef"]["provider"],
+            "sourceLabel": validated_context["source"]["sourceLabel"],
+            "shotId": validated_context["shotRef"]["shotId"],
+        },
+        "signalsViewed": selected_signals,
+        "observations": selected_observations,
+        "limitations": limitations or DEFAULT_STUDY_LIMITATIONS,
+    }
+    if validated_context["source"].get("inspiredBy") is not None:
+        record["source"]["inspiredBy"] = validated_context["source"]["inspiredBy"]
+    if hypothesis:
+        record["hypothesis"] = hypothesis
+    return validate_study_record(record)

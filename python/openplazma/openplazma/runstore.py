@@ -442,3 +442,20 @@ def load_metrics(run_id: str, run_store: str | Path = ".openplazma") -> list[dic
 
 def load_manifest(run_id: str, run_store: str | Path = ".openplazma") -> dict[str, Any]:
     return load_json(_run_dir(run_id, run_store) / "manifest.json")
+
+
+def log_context_signal_and_study_record(
+    run: Run,
+    context: dict[str, Any],
+    signal: dict[str, Any],
+    study_record: dict[str, Any],
+) -> dict[str, dict[str, Any]]:
+    return {
+        "experiment_context": run.log_artifact("experiment_context", "experiment_context", context),
+        "signal_series": run.log_artifact("signal_series", "signal_series", signal),
+        "study_record": run.log_artifact("study_record", "study_record", study_record),
+    }
+
+
+def runstore_output_hint(run: Run) -> str:
+    return run.run_dir.as_posix()

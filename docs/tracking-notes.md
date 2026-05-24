@@ -7,10 +7,11 @@ Architecture references:
 - [ADR-0005: OpenPlazma Tracking Layer and Downstream Target Boundaries](adr/0005-openplazma-tracking-layer-and-downstream-target-boundaries.md)
 - [Tracking architecture](tracking-architecture.md)
 - [Local RunStore MVP](runstore-mvp.md)
+- [Notebook tracking integration](notebook-tracking-integration.md)
 
 The Python SDK and local Notebook workflow are the first clients of the tracking layer.
 
-Current Notebook-generated StudyRecord files remain learning artifacts. The local RunStore can now store StudyRecords, SignalSeries, and notebook outputs as run artifacts in local files.
+Notebook-generated StudyRecord files remain learning artifacts. The local RunStore can now store StudyRecords, SignalSeries, and notebook outputs as run artifacts in local files.
 
 OpenPlazma-native tracking concepts:
 
