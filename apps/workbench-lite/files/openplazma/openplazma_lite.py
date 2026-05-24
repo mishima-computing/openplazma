@@ -32,6 +32,13 @@ def validate_context(context: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("ExperimentContext source provider must be STATIC_FIXTURE.")
     if context["shotRef"].get("provider") != "STATIC_FIXTURE":
         raise ValueError("ExperimentContext shotRef provider must be STATIC_FIXTURE.")
+    if context["capabilities"].get("readData") is not True:
+        raise ValueError("ExperimentContext readData capability must be true.")
+    if context["capabilities"].get("writeArtifacts") is not True:
+        raise ValueError("ExperimentContext writeArtifacts capability must be true.")
+    for field in ["runSimulation", "submitComputeJob", "readFacilityTelemetry"]:
+        if context["capabilities"].get(field) is not False:
+            raise ValueError(f"ExperimentContext {field} capability must be false.")
     if context["capabilities"].get("controlFacility") is not False:
         raise ValueError("ExperimentContext controlFacility capability must be false.")
     return context
@@ -82,8 +89,19 @@ def load_context_from_file(path: str | Path = "sample-experiment-context.json") 
     return validate_context(loaded)
 
 
+def _optional_context(loader) -> dict[str, Any] | None:
+    try:
+        return loader()
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError, UnicodeDecodeError):
+        return None
+
+
 def load_context(path: str | Path = "sample-experiment-context.json") -> dict[str, Any]:
-    return load_context_from_query() or load_context_from_local_storage() or load_context_from_file(path)
+    return (
+        _optional_context(load_context_from_query)
+        or _optional_context(load_context_from_local_storage)
+        or load_context_from_file(path)
+    )
 
 
 def load_signal(path: str | Path) -> dict[str, Any]:

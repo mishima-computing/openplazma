@@ -65,6 +65,9 @@ def _validate_ts_context(context: dict[str, Any]) -> None:
         ],
         "StudyRecord.context.capabilities",
     )
+    for field in ["readData", "writeArtifacts"]:
+        if capabilities[field] is not True:
+            raise ValueError(f"StudyRecord.context.capabilities.{field} must be true.")
     for field in ["runSimulation", "submitComputeJob", "readFacilityTelemetry", "controlFacility"]:
         if capabilities[field] is not False:
             raise ValueError(f"StudyRecord.context.capabilities.{field} must be false.")
@@ -118,16 +121,31 @@ def _validate_notebook_record(record: dict[str, Any]) -> dict[str, Any]:
     require_string(record["createdAt"], "StudyRecord.createdAt")
 
     source = require_mapping(record["source"], "StudyRecord.source")
-    require_keys(source, ["provider", "shotId"], "StudyRecord.source")
+    require_keys(source, ["provider", "sourceLabel", "shotId"], "StudyRecord.source")
     if source["provider"] != "STATIC_FIXTURE":
         raise ValueError("StudyRecord.source.provider must be STATIC_FIXTURE.")
+    require_string(source["sourceLabel"], "StudyRecord.source.sourceLabel")
     require_string(source["shotId"], "StudyRecord.source.shotId")
 
     signals_viewed = require_list(record["signalsViewed"], "StudyRecord.signalsViewed")
     if len(signals_viewed) == 0:
         raise ValueError("StudyRecord.signalsViewed must include at least one signal.")
-    require_list(record["observations"], "StudyRecord.observations")
-    require_list(record["limitations"], "StudyRecord.limitations")
+    for index, signal_ref in enumerate(signals_viewed):
+        signal = require_mapping(signal_ref, f"StudyRecord.signalsViewed[{index}]")
+        require_keys(signal, ["signalId"], f"StudyRecord.signalsViewed[{index}]")
+        require_string(signal["signalId"], f"StudyRecord.signalsViewed[{index}].signalId")
+
+    observations = require_list(record["observations"], "StudyRecord.observations")
+    for index, observation_ref in enumerate(observations):
+        observation = require_mapping(observation_ref, f"StudyRecord.observations[{index}]")
+        require_keys(observation, ["text"], f"StudyRecord.observations[{index}]")
+        require_string(observation["text"], f"StudyRecord.observations[{index}].text")
+
+    limitations = require_list(record["limitations"], "StudyRecord.limitations")
+    if len(limitations) == 0:
+        raise ValueError("StudyRecord.limitations must include at least one limitation.")
+    for limitation in limitations:
+        require_string(limitation, "StudyRecord.limitations[]")
     return record
 
 

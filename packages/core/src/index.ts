@@ -16,8 +16,8 @@ export interface SourceRef {
 }
 
 export interface CapabilitySet {
-  readData: boolean;
-  writeArtifacts: boolean;
+  readData: true;
+  writeArtifacts: true;
   runSimulation: false;
   submitComputeJob: false;
   readFacilityTelemetry: false;

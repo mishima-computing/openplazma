@@ -20,8 +20,8 @@ const sourceRefSchema = z.object({
 });
 
 const capabilitiesSchema = z.object({
-  readData: z.boolean(),
-  writeArtifacts: z.boolean(),
+  readData: z.literal(true),
+  writeArtifacts: z.literal(true),
   runSimulation: z.literal(false),
   submitComputeJob: z.literal(false),
   readFacilityTelemetry: z.literal(false),

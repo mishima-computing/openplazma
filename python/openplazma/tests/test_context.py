@@ -17,6 +17,11 @@ def test_load_sample_experiment_context():
     assert context["shotRef"]["provider"] == "STATIC_FIXTURE"
     assert context["shotRef"]["shotId"] == "sample-001"
     assert context["target"]["type"] == "static_fixture"
+    assert context["capabilities"]["readData"] is True
+    assert context["capabilities"]["writeArtifacts"] is True
+    assert context["capabilities"]["runSimulation"] is False
+    assert context["capabilities"]["submitComputeJob"] is False
+    assert context["capabilities"]["readFacilityTelemetry"] is False
     assert context["capabilities"]["controlFacility"] is False
     assert context["signals"][0]["signalId"] == "plasma-current"
 

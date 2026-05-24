@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import sys
+from types import SimpleNamespace
 from pathlib import Path
 
 import matplotlib
@@ -46,6 +48,39 @@ def test_openplazma_lite_loads_fallback_context_and_signal():
     assert context["source"]["provider"] == "STATIC_FIXTURE"
     assert context["capabilities"]["controlFacility"] is False
     assert signal["signalId"] == "plasma-current"
+
+
+def test_openplazma_lite_ignores_stale_local_storage_context(monkeypatch):
+    lite = load_module("openplazma_lite_stale_storage", WORKBENCH_OPENPLAZMA / "openplazma_lite.py")
+
+    class FakeParams:
+        @classmethod
+        def new(cls, _search):
+            return cls()
+
+        def get(self, _name):
+            return None
+
+    class FakeStorage:
+        def getItem(self, _key):
+            return json.dumps(
+                {
+                    "kind": "openplazma.experiment_context",
+                    "version": "0.1",
+                    "createdAt": "2026-05-23T00:00:00.000Z",
+                    "shotRef": {"provider": "STATIC_FIXTURE", "shotId": "sample-001"},
+                    "signals": [{"signalId": "plasma-current"}],
+                }
+            )
+
+    fake_window = SimpleNamespace(location=SimpleNamespace(search=""), localStorage=FakeStorage())
+    monkeypatch.setitem(sys.modules, "js", SimpleNamespace(URLSearchParams=FakeParams, window=fake_window))
+
+    context = lite.load_context(WORKBENCH_OPENPLAZMA / "sample-experiment-context.json")
+
+    assert context["version"] == "0.1.0"
+    assert context["source"]["provider"] == "STATIC_FIXTURE"
+    assert context["capabilities"]["controlFacility"] is False
 
 
 def test_openplazma_lite_plot_signal_runs_with_non_interactive_backend():

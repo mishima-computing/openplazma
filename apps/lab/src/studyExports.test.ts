@@ -31,6 +31,11 @@ describe("study export helpers", () => {
     expect(context.kind).toBe("openplazma.experiment_context");
     expect(context.datasetId).toBe("static-fixture-v0");
     expect(context.target.type).toBe("static_fixture");
+    expect(context.capabilities.readData).toBe(true);
+    expect(context.capabilities.writeArtifacts).toBe(true);
+    expect(context.capabilities.runSimulation).toBe(false);
+    expect(context.capabilities.submitComputeJob).toBe(false);
+    expect(context.capabilities.readFacilityTelemetry).toBe(false);
     expect(context.capabilities.controlFacility).toBe(false);
   });
 });

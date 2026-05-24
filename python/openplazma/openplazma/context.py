@@ -69,6 +69,9 @@ def validate_experiment_context(context: dict[str, Any]) -> dict[str, Any]:
     )
     if capabilities["controlFacility"] is not False:
         raise ValueError("ExperimentContext.capabilities.controlFacility must be false.")
+    for field in ["readData", "writeArtifacts"]:
+        if capabilities[field] is not True:
+            raise ValueError(f"ExperimentContext.capabilities.{field} must be true.")
     for field in ["runSimulation", "submitComputeJob", "readFacilityTelemetry"]:
         if capabilities[field] is not False:
             raise ValueError(f"ExperimentContext.capabilities.{field} must be false.")

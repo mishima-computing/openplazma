@@ -41,6 +41,11 @@ describe("notebook bridge helpers", () => {
     expect(context.shotRef.provider).toBe("STATIC_FIXTURE");
     expect(context.shotRef.shotId).toBe("sample-001");
     expect(context.target.type).toBe("static_fixture");
+    expect(context.capabilities.readData).toBe(true);
+    expect(context.capabilities.writeArtifacts).toBe(true);
+    expect(context.capabilities.runSimulation).toBe(false);
+    expect(context.capabilities.submitComputeJob).toBe(false);
+    expect(context.capabilities.readFacilityTelemetry).toBe(false);
     expect(context.capabilities.controlFacility).toBe(false);
     expect(context.signals[0]?.signalId).toBe("plasma-current");
     expect(context.observations[0]?.text).toContain("Current peaks");
