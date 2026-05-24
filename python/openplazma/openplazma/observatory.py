@@ -285,6 +285,7 @@ def _source_target_comparison(run_a: dict[str, Any], run_b: dict[str, Any]) -> l
             ("source.inspiredBy", "source.inspiredBy"),
             ("target.type", "target.type"),
             ("target.id", "target.id"),
+            ("target.label", "target.label"),
         ],
     )
 

@@ -293,6 +293,8 @@ def test_compare_runs_summarizes_metrics_artifacts_source_target_capabilities_an
     assert capabilities["capabilities.controlFacility"]["safetyStatus"] == "safe"
     assert comparison["sourceTarget"][0]["field"] == "source.provider"
     assert comparison["sourceTarget"][0]["runAValue"] == "STATIC_FIXTURE"
+    source_target = {row["field"]: row for row in comparison["sourceTarget"]}
+    assert source_target["target.label"]["runAValue"] == "Local OpenPlazma RunStore"
     assert comparison["limitations"]["status"] == "same"
 
 
