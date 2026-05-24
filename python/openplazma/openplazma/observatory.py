@@ -63,7 +63,14 @@ def _cell(value: Any) -> str:
 def _safe_artifact_href(run_id: str, artifact_path: str) -> str:
     if not _RUN_ID_RE.fullmatch(run_id):
         raise ValueError("run_id must look like OPR-YYYYMMDD-000001.")
-    if not artifact_path.startswith("artifacts/") or ".." in Path(artifact_path).parts:
+    artifact_parts = Path(artifact_path).parts
+    if (
+        Path(artifact_path).is_absolute()
+        or not artifact_path.startswith("artifacts/")
+        or "\\" in artifact_path
+        or ".." in artifact_parts
+        or any(":" in part for part in artifact_parts)
+    ):
         raise ValueError("Artifact path must remain under artifacts/.")
     return f"../../runs/{run_id}/{escape(artifact_path, quote=True)}"
 

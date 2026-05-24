@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import hashlib
+import html
+import json
+import re
 from pathlib import Path
 
 import pytest
@@ -48,6 +51,19 @@ def hash_run_files(run_store: Path) -> dict[str, str]:
         for path in sorted(runs_root.rglob("*"))
         if path.is_file()
     }
+
+
+def artifact_hrefs(page_html: str) -> list[str]:
+    return [html.unescape(value) for value in re.findall(r'href="([^"]+)"', page_html) if "/artifacts/" in value]
+
+
+def rewrite_signal_artifact_path(manifest_path: Path, artifact_path: str) -> None:
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    for artifact in manifest["artifacts"]:
+        if artifact["name"] == "signal_series":
+            artifact["path"] = artifact_path
+            break
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
 
 def test_summarize_runstore_and_run(tmp_path: Path):
@@ -133,8 +149,60 @@ def test_observatory_rejects_unsafe_run_id_and_artifact_path(tmp_path: Path):
         op.summarize_run("../bad", run_store=run_store)
 
     manifest_path = run_store / "runs" / run_id / "manifest.json"
-    manifest_text = manifest_path.read_text(encoding="utf-8")
-    manifest_path.write_text(manifest_text.replace("artifacts/signal-series.json", "artifacts/../signal-series.json"), encoding="utf-8")
+    rewrite_signal_artifact_path(manifest_path, "artifacts/../signal-series.json")
+
+    with pytest.raises(ValueError, match="Artifact path"):
+        op.export_observatory_html(run_store=run_store)
+
+
+def test_observatory_artifact_hrefs_resolve_inside_run_artifacts(tmp_path: Path):
+    run_store = tmp_path / ".openplazma"
+    run_id = create_sample_run(run_store)
+
+    output_dir = op.export_observatory_html(run_store=run_store)
+    detail_page = output_dir / "runs" / f"{run_id}.html"
+    detail_html = detail_page.read_text(encoding="utf-8")
+    hrefs = artifact_hrefs(detail_html)
+
+    assert hrefs
+    for href in hrefs:
+        assert ".." in Path(href).parts
+        assert not href.startswith("/")
+        assert not href.startswith("file://")
+        assert not href.startswith("http://")
+        assert not href.startswith("https://")
+        assert not href.startswith("javascript:")
+        assert not href.startswith("data:")
+
+        resolved = (detail_page.parent / href).resolve()
+        expected_artifacts_dir = (run_store / "runs" / run_id / "artifacts").resolve()
+        run_store_root = run_store.resolve()
+        assert expected_artifacts_dir == resolved.parent
+        assert run_store_root in resolved.parents
+        assert resolved.is_file()
+
+
+@pytest.mark.parametrize(
+    "unsafe_path",
+    [
+        "../outside.json",
+        "artifacts/../outside.json",
+        "/artifacts/signal-series.json",
+        "file://artifacts/signal-series.json",
+        "http://example.invalid/signal-series.json",
+        "https://example.invalid/signal-series.json",
+        "javascript:alert(1)",
+        "data:application/json,{}",
+        "artifacts/http://example.invalid/signal-series.json",
+        "artifacts/data:application/json",
+        "artifacts\\signal-series.json",
+    ],
+)
+def test_observatory_rejects_unsafe_artifact_link_paths(tmp_path: Path, unsafe_path: str):
+    run_store = tmp_path / ".openplazma"
+    run_id = create_sample_run(run_store)
+    manifest_path = run_store / "runs" / run_id / "manifest.json"
+    rewrite_signal_artifact_path(manifest_path, unsafe_path)
 
     with pytest.raises(ValueError, match="Artifact path"):
         op.export_observatory_html(run_store=run_store)
