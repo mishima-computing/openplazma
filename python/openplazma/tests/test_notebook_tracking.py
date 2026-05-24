@@ -78,6 +78,28 @@ def test_log_context_signal_and_study_record_helper(tmp_path: Path):
     ]
 
 
+def test_log_context_signal_and_study_record_rejects_invalid_artifact_data(tmp_path: Path):
+    context = sample_context()
+    signal = sample_signal()
+    record = op.create_study_record(context=context, observations=["Helper logged a StudyRecord."])
+    invalid_signal = dict(signal)
+    invalid_signal["values"] = []
+
+    with op.start_run(
+        project="openplazma-demo",
+        campaign="read-the-signal",
+        run_type="notebook_analysis",
+        context=context,
+        run_store=tmp_path / ".openplazma",
+    ) as run:
+        try:
+            op.log_context_signal_and_study_record(run, context, invalid_signal, record)
+        except ValueError as error:
+            assert "SignalSeries" in str(error)
+        else:
+            raise AssertionError("invalid SignalSeries should be rejected")
+
+
 def test_local_tracking_example_runs_and_logs_expected_records(tmp_path: Path):
     run_store = tmp_path / ".openplazma"
     env = dict(os.environ)
