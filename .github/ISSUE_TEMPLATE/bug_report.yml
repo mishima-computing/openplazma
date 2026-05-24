@@ -12,7 +12,36 @@ body:
     id: problem
     attributes:
       label: What happened?
-      description: Describe the bug and what you expected instead.
+      description: Describe the actual behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: Describe what you expected instead.
+    validations:
+      required: true
+  - type: dropdown
+    id: build_context
+    attributes:
+      label: Where did this happen?
+      options:
+        - Public demo
+        - Local build
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Affected surface
+      options:
+        - Lab
+        - Workbench
+        - Documentation
+        - Build or CI
+        - Other
     validations:
       required: true
   - type: textarea
@@ -42,6 +71,16 @@ body:
       label: Console output or logs
       description: Paste relevant errors. Do not include secrets, tokens, keys, or credentials.
       render: text
+  - type: dropdown
+    id: blocks_first_demo_flow
+    attributes:
+      label: Does this block the first demo flow?
+      options:
+        - "Yes"
+        - "No"
+        - Not sure
+    validations:
+      required: true
   - type: checkboxes
     id: scope
     attributes:

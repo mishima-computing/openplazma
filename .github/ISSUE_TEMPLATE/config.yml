@@ -3,6 +3,12 @@ contact_links:
   - name: Public demo
     url: https://mishima-computing.github.io/openplazma/
     about: Open the current STATIC_FIXTURE-only OpenPlazma demo.
+  - name: README
+    url: https://github.com/mishima-computing/openplazma/blob/main/README.md
+    about: Review project scope, local commands, and current public demo limitations.
+  - name: Public smoke checklist
+    url: https://github.com/mishima-computing/openplazma/blob/main/docs/public-smoke-checklist.md
+    about: Check the expected public demo flow before filing demo feedback.
   - name: Safety boundary
     url: https://github.com/mishima-computing/openplazma/blob/main/docs/safety/no-real-hardware.md
     about: Review the no-real-hardware project boundary before filing safety or scope concerns.

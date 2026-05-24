@@ -11,6 +11,19 @@ body:
 
         The demo uses STATIC_FIXTURE data only. It does not fetch external fusion data, provide AI assist, control hardware, or run a validated fusion simulation.
   - type: dropdown
+    id: user_type
+    attributes:
+      label: User type
+      options:
+        - Student
+        - Teacher
+        - Developer
+        - Researcher
+        - Science communicator
+        - Other
+    validations:
+      required: true
+  - type: dropdown
     id: area
     attributes:
       label: Feedback area
@@ -25,15 +38,42 @@ body:
   - type: textarea
     id: feedback
     attributes:
-      label: Feedback
-      description: What was confusing, broken, useful, or missing from the public demo?
+      label: What was understandable?
+      description: What made sense in the public demo?
     validations:
       required: true
   - type: textarea
-    id: expected
+    id: confusing
     attributes:
-      label: Expected behavior
-      description: What would have made the demo clearer or easier to use?
+      label: What was confusing?
+      description: What was unclear, surprising, or hard to use?
+    validations:
+      required: true
+  - type: textarea
+    id: lab_flow
+    attributes:
+      label: Lab flow
+      description: Did the Lab flow make sense?
+  - type: textarea
+    id: notebook_flow
+    attributes:
+      label: Notebook flow
+      description: Did the Notebook Workbench flow make sense?
+  - type: textarea
+    id: expected_next
+    attributes:
+      label: Expected next step
+      description: What did you expect OpenPlazma to do next?
+  - type: dropdown
+    id: quote_permission
+    attributes:
+      label: May maintainers quote this feedback in project planning?
+      options:
+        - "No"
+        - "Yes, anonymously"
+        - "Yes, with my GitHub username"
+    validations:
+      required: true
   - type: checkboxes
     id: scope
     attributes:
