@@ -22,6 +22,7 @@ Public readiness docs:
 - [Known issues](docs/known-issues.md)
 - [0.1-alpha.0 release note draft](docs/releases/0.1-alpha.0.md)
 - [Tracking architecture](docs/tracking-architecture.md) and [ADR-0005](docs/adr/0005-openplazma-tracking-layer-and-downstream-target-boundaries.md)
+- [Local RunStore MVP](docs/runstore-mvp.md)
 
 ## Workspace
 
@@ -62,6 +63,14 @@ python notebooks/templates/experiment_notebook.py
 ```
 
 The template uses `notebooks/examples/sample-experiment-context.json`, which mirrors the Lab-exported context shape for selecting `sample-001` and one static signal. This M2 bridge uses `provider: "STATIC_FIXTURE"` only.
+
+Run the local RunStore example from the repository root:
+
+```sh
+python notebooks/examples/local_runstore_example.py
+```
+
+This writes inspectable local files under `.openplazma/`, which is ignored by git.
 
 ## Development Checks
 

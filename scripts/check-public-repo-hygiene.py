@@ -17,6 +17,7 @@ FORBIDDEN_PATH_PARTS = [
     ".venv",
     "_output",
     ".cache",
+    ".openplazma",
 ]
 
 FORBIDDEN_PATH_SUFFIXES = [

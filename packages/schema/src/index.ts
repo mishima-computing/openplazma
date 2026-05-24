@@ -220,3 +220,16 @@ export function parseExperimentContext(input: unknown): ExperimentContext {
 export function parseFixtureManifest(input: unknown): FixtureManifest {
   return fixtureManifestSchema.parse(input) as FixtureManifest;
 }
+
+export {
+  artifactRecordSchema,
+  eventRecordSchema,
+  metricRecordSchema,
+  parseArtifactRecord,
+  parseEventRecord,
+  parseMetricRecord,
+  parseRunManifest,
+  parseRunRecord,
+  runManifestSchema,
+  runRecordSchema
+} from "./tracking.schema";

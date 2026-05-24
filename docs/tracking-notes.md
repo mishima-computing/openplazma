@@ -6,10 +6,11 @@ Architecture references:
 
 - [ADR-0005: OpenPlazma Tracking Layer and Downstream Target Boundaries](adr/0005-openplazma-tracking-layer-and-downstream-target-boundaries.md)
 - [Tracking architecture](tracking-architecture.md)
+- [Local RunStore MVP](runstore-mvp.md)
 
-The Notebook Workbench is expected to be the first major client of the tracking layer.
+The Python SDK and local Notebook workflow are the first clients of the tracking layer.
 
-Current Notebook-generated StudyRecord files are transitional artifacts. A future RunStore will store StudyRecords, SignalSeries, plots, and Notebook outputs as run artifacts.
+Current Notebook-generated StudyRecord files remain learning artifacts. The local RunStore can now store StudyRecords, SignalSeries, and notebook outputs as run artifacts in local files.
 
 OpenPlazma-native tracking concepts:
 
@@ -34,6 +35,6 @@ Current public demo targets remain:
 - `static_fixture`
 - `local_run_store`
 
-Future target categories are documented in ADR-0005. Public demo code does not implement them.
+Future target categories are documented in ADR-0005. Public demo code does not implement external targets.
 
 `facility_control_restricted` is not public core functionality and must not be implemented in public demo code.

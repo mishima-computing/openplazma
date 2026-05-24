@@ -25,6 +25,8 @@ apps/workbench-lite/.cache/
 apps/workbench-lite/*.tgz
 apps/workbench-lite/.jupyterlite.doit.db
 .jupyterlite.doit.db
+.openplazma/
+**/.openplazma/
 notebooks/examples/sample-study-record-from-notebook.json
 openplazma-*.png
 openplazma-real-signal-room-*.png
