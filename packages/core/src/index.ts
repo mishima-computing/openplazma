@@ -133,3 +133,16 @@ export interface FusionDataSource {
   listShots(): Promise<ShotMetadata[]>;
   getStudyRecord(shotId: string): Promise<StudyRecord | null>;
 }
+
+export type {
+  ArtifactRecord,
+  ContextArtifactRef,
+  EventRecord,
+  EventType,
+  MetricRecord,
+  MetricValue,
+  RunManifest,
+  RunRecord,
+  RunStatus,
+  RunType
+} from "./tracking";

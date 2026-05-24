@@ -1,6 +1,6 @@
 # OpenPlazma Tracking Architecture
 
-This document is a readable companion to [ADR-0005](adr/0005-openplazma-tracking-layer-and-downstream-target-boundaries.md). It describes the planned tracking direction before any RunStore code is implemented.
+This document is a readable companion to [ADR-0005](adr/0005-openplazma-tracking-layer-and-downstream-target-boundaries.md). It describes the tracking direction and the first local RunStore MVP.
 
 ## Why Tracking Exists
 
@@ -91,7 +91,7 @@ Capabilities are safety and boundary metadata, not UI toggles.
 
 ## Local-First RunStore Direction
 
-The first RunStore MVP should be inspectable local files:
+The first RunStore MVP uses inspectable local files:
 
 ```text
 .openplazma/
@@ -117,6 +117,8 @@ Direction:
 - No cloud dependency in the MVP.
 - No account required in the MVP.
 
+See [Local RunStore MVP](runstore-mvp.md) for Python API examples and current limitations.
+
 ## Out Of Scope
 
 The tracking architecture does not add:
@@ -133,7 +135,6 @@ OpenPlazma remains a local-first experiment and learning system for safe plasma 
 
 ## Next Milestones
 
-- Accept ADR-0005 after review.
-- Implement M5 Local RunStore MVP after the ADR is accepted.
+- Extend local RunStore records only after the MVP has been reviewed.
 - Connect Notebook Workbench outputs to RunStore in a later milestone.
 - Build Observatory later for comparing Runs, Artifacts, Reports, Metrics, and Lineage.

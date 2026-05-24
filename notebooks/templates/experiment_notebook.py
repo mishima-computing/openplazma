@@ -47,3 +47,25 @@ record = {
 }
 
 op.save_study_record(record, "notebooks/examples/sample-study-record-from-notebook.json")
+
+# %% [markdown]
+# ## Optional local RunStore logging
+#
+# This section is for local Python or local Jupyter environments. It writes
+# inspectable JSON and JSONL files under `.openplazma/`. The browser
+# JupyterLite demo remains STATIC_FIXTURE-only and may not persist local files
+# in the same way.
+
+# %%
+# with op.start_run(
+#     project="openplazma-public-demo",
+#     campaign="read-the-signal",
+#     run_type="notebook_analysis",
+#     context=ctx,
+#     config={"source": "notebooks/templates/experiment_notebook.py"},
+# ) as run:
+#     run.log_artifact("experiment_context", "experiment_context", ctx)
+#     run.log_artifact("signal_series", "signal_series", signal)
+#     run.log_metric("signal_point_count", len(signal["time"]))
+#     run.log_metric("signal_peak", max(signal["values"]))
+#     run.log_artifact("study_record", "study_record", record)
