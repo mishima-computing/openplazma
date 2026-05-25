@@ -1,0 +1,12 @@
+{
+  "kind": "openplazma.study_task_manifest",
+  "version": "0.1.0",
+  "tasks": [
+    {
+      "taskId": "read-the-signal-static-v0.1",
+      "path": "study-tasks/read-the-signal-static-v0.1.json",
+      "scenarioId": "read-the-signal"
+    }
+  ],
+  "inspiredBy": "FAIR_MAST"
+}

@@ -1,0 +1,91 @@
+{
+  "kind": "openplazma.study_task",
+  "version": "0.1.0",
+  "taskId": "read-the-signal-static-v0.1",
+  "scenarioId": "read-the-signal",
+  "title": "Read the Signal",
+  "summary": "Use a STATIC_FIXTURE signal to practice separating observation, hypothesis, artifacts, and metrics.",
+  "level": "beginner",
+  "estimatedMinutes": 15,
+  "source": {
+    "provider": "STATIC_FIXTURE",
+    "sourceLabel": "STATIC_FIXTURE sample signal",
+    "inspiredBy": "FAIR_MAST"
+  },
+  "target": {
+    "type": "static_fixture",
+    "id": "sample-001",
+    "label": "STATIC_FIXTURE sample"
+  },
+  "capabilities": {
+    "readData": true,
+    "writeArtifacts": true,
+    "runSimulation": false,
+    "submitComputeJob": false,
+    "readFacilityTelemetry": false,
+    "controlFacility": false
+  },
+  "inputs": {
+    "experimentContextPath": "notebooks/examples/sample-experiment-context.json",
+    "signalIds": [
+      "plasma-current"
+    ]
+  },
+  "learningGoals": [
+    "Identify visible changes in a signal.",
+    "Write an observation separate from a hypothesis.",
+    "Record a local Run with artifacts and metrics."
+  ],
+  "prompts": [
+    {
+      "promptId": "observe-signal",
+      "type": "observation",
+      "text": "What visible change do you notice in the signal?"
+    },
+    {
+      "promptId": "write-hypothesis",
+      "type": "hypothesis",
+      "text": "What might explain the visible change? Keep this as a hypothesis, not a confirmed conclusion."
+    }
+  ],
+  "suggestedMetrics": [
+    {
+      "name": "signal_point_count",
+      "description": "Number of signal samples."
+    },
+    {
+      "name": "signal_min",
+      "description": "Minimum signal value."
+    },
+    {
+      "name": "signal_max",
+      "description": "Maximum signal value."
+    },
+    {
+      "name": "signal_mean",
+      "description": "Mean signal value."
+    }
+  ],
+  "requiredArtifacts": [
+    "study_task",
+    "experiment_context",
+    "signal_series",
+    "study_record"
+  ],
+  "notebookStarter": {
+    "path": "notebooks/templates/experiment_notebook.py"
+  },
+  "runStoreGuidance": {
+    "campaign": "read-the-signal",
+    "runType": "notebook_analysis"
+  },
+  "observatoryGuidance": {
+    "suggestedComparison": "Compare two local Runs using Observatory Compare after completing the task twice."
+  },
+  "limitations": [
+    "STATIC_FIXTURE data only.",
+    "Not a validated fusion simulator.",
+    "Not a reactor design tool.",
+    "Not a real hardware control system."
+  ]
+}

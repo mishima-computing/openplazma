@@ -17,6 +17,8 @@ It compares:
 - capability metadata
 - limitations
 
+StudyTask artifacts are compared automatically as normal artifacts when local Runs log them.
+
 ## Local Workflow
 
 From the repository root:

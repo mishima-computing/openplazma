@@ -10,6 +10,16 @@ SOURCE_CONTEXT = REPO_ROOT / "notebooks" / "examples" / "sample-experiment-conte
 SOURCE_RECORD = REPO_ROOT / "data" / "fixtures" / "static" / "sample-001" / "study-record.json"
 TARGET_CONTEXT = REPO_ROOT / "apps" / "workbench-lite" / "files" / "openplazma" / "sample-experiment-context.json"
 TARGET_SIGNAL = REPO_ROOT / "apps" / "workbench-lite" / "files" / "openplazma" / "signals" / "plasma_current.json"
+SOURCE_STUDY_TASK = REPO_ROOT / "study-tasks" / "read-the-signal-static-v0.1.json"
+TARGET_STUDY_TASK = (
+    REPO_ROOT
+    / "apps"
+    / "workbench-lite"
+    / "files"
+    / "openplazma"
+    / "study-tasks"
+    / "read-the-signal-static-v0.1.json"
+)
 
 
 def write_json_if_changed(path: Path, value: dict[str, Any]) -> bool:
@@ -39,7 +49,16 @@ def sample_signal(record: dict[str, Any]) -> dict[str, Any]:
 def main() -> int:
     context_changed = write_json_if_changed(TARGET_CONTEXT, load_json(SOURCE_CONTEXT))
     signal_changed = write_json_if_changed(TARGET_SIGNAL, sample_signal(load_json(SOURCE_RECORD)))
-    changed = [name for name, did_change in [("context", context_changed), ("signal", signal_changed)] if did_change]
+    task_changed = write_json_if_changed(TARGET_STUDY_TASK, load_json(SOURCE_STUDY_TASK))
+    changed = [
+        name
+        for name, did_change in [
+            ("context", context_changed),
+            ("signal", signal_changed),
+            ("study task", task_changed),
+        ]
+        if did_change
+    ]
     if changed:
         print(f"Updated Workbench Lite files: {', '.join(changed)}.")
     else:
