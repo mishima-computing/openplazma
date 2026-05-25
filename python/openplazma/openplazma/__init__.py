@@ -25,11 +25,17 @@ from .runstore import (
 )
 from .signals import summarize_signal, validate_signal_series
 from .tasks import (
+    flow_expected_artifacts,
+    flow_expected_metrics,
+    flow_to_run_config,
+    list_study_flows,
     list_study_tasks,
     load_scenario,
+    load_study_flow,
     load_study_task,
     task_default_observations,
     task_to_run_config,
+    validate_study_flow,
     validate_scenario,
     validate_study_task,
 )
@@ -39,7 +45,11 @@ __all__ = [
     "compare_runs",
     "export_observatory_compare_html",
     "export_observatory_html",
+    "flow_expected_artifacts",
+    "flow_expected_metrics",
+    "flow_to_run_config",
     "list_runs",
+    "list_study_flows",
     "load_experiment_context",
     "load_manifest",
     "load_metrics",
@@ -48,6 +58,7 @@ __all__ = [
     "load_run_events",
     "load_scenario",
     "load_static_signal",
+    "load_study_flow",
     "load_study_record",
     "load_study_task",
     "list_study_tasks",
@@ -67,6 +78,7 @@ __all__ = [
     "validate_experiment_context",
     "validate_scenario",
     "validate_signal_series",
+    "validate_study_flow",
     "validate_study_record",
     "validate_study_task",
 ]

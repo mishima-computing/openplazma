@@ -20,6 +20,8 @@ It reads:
 
 It does not edit, delete, or submit Runs.
 
+M10 guided StudyFlow Runs appear as regular Runs. StudyFlow, Scenario, and StudyTask records appear as generic artifacts.
+
 ## Local Workflow
 
 From the repository root:

@@ -37,6 +37,12 @@ The local StudyTask example loads the Read the Signal task before starting a Run
 python notebooks/examples/read_the_signal_task.py
 ```
 
+The local guided StudyFlow example connects the Read the Signal task to RunStore logging and local Observatory comparison:
+
+```sh
+python notebooks/examples/read_the_signal_guided_flow.py
+```
+
 Both examples load:
 
 - `notebooks/examples/sample-experiment-context.json`
@@ -47,6 +53,7 @@ Both examples load:
 The local Run logs artifacts:
 
 - `study_task` when running the StudyTask example
+- `study_flow` and `scenario` when running the guided StudyFlow example
 - `experiment_context`
 - `signal_series`
 - `study_record`

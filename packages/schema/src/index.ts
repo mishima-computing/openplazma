@@ -242,3 +242,10 @@ export {
   studyTaskManifestSchema,
   studyTaskSchema
 } from "./study-task.schema";
+
+export {
+  parseStudyFlow,
+  parseStudyFlowManifest,
+  studyFlowManifestSchema,
+  studyFlowSchema
+} from "./study-flow.schema";

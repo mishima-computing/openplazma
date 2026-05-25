@@ -9,6 +9,7 @@ Architecture references:
 - [Local RunStore MVP](runstore-mvp.md)
 - [Notebook tracking integration](notebook-tracking-integration.md)
 - [StudyTask layer](studytask_layer.md)
+- [Guided StudyFlow](guided-study-flow.md)
 - [Observatory UI MVP](observatory-mvp.md)
 - [Observatory Compare MVP](observatory-compare-mvp.md)
 
@@ -24,6 +25,7 @@ OpenPlazma-native tracking concepts:
 - RunRecord
 - Scenario
 - StudyTask
+- StudyFlow
 - Artifact
 - ArtifactRecord
 - Metric

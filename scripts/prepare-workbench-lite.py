@@ -11,6 +11,7 @@ SOURCE_RECORD = REPO_ROOT / "data" / "fixtures" / "static" / "sample-001" / "stu
 TARGET_CONTEXT = REPO_ROOT / "apps" / "workbench-lite" / "files" / "openplazma" / "sample-experiment-context.json"
 TARGET_SIGNAL = REPO_ROOT / "apps" / "workbench-lite" / "files" / "openplazma" / "signals" / "plasma_current.json"
 SOURCE_STUDY_TASK = REPO_ROOT / "study-tasks" / "read-the-signal-static-v0.1.json"
+SOURCE_STUDY_FLOW = REPO_ROOT / "study-flows" / "read-the-signal-guided-v0.1.json"
 TARGET_STUDY_TASK = (
     REPO_ROOT
     / "apps"
@@ -19,6 +20,15 @@ TARGET_STUDY_TASK = (
     / "openplazma"
     / "study-tasks"
     / "read-the-signal-static-v0.1.json"
+)
+TARGET_STUDY_FLOW = (
+    REPO_ROOT
+    / "apps"
+    / "workbench-lite"
+    / "files"
+    / "openplazma"
+    / "study-flows"
+    / "read-the-signal-guided-v0.1.json"
 )
 
 
@@ -50,12 +60,14 @@ def main() -> int:
     context_changed = write_json_if_changed(TARGET_CONTEXT, load_json(SOURCE_CONTEXT))
     signal_changed = write_json_if_changed(TARGET_SIGNAL, sample_signal(load_json(SOURCE_RECORD)))
     task_changed = write_json_if_changed(TARGET_STUDY_TASK, load_json(SOURCE_STUDY_TASK))
+    flow_changed = write_json_if_changed(TARGET_STUDY_FLOW, load_json(SOURCE_STUDY_FLOW))
     changed = [
         name
         for name, did_change in [
             ("context", context_changed),
             ("signal", signal_changed),
             ("study task", task_changed),
+            ("study flow", flow_changed),
         ]
         if did_change
     ]

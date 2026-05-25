@@ -4,9 +4,13 @@ M9 adds the first OpenPlazma Scenario and StudyTask layer.
 
 The layer defines what a learner should observe, which artifacts should be produced, which metrics are suggested, and how a local Notebook workflow can connect a learning task to the RunStore and Observatory.
 
+M10 adds a first StudyFlow companion for this layer. See [Guided StudyFlow](guided-study-flow.md).
+
 ## Purpose
 
 A Scenario is a named learning context. A StudyTask is a concrete task inside that Scenario.
+
+A StudyFlow is an ordered path through one or more StudyTasks and the local OpenPlazma surfaces used to complete them.
 
 The first Scenario is:
 

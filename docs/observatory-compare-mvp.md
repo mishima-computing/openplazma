@@ -17,7 +17,7 @@ It compares:
 - capability metadata
 - limitations
 
-StudyTask artifacts are compared automatically as normal artifacts when local Runs log them.
+StudyFlow, Scenario, and StudyTask artifacts are compared automatically as normal artifacts when local Runs log them.
 
 ## Local Workflow
 

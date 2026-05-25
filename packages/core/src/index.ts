@@ -157,3 +157,11 @@ export type {
   StudyTaskPromptType,
   SuggestedMetric
 } from "./study-task";
+
+export type {
+  StudyFlow,
+  StudyFlowManifest,
+  StudyFlowManifestEntry,
+  StudyFlowStep,
+  StudyFlowSurface
+} from "./study-flow";
