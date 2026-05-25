@@ -80,6 +80,12 @@ python scripts/export-observatory.py --run-store .openplazma
 
 Then open `.openplazma/observatory/index.html`.
 
+To compare two local Runs, pass their Run IDs:
+
+```sh
+python scripts/export-observatory.py --run-store .openplazma --compare OPR-YYYYMMDD-000001 OPR-YYYYMMDD-000002
+```
+
 ## Python Helpers
 
 The SDK includes small notebook-oriented helpers:

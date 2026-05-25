@@ -47,9 +47,13 @@ The exporter writes:
     index.html
     runs/
       OPR-YYYYMMDD-000001.html
+    compare/
+      OPR-YYYYMMDD-000001__vs__OPR-YYYYMMDD-000002.html
     assets/
       observatory.css
 ```
+
+The `compare/` directory is written only when a local compare page is requested.
 
 This output is local generated output and must not be committed.
 
@@ -81,6 +85,8 @@ Run detail pages show:
 - events
 
 Artifact links are local relative links to files inside `.openplazma/runs/...`.
+
+The optional compare page shows metrics, artifacts, source, target, capabilities, and limitations for exactly two local Runs. See [Observatory Compare MVP](observatory-compare-mvp.md).
 
 ## Artifact Link Safety
 

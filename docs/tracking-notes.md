@@ -9,12 +9,13 @@ Architecture references:
 - [Local RunStore MVP](runstore-mvp.md)
 - [Notebook tracking integration](notebook-tracking-integration.md)
 - [Observatory UI MVP](observatory-mvp.md)
+- [Observatory Compare MVP](observatory-compare-mvp.md)
 
 The Python SDK and local Notebook workflow are the first clients of the tracking layer.
 
 Notebook-generated StudyRecord files remain learning artifacts. The local RunStore can now store StudyRecords, SignalSeries, and notebook outputs as run artifacts in local files.
 
-The local Observatory can export read-only static HTML from local RunStore records. The public Pages demo remains browser/static and does not inspect a user's local `.openplazma/` directory.
+The local Observatory can export read-only static HTML from local RunStore records, including an optional two-Run compare page. The public Pages demo remains browser/static and does not inspect a user's local `.openplazma/` directory.
 
 OpenPlazma-native tracking concepts:
 

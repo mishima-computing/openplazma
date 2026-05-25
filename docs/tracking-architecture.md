@@ -51,7 +51,7 @@ Planned flow:
 3. Notebook starts an OpenPlazma Run.
 4. Notebook logs SignalSeries, StudyRecord, plots, observations, hypotheses, metrics, and notebook outputs as artifacts.
 5. RunStore keeps inspectable local records.
-6. Observatory exports read-only local HTML for Runs, Artifacts, Metrics, and events.
+6. Observatory exports read-only local HTML for Runs, Artifacts, Metrics, events, and a two-Run comparison page.
 
 Notebook-generated StudyRecord files can now be stored as local RunStore artifacts. Browser JupyterLite remains a STATIC_FIXTURE-only public demo and does not need persistent local RunStore writes.
 
@@ -117,7 +117,7 @@ Direction:
 - No cloud dependency in the MVP.
 - No account required in the MVP.
 
-See [Local RunStore MVP](runstore-mvp.md), [Notebook tracking integration](notebook-tracking-integration.md), and [Observatory UI MVP](observatory-mvp.md) for Python API examples and current limitations.
+See [Local RunStore MVP](runstore-mvp.md), [Notebook tracking integration](notebook-tracking-integration.md), [Observatory UI MVP](observatory-mvp.md), and [Observatory Compare MVP](observatory-compare-mvp.md) for Python API examples and current limitations.
 
 ## Out Of Scope
 
@@ -136,4 +136,4 @@ OpenPlazma remains a local-first experiment and learning system for safe plasma 
 ## Next Milestones
 
 - Extend local RunStore and Observatory records only after the read-only local workflow has been reviewed.
-- Future Observatory work may add richer comparison of Runs, Artifacts, Reports, Metrics, and Lineage.
+- Future Observatory work may add richer Reports and Lineage views after the local read-only workflow has been reviewed.
