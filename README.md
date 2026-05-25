@@ -24,6 +24,7 @@ Public readiness docs:
 - [Tracking architecture](docs/tracking-architecture.md) and [ADR-0005](docs/adr/0005-openplazma-tracking-layer-and-downstream-target-boundaries.md)
 - [Local RunStore MVP](docs/runstore-mvp.md)
 - [Notebook tracking integration](docs/notebook-tracking-integration.md)
+- [StudyTask layer](docs/studytask_layer.md)
 - [Observatory UI MVP](docs/observatory-mvp.md)
 - [Observatory Compare MVP](docs/observatory-compare-mvp.md)
 
@@ -75,6 +76,8 @@ python notebooks/examples/local_runstore_example.py
 
 This writes inspectable local files under `.openplazma/`, which is ignored by git.
 For the full local notebook tracking flow, see [Notebook tracking integration](docs/notebook-tracking-integration.md).
+
+The first local StudyTask is Read the Signal. See [StudyTask layer](docs/studytask_layer.md).
 
 Export a read-only local Observatory report:
 

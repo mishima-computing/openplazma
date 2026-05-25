@@ -109,3 +109,14 @@ run.finish()
 
 # %%
 print(f"OpenPlazma RunStore run {run.run_id} written to {op.runstore_output_hint(run)}")
+
+# %% [markdown]
+# ## Optional StudyTask Context
+#
+# Local Python or local Jupyter users can load a StudyTask to see prompts,
+# suggested metrics, and expected artifacts for a learning workflow. The
+# browser demo does not require this section and remains non-persistent.
+
+# %%
+task = op.load_study_task("study-tasks/read-the-signal-static-v0.1.json")
+task["title"], [prompt["text"] for prompt in task["prompts"]]

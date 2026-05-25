@@ -146,3 +146,14 @@ export type {
   RunStatus,
   RunType
 } from "./tracking";
+
+export type {
+  Scenario,
+  StudyTask,
+  StudyTaskLevel,
+  StudyTaskManifest,
+  StudyTaskManifestEntry,
+  StudyTaskPrompt,
+  StudyTaskPromptType,
+  SuggestedMetric
+} from "./study-task";

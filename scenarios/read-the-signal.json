@@ -1,0 +1,17 @@
+{
+  "kind": "openplazma.scenario",
+  "version": "0.1.0",
+  "scenarioId": "read-the-signal",
+  "title": "Read the Signal",
+  "summary": "Beginner scenario for inspecting a STATIC_FIXTURE signal and recording a local learning Run.",
+  "level": "beginner",
+  "taskIds": [
+    "read-the-signal-static-v0.1"
+  ],
+  "limitations": [
+    "STATIC_FIXTURE data only.",
+    "Not a validated fusion simulator.",
+    "Not a reactor design tool.",
+    "Not a real hardware control system."
+  ]
+}

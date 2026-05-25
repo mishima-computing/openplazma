@@ -24,6 +24,15 @@ from .runstore import (
     start_run,
 )
 from .signals import summarize_signal, validate_signal_series
+from .tasks import (
+    list_study_tasks,
+    load_scenario,
+    load_study_task,
+    task_default_observations,
+    task_to_run_config,
+    validate_scenario,
+    validate_study_task,
+)
 
 __all__ = [
     "create_study_record",
@@ -37,8 +46,11 @@ __all__ = [
     "load_run",
     "load_run_artifacts",
     "load_run_events",
+    "load_scenario",
     "load_static_signal",
     "load_study_record",
+    "load_study_task",
+    "list_study_tasks",
     "log_context_signal_and_study_record",
     "plot_signal",
     "runstore_output_hint",
@@ -50,7 +62,11 @@ __all__ = [
     "summarize_run",
     "summarize_runstore",
     "summarize_signal",
+    "task_default_observations",
+    "task_to_run_config",
     "validate_experiment_context",
+    "validate_scenario",
     "validate_signal_series",
     "validate_study_record",
+    "validate_study_task",
 ]

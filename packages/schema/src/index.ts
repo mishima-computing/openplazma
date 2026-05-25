@@ -233,3 +233,12 @@ export {
   runManifestSchema,
   runRecordSchema
 } from "./tracking.schema";
+
+export {
+  parseScenario,
+  parseStudyTask,
+  parseStudyTaskManifest,
+  scenarioSchema,
+  studyTaskManifestSchema,
+  studyTaskSchema
+} from "./study-task.schema";

@@ -31,6 +31,12 @@ The shorter compatibility example still works:
 python notebooks/examples/local_runstore_example.py
 ```
 
+The local StudyTask example loads the Read the Signal task before starting a Run:
+
+```sh
+python notebooks/examples/read_the_signal_task.py
+```
+
 Both examples load:
 
 - `notebooks/examples/sample-experiment-context.json`
@@ -40,6 +46,7 @@ Both examples load:
 
 The local Run logs artifacts:
 
+- `study_task` when running the StudyTask example
 - `experiment_context`
 - `signal_series`
 - `study_record`
@@ -108,6 +115,8 @@ with op.start_run(...) as run:
 ```
 
 The helpers do not fetch external data, change capabilities, or connect to external targets.
+
+See [StudyTask layer](studytask_layer.md) for the Scenario and StudyTask contract.
 
 ## Limitations
 
