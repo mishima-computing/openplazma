@@ -6,6 +6,10 @@ Available tutorial:
 
 - [Read the Signal](read-the-signal/README.md)
 
+Workshop materials:
+
+- [Teacher / Workshop Pack](../../teacher-kit/README.md)
+
 Public demo:
 
 ```text
