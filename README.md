@@ -17,12 +17,14 @@ The public demo uses `STATIC_FIXTURE` data only. It does not fetch external fusi
 
 Public readiness docs:
 
+- [Docs index](docs/README.md)
 - [Public smoke checklist](docs/public-smoke-checklist.md)
 - [Feedback intake](docs/feedback-intake.md)
 - [Tutorials](docs/tutorials/README.md)
 - [Teacher / Workshop Pack](teacher-kit/README.md)
 - [Known issues](docs/known-issues.md)
 - [0.1-alpha.0 release note draft](docs/releases/0.1-alpha.0.md)
+- [0.1-alpha.0 release checklist](docs/releases/0.1-alpha.0-checklist.md)
 - [Tracking architecture](docs/tracking-architecture.md) and [ADR-0005](docs/adr/0005-openplazma-tracking-layer-and-downstream-target-boundaries.md)
 - [Local RunStore MVP](docs/runstore-mvp.md)
 - [Notebook tracking integration](docs/notebook-tracking-integration.md)

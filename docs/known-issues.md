@@ -20,3 +20,5 @@ Current status:
 - Public demo returns `200` at `https://mishima-computing.github.io/openplazma/`.
 - Revisit when GitHub or the relevant action publishes an update.
 - Public demo remains `STATIC_FIXTURE` only.
+
+No other non-blocking release issues are currently documented.
