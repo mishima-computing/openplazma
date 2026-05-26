@@ -37,6 +37,7 @@ https://mishima-computing.github.io/openplazma/
 - Confirm no reactor-control or facility-control action appears.
 - Confirm no external data is fetched.
 - Confirm the public demo remains educational and safe.
+- If running a facilitated session, confirm the [Teacher / Workshop Pack](../teacher-kit/README.md) still points to the current public demo.
 
 ## Static Asset Smoke
 
@@ -47,6 +48,12 @@ Confirm these URLs return `200`:
 - `https://mishima-computing.github.io/openplazma/workbench/files/openplazma/experiment_notebook.ipynb`
 - `https://mishima-computing.github.io/openplazma/workbench/files/openplazma/sample-experiment-context.json`
 - `https://mishima-computing.github.io/openplazma/workbench/files/openplazma/signals/plasma_current.json`
+
+Repository documentation smoke:
+
+- `teacher-kit/README.md`
+- `teacher-kit/workshops/read-the-signal-45min/session-plan.md`
+- `docs/guided-study-flow.md`
 
 ## Notebook Smoke
 
