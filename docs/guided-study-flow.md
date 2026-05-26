@@ -4,6 +4,8 @@ M10 adds the first guided OpenPlazma StudyFlow.
 
 The first guided flow is `read-the-signal-guided-v0.1`. It connects the existing Read the Signal StudyTask, Scenario, Notebook workflow, local RunStore, Observatory, and Observatory Compare into one local path.
 
+For a 45-minute facilitated session using this flow, see the [Teacher / Workshop Pack](../teacher-kit/README.md).
+
 ## Purpose
 
 A StudyFlow describes the ordered learning path around one or more StudyTasks.

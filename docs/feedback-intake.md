@@ -10,6 +10,8 @@ Ask for initial feedback from:
 - 1 student.
 - 1 developer.
 
+For facilitated feedback sessions, use the [Teacher / Workshop Pack](../teacher-kit/README.md).
+
 ## Questions
 
 - Can you open the public demo?
@@ -20,6 +22,7 @@ Ask for initial feedback from:
 - Can you open the Notebook Workbench?
 - What was confusing?
 - What did you expect next?
+- Did the Workshop Pack help frame the session if used?
 
 ## Do Not Ask
 
