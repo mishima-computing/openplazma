@@ -42,4 +42,5 @@ Confirm the safe Capability boundary:
 ## Mission Boundary
 
 Observatory is local, static, and read-only.
+The generated HTML does not require external network references.
 The public Pages demo does not inspect a user's local `.openplazma/` directory.
