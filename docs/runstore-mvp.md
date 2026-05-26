@@ -16,6 +16,8 @@ The RunStore lets a local notebook record what it did:
 
 The first client is the Python SDK. The Lab and browser Workbench do not need to use the RunStore for the public demo to work.
 
+M10 adds a guided StudyFlow example that logs StudyFlow, Scenario, StudyTask, ExperimentContext, SignalSeries, StudyRecord, and signal metrics into the same local RunStore layout.
+
 ## Local-First Behavior
 
 By default, Runs are written under:

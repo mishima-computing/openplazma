@@ -25,6 +25,7 @@ Public readiness docs:
 - [Local RunStore MVP](docs/runstore-mvp.md)
 - [Notebook tracking integration](docs/notebook-tracking-integration.md)
 - [StudyTask layer](docs/studytask_layer.md)
+- [Guided StudyFlow](docs/guided-study-flow.md)
 - [Observatory UI MVP](docs/observatory-mvp.md)
 - [Observatory Compare MVP](docs/observatory-compare-mvp.md)
 
@@ -78,6 +79,8 @@ This writes inspectable local files under `.openplazma/`, which is ignored by gi
 For the full local notebook tracking flow, see [Notebook tracking integration](docs/notebook-tracking-integration.md).
 
 The first local StudyTask is Read the Signal. See [StudyTask layer](docs/studytask_layer.md).
+
+The first guided StudyFlow connects Read the Signal to local RunStore logging, Observatory export, and two-Run comparison. See [Guided StudyFlow](docs/guided-study-flow.md).
 
 Export a read-only local Observatory report:
 

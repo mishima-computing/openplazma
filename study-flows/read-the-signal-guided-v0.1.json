@@ -1,0 +1,99 @@
+{
+  "kind": "openplazma.study_flow",
+  "version": "0.1.0",
+  "flowId": "read-the-signal-guided-v0.1",
+  "title": "Read the Signal Guided Flow",
+  "summary": "A guided STATIC_FIXTURE-only path from Lab observation to local RunStore and Observatory comparison.",
+  "level": "beginner",
+  "estimatedMinutes": 30,
+  "scenarioId": "read-the-signal",
+  "taskIds": [
+    "read-the-signal-static-v0.1"
+  ],
+  "source": {
+    "provider": "STATIC_FIXTURE",
+    "sourceLabel": "STATIC_FIXTURE sample signal",
+    "inspiredBy": "FAIR_MAST"
+  },
+  "target": {
+    "type": "static_fixture",
+    "id": "sample-001",
+    "label": "STATIC_FIXTURE sample"
+  },
+  "capabilities": {
+    "readData": true,
+    "writeArtifacts": true,
+    "runSimulation": false,
+    "submitComputeJob": false,
+    "readFacilityTelemetry": false,
+    "controlFacility": false
+  },
+  "steps": [
+    {
+      "stepId": "open-lab",
+      "title": "Open the Lab",
+      "surface": "lab",
+      "instruction": "Open the public or local Lab and inspect the STATIC_FIXTURE signal."
+    },
+    {
+      "stepId": "export-context",
+      "title": "Export ExperimentContext",
+      "surface": "lab",
+      "instruction": "Export or pass the ExperimentContext to the Notebook Workbench."
+    },
+    {
+      "stepId": "use-notebook",
+      "title": "Use the Notebook",
+      "surface": "notebook",
+      "instruction": "Follow the StudyTask prompts and create a StudyRecord."
+    },
+    {
+      "stepId": "log-run",
+      "title": "Log a local Run",
+      "surface": "runstore",
+      "instruction": "Log ExperimentContext, SignalSeries, StudyRecord, StudyTask, and metrics to the local RunStore."
+    },
+    {
+      "stepId": "inspect-observatory",
+      "title": "Inspect the Run",
+      "surface": "observatory",
+      "instruction": "Export the local Observatory and inspect the Run."
+    },
+    {
+      "stepId": "compare-runs",
+      "title": "Compare two Runs",
+      "surface": "observatory_compare",
+      "instruction": "Repeat the task and compare two local Runs."
+    }
+  ],
+  "expectedArtifacts": [
+    "study_flow",
+    "study_task",
+    "scenario",
+    "experiment_context",
+    "signal_series",
+    "study_record"
+  ],
+  "expectedMetrics": [
+    "signal_point_count",
+    "signal_min",
+    "signal_max",
+    "signal_mean"
+  ],
+  "completionChecklist": [
+    "Observed the STATIC_FIXTURE signal.",
+    "Wrote an observation.",
+    "Separated observation from hypothesis.",
+    "Logged a local Run.",
+    "Opened the Observatory.",
+    "Compared two local Runs."
+  ],
+  "limitations": [
+    "STATIC_FIXTURE data only.",
+    "No public data ingestion.",
+    "No grading or scoring.",
+    "Not a validated fusion simulator.",
+    "Not a reactor design tool.",
+    "Not a real hardware control system."
+  ]
+}

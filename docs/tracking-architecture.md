@@ -26,6 +26,7 @@ OpenPlazma-native tracking concepts:
 
 - Scenario
 - StudyTask
+- StudyFlow
 - Run
 - RunRecord
 - Artifact
@@ -40,7 +41,7 @@ OpenPlazma-native tracking concepts:
 - RunStore
 - Observatory
 
-Scenario and StudyTask define local learning context. RunRecord is the unit of tracked execution. ArtifactRecord describes saved inputs and outputs. MetricRecord describes timestamped or step-indexed numeric and structured measurements. StudyRecord remains the human observation artifact.
+Scenario and StudyTask define local learning context. StudyFlow defines an ordered path across Lab, Notebook, RunStore, Observatory, and Compare. RunRecord is the unit of tracked execution. ArtifactRecord describes saved inputs and outputs. MetricRecord describes timestamped or step-indexed numeric and structured measurements. StudyRecord remains the human observation artifact.
 
 ## Notebook As First Tracking Client
 
@@ -48,13 +49,14 @@ The local Python and local Jupyter notebook workflow is the first major client o
 
 Planned flow:
 
-1. StudyTask defines prompts, suggested metrics, expected artifacts, limitations, source, target, and capabilities.
-2. Lab creates an ExperimentContext.
-3. Notebook reads the StudyTask and ExperimentContext.
-4. Notebook starts an OpenPlazma Run.
-5. Notebook logs StudyTask, SignalSeries, StudyRecord, plots, observations, hypotheses, metrics, and notebook outputs as artifacts.
-6. RunStore keeps inspectable local records.
-7. Observatory exports read-only local HTML for Runs, Artifacts, Metrics, events, and a two-Run comparison page.
+1. StudyFlow defines the ordered local path.
+2. StudyTask defines prompts, suggested metrics, expected artifacts, limitations, source, target, and capabilities.
+3. Lab creates an ExperimentContext.
+4. Notebook reads the StudyFlow, StudyTask, and ExperimentContext.
+5. Notebook starts an OpenPlazma Run.
+6. Notebook logs StudyFlow, Scenario, StudyTask, SignalSeries, StudyRecord, plots, observations, hypotheses, metrics, and notebook outputs as artifacts.
+7. RunStore keeps inspectable local records.
+8. Observatory exports read-only local HTML for Runs, Artifacts, Metrics, events, and a two-Run comparison page.
 
 Notebook-generated StudyRecord files can now be stored as local RunStore artifacts. Browser JupyterLite remains a STATIC_FIXTURE-only public demo and does not need persistent local RunStore writes.
 
@@ -120,7 +122,7 @@ Direction:
 - No cloud dependency in the MVP.
 - No account required in the MVP.
 
-See [Local RunStore MVP](runstore-mvp.md), [Notebook tracking integration](notebook-tracking-integration.md), [StudyTask layer](studytask_layer.md), [Observatory UI MVP](observatory-mvp.md), and [Observatory Compare MVP](observatory-compare-mvp.md) for Python API examples and current limitations.
+See [Local RunStore MVP](runstore-mvp.md), [Notebook tracking integration](notebook-tracking-integration.md), [StudyTask layer](studytask_layer.md), [Guided StudyFlow](guided-study-flow.md), [Observatory UI MVP](observatory-mvp.md), and [Observatory Compare MVP](observatory-compare-mvp.md) for Python API examples and current limitations.
 
 ## Out Of Scope
 

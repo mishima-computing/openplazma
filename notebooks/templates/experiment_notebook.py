@@ -120,3 +120,14 @@ print(f"OpenPlazma RunStore run {run.run_id} written to {op.runstore_output_hint
 # %%
 task = op.load_study_task("study-tasks/read-the-signal-static-v0.1.json")
 task["title"], [prompt["text"] for prompt in task["prompts"]]
+
+# %% [markdown]
+# ## Optional StudyFlow Context
+#
+# Local Python or local Jupyter users can load the guided StudyFlow to follow
+# the path from Lab observation through RunStore logging and local Observatory
+# comparison. The browser demo does not require persistent local RunStore files.
+
+# %%
+flow = op.load_study_flow("study-flows/read-the-signal-guided-v0.1.json")
+flow["title"], [step["title"] for step in flow["steps"]]

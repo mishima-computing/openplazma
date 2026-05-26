@@ -1,0 +1,11 @@
+{
+  "kind": "openplazma.study_flow_manifest",
+  "version": "0.1.0",
+  "flows": [
+    {
+      "flowId": "read-the-signal-guided-v0.1",
+      "path": "study-flows/read-the-signal-guided-v0.1.json"
+    }
+  ],
+  "inspiredBy": "FAIR_MAST"
+}
