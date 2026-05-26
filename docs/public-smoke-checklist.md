@@ -37,6 +37,7 @@ https://mishima-computing.github.io/openplazma/
 - Confirm no reactor-control or facility-control action appears.
 - Confirm no external data is fetched.
 - Confirm the public demo remains educational and safe.
+- If checking tutorials, confirm [Read the Signal](tutorials/read-the-signal/README.md) still points to the current public demo and `STATIC_FIXTURE` scope.
 
 ## Static Asset Smoke
 
@@ -47,6 +48,12 @@ Confirm these URLs return `200`:
 - `https://mishima-computing.github.io/openplazma/workbench/files/openplazma/experiment_notebook.ipynb`
 - `https://mishima-computing.github.io/openplazma/workbench/files/openplazma/sample-experiment-context.json`
 - `https://mishima-computing.github.io/openplazma/workbench/files/openplazma/signals/plasma_current.json`
+
+Repository documentation smoke:
+
+- `docs/tutorials/README.md`
+- `docs/tutorials/read-the-signal/README.md`
+- `docs/tutorials/read-the-signal/00-mission-briefing.md`
 
 ## Notebook Smoke
 

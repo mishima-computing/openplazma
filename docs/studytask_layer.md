@@ -6,6 +6,8 @@ The layer defines what a learner should observe, which artifacts should be produ
 
 M10 adds a first StudyFlow companion for this layer. See [Guided StudyFlow](guided-study-flow.md).
 
+The first tutorial mission for this layer is [Read the Signal](tutorials/read-the-signal/README.md).
+
 ## Purpose
 
 A Scenario is a named learning context. A StudyTask is a concrete task inside that Scenario.
