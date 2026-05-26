@@ -19,6 +19,7 @@ Ask for initial feedback from:
 - Can you export a StudyRecord?
 - Can you open the Notebook Workbench?
 - Could you follow the Read the Signal tutorial mission?
+- Could the Teacher / Workshop Pack support a 45-minute guided session?
 - What was confusing?
 - What did you expect next?
 
@@ -78,4 +79,5 @@ A public demo feedback item is actionable when it improves one of these without 
 - The Workbench can load the static notebook, context, and signal.
 - The UI and docs clearly state the limitations.
 - The tutorials help first-time users complete the browser tour or local mission without expanding scope.
+- The Teacher / Workshop Pack helps facilitators run the existing Mission without adding grading, scoring, or new product behavior.
 - The deployment and smoke checks remain reproducible.

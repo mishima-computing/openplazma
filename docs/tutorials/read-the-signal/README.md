@@ -34,6 +34,7 @@ Support:
 
 - [Troubleshooting](troubleshooting.md)
 - [Glossary](glossary.md)
+- [Teacher / Workshop Pack](../../../teacher-kit/README.md)
 
 ## Mission Boundary
 
