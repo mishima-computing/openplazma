@@ -19,6 +19,7 @@ Public readiness docs:
 
 - [Public smoke checklist](docs/public-smoke-checklist.md)
 - [Feedback intake](docs/feedback-intake.md)
+- [Tutorials](docs/tutorials/README.md)
 - [Known issues](docs/known-issues.md)
 - [0.1-alpha.0 release note draft](docs/releases/0.1-alpha.0.md)
 - [Tracking architecture](docs/tracking-architecture.md) and [ADR-0005](docs/adr/0005-openplazma-tracking-layer-and-downstream-target-boundaries.md)
@@ -81,6 +82,8 @@ For the full local notebook tracking flow, see [Notebook tracking integration](d
 The first local StudyTask is Read the Signal. See [StudyTask layer](docs/studytask_layer.md).
 
 The first guided StudyFlow connects Read the Signal to local RunStore logging, Observatory export, and two-Run comparison. See [Guided StudyFlow](docs/guided-study-flow.md).
+
+For a mission-style first path through the public demo and local workflow, see the [Read the Signal tutorial](docs/tutorials/read-the-signal/README.md).
 
 Export a read-only local Observatory report:
 
