@@ -69,3 +69,33 @@ It exports:
 - `.openplazma/observatory/compare/...`
 
 Generated output is local and should not be committed.
+
+## Inspect The RunStore
+
+RunStore output is written under `.openplazma/runs/...`.
+It is local generated output and is ignored by git.
+
+Useful inspection commands:
+
+```sh
+find .openplazma -maxdepth 5 -type f
+cat .openplazma/runs/*/run.json
+cat .openplazma/runs/*/metrics.jsonl
+cat .openplazma/runs/*/manifest.json
+```
+
+Files to look for:
+
+- `run.json`: Run metadata, source, target, status, limitations, and Capability values.
+- `config.json`: local Run configuration.
+- `metrics.jsonl`: logged Metrics such as `signal_point_count`, `signal_min`, `signal_max`, and `signal_mean`.
+- `events.jsonl`: local Run events.
+- `manifest.json`: Artifact records and hashes.
+- `artifacts/`: saved StudyFlow, StudyTask, Scenario, ExperimentContext, SignalSeries, and StudyRecord files.
+
+Capability boundary:
+
+- `controlFacility` is false.
+- `readFacilityTelemetry` is false.
+- `submitComputeJob` is false.
+- `runSimulation` is false.

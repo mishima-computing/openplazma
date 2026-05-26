@@ -45,6 +45,10 @@ def test_tutorial_scope_links_and_mission_language() -> None:
     assert "Mission Checklist" in briefing
     assert "python scripts/run-guided-study-flow.py --run-store .openplazma --clean" in local_mission
     assert ".openplazma/observatory/index.html" in local_mission
+    assert "run.json" in local_mission
+    assert "metrics.jsonl" in local_mission
+    assert "manifest.json" in local_mission
+    assert "controlFacility" in local_mission
     assert "What did Compare help you notice?" in debrief
 
 
