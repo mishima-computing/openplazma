@@ -26,6 +26,7 @@ Public readiness docs:
 - [Tracking architecture](docs/tracking-architecture.md) and [ADR-0005](docs/adr/0005-openplazma-tracking-layer-and-downstream-target-boundaries.md)
 - [Local RunStore MVP](docs/runstore-mvp.md)
 - [Local signal import](docs/local-signal-import.md)
+- [Observation model direction](docs/observation-model.md)
 - [Notebook tracking integration](docs/notebook-tracking-integration.md)
 - [StudyTask layer](docs/studytask_layer.md)
 - [Guided StudyFlow](docs/guided-study-flow.md)

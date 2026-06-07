@@ -41,8 +41,12 @@ OpenPlazma-native tracking concepts:
 - Capability
 - RunStore
 - Observatory
+- ObservationModel
+- EvidenceLink
 
 Scenario and StudyTask define local learning context. StudyFlow defines an ordered path across Lab, Notebook, RunStore, Observatory, and Compare. RunRecord is the unit of tracked execution. ArtifactRecord describes saved inputs and outputs. MetricRecord describes timestamped or step-indexed numeric and structured measurements. StudyRecord remains the human observation artifact.
+
+Future observation-model work should preserve theory-to-observation traceability: latent state or theory, observable phenomenon, diagnostic channel, raw signal, derived signal, inference, and claim. Theory variables and sensor signals are many-to-many, not one-to-one. See [Observation Model Direction](observation-model.md).
 
 ## Notebook As First Tracking Client
 
@@ -129,6 +133,8 @@ Direction:
 - No account required in the MVP.
 
 See [Local RunStore MVP](runstore-mvp.md), [Notebook tracking integration](notebook-tracking-integration.md), [StudyTask layer](studytask_layer.md), [Guided StudyFlow](guided-study-flow.md), [Observatory UI MVP](observatory-mvp.md), and [Observatory Compare MVP](observatory-compare-mvp.md) for Python API examples and current limitations.
+
+See [Observation Model Direction](observation-model.md) for the future implementation policy around theory, diagnostics, raw signals, derived signals, inference, claims, simulator sweeps, and evidence links.
 
 ## Out Of Scope
 

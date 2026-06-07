@@ -14,6 +14,8 @@ OpenPlazma will prefer real-signal-shaped records and validated metadata before 
 
 Predictive physics models are out of scope until the project has mature contracts, provenance expectations, validation language, and documentation explaining the difference between measured, derived, synthetic, and illustrative data.
 
+Future simulation and diagnostic integration must not treat a theory variable as identical to a sensor signal. OpenPlazma should introduce observation-model and evidence-link concepts before adding simulator sweeps or richer inference workflows. See [Observation Model Direction](../observation-model.md).
+
 ## Consequences
 
 Early work focuses on schemas, fixtures, validation tests, and read-only workflows. UI features should display source, assumptions, and limitations so users can decide how much weight a record deserves in analysis or engineering judgment.
