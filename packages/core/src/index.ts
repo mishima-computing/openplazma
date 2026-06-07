@@ -1,6 +1,7 @@
 export type DataProvenanceKind = "fixture" | "measured" | "derived" | "synthetic";
-export type DataProvider = "STATIC_FIXTURE";
+export type DataProvider = "STATIC_FIXTURE" | "LOCAL_SIGNAL_FILE";
 export type InspiredBySource = "FAIR_MAST";
+export type SourceValidationStatus = "schema_validated";
 export type TargetType = "static_fixture" | "local_run_store";
 
 export interface TargetRef {
@@ -13,6 +14,9 @@ export interface SourceRef {
   provider: DataProvider;
   sourceLabel: string;
   inspiredBy?: InspiredBySource | undefined;
+  uri?: string | undefined;
+  sha256?: string | undefined;
+  validationStatus?: SourceValidationStatus | undefined;
 }
 
 export interface CapabilitySet {
@@ -45,7 +49,7 @@ export interface ExperimentContext {
   datasetId: string;
   campaign?: string | undefined;
   description: string;
-  safetyClassification: "public-educational-fixture";
+  safetyClassification: "public-educational-fixture" | "read-only-local-signal";
   createdAt: string;
   target: TargetRef;
   source: SourceRef;
@@ -78,6 +82,8 @@ export interface ShotMetadata {
     inspiredBy?: InspiredBySource | undefined;
     uri: string;
     license: string;
+    sha256?: string | undefined;
+    validationStatus?: SourceValidationStatus | undefined;
   };
   signalIds: string[];
   tags: string[];

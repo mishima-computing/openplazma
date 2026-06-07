@@ -8,12 +8,13 @@ from ._json import load_json, save_json
 from ._validation import require_keys, require_list, require_mapping, require_string
 from .context import validate_experiment_context
 from .signals import validate_signal_series
+from .sources import validate_data_provider, validate_source_ref
 
 DEFAULT_STUDY_LIMITATIONS = [
     "STATIC_FIXTURE data only.",
-    "Not a validated fusion simulator.",
-    "Not a reactor design tool.",
-    "Not a real hardware control system.",
+    "Read-only analysis and decision support.",
+    "No command/control path or hazardous operating procedure.",
+    "Not a standalone authority for safety-critical operation or reactor design decisions.",
 ]
 
 
@@ -64,8 +65,8 @@ def _validate_ts_context(context: dict[str, Any]) -> None:
     require_string(context["datasetId"], "StudyRecord.context.datasetId")
     require_string(context["description"], "StudyRecord.context.description")
     require_string(context["createdAt"], "StudyRecord.context.createdAt")
-    if context["safetyClassification"] != "public-educational-fixture":
-        raise ValueError("StudyRecord.context.safetyClassification must be public-educational-fixture.")
+    if context["safetyClassification"] not in {"public-educational-fixture", "read-only-local-signal"}:
+        raise ValueError("StudyRecord.context.safetyClassification must be public-educational-fixture or read-only-local-signal.")
 
     target = require_mapping(context["target"], "StudyRecord.context.target")
     require_keys(target, ["type", "id", "label"], "StudyRecord.context.target")
@@ -73,9 +74,7 @@ def _validate_ts_context(context: dict[str, Any]) -> None:
         raise ValueError("StudyRecord.context.target.type must be static_fixture or local_run_store.")
 
     source = require_mapping(context["source"], "StudyRecord.context.source")
-    require_keys(source, ["provider", "sourceLabel"], "StudyRecord.context.source")
-    if source["provider"] != "STATIC_FIXTURE":
-        raise ValueError("StudyRecord.context.source.provider must be STATIC_FIXTURE.")
+    validate_source_ref(source, "StudyRecord.context.source")
 
     capabilities = require_mapping(context["capabilities"], "StudyRecord.context.capabilities")
     require_keys(
@@ -117,8 +116,7 @@ def _validate_ts_shot(shot: dict[str, Any]) -> None:
 
     source = require_mapping(shot["source"], "StudyRecord.shot.source")
     require_keys(source, ["kind", "provider", "sourceLabel", "uri", "license"], "StudyRecord.shot.source")
-    if source["provider"] != "STATIC_FIXTURE":
-        raise ValueError("StudyRecord.shot.source.provider must be STATIC_FIXTURE.")
+    validate_source_ref(source, "StudyRecord.shot.source")
     require_string(source["kind"], "StudyRecord.shot.source.kind")
     require_string(source["sourceLabel"], "StudyRecord.shot.source.sourceLabel")
     require_string(source["uri"], "StudyRecord.shot.source.uri")
@@ -147,8 +145,7 @@ def _validate_notebook_record(record: dict[str, Any]) -> dict[str, Any]:
 
     source = require_mapping(record["source"], "StudyRecord.source")
     require_keys(source, ["provider", "sourceLabel", "shotId"], "StudyRecord.source")
-    if source["provider"] != "STATIC_FIXTURE":
-        raise ValueError("StudyRecord.source.provider must be STATIC_FIXTURE.")
+    validate_source_ref(source, "StudyRecord.source")
     require_string(source["sourceLabel"], "StudyRecord.source.sourceLabel")
     require_string(source["shotId"], "StudyRecord.source.shotId")
 
@@ -178,7 +175,7 @@ def validate_study_record(record: dict[str, Any]) -> dict[str, Any]:
     _validate_notebook_record(record)
     if "context" not in record:
         return record
-    require_keys(record, ["context", "shot", "signals"], "StudyRecord")
+    require_keys(record, ["context", "shot", "signals", "shotRef"], "StudyRecord")
 
     context = require_mapping(record["context"], "StudyRecord.context")
     shot = require_mapping(record["shot"], "StudyRecord.shot")
@@ -186,8 +183,13 @@ def validate_study_record(record: dict[str, Any]) -> dict[str, Any]:
     if len(signals) == 0:
         raise ValueError("StudyRecord.signals must include at least one signal.")
 
-    _validate_ts_context(context)
+    validate_experiment_context(context)
     _validate_ts_shot(shot)
+    shot_ref = require_mapping(record["shotRef"], "StudyRecord.shotRef")
+    require_keys(shot_ref, ["provider", "shotId"], "StudyRecord.shotRef")
+    validate_data_provider(shot_ref["provider"], "StudyRecord.shotRef.provider")
+    if shot_ref["provider"] != record["source"]["provider"]:
+        raise ValueError("StudyRecord.shotRef.provider must match StudyRecord.source.provider.")
     signal_ids = set(shot["signalIds"])
     for index, signal in enumerate(signals):
         validated_signal = validate_signal_series(require_mapping(signal, f"StudyRecord.signals[{index}]"))
@@ -232,10 +234,11 @@ def create_study_record(
         },
         "signalsViewed": selected_signals,
         "observations": selected_observations,
-        "limitations": limitations or DEFAULT_STUDY_LIMITATIONS,
+        "limitations": limitations if limitations is not None else list(validated_context.get("limitations") or DEFAULT_STUDY_LIMITATIONS),
     }
-    if validated_context["source"].get("inspiredBy") is not None:
-        record["source"]["inspiredBy"] = validated_context["source"]["inspiredBy"]
+    for field in ["inspiredBy", "uri", "sha256", "validationStatus"]:
+        if validated_context["source"].get(field) is not None:
+            record["source"][field] = validated_context["source"][field]
     if hypothesis:
         record["hypothesis"] = hypothesis
     return validate_study_record(record)

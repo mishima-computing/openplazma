@@ -7,13 +7,13 @@
 [![Pages Build CI](https://github.com/mishima-computing/openplazma/actions/workflows/ci-pages-build.yml/badge.svg)](https://github.com/mishima-computing/openplazma/actions/workflows/ci-pages-build.yml)
 [![Deploy GitHub Pages](https://github.com/mishima-computing/openplazma/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/mishima-computing/openplazma/actions/workflows/deploy-pages.yml)
 
-OpenPlazma is a local-first experiment and learning system for safe plasma and fusion-data workflows. The project starts with data contracts, fixture validation, and a game-like UI shell for exploring signal records.
+OpenPlazma is a local-first workbench for read-only plasma signal analysis and decision support. It focuses on signal records, provenance, validation boundaries, notebooks, and inspectable run history before any control or automation layer.
 
-OpenPlazma is not a validated fusion simulator, not a reactor design tool, and not a real hardware control system. The repository must not include instructions for high voltage, vacuum systems, lasers, radiation sources, hazardous materials, physical plasma hardware, or hazardous experiments.
+OpenPlazma is not a command-and-control system and does not issue operational instructions to physical equipment. It can support engineering and scientific judgment by organizing evidence, comparisons, assumptions, and limitations, but it is not a standalone authority for safety-critical operation or reactor design decisions. The repository must not include procedures for high voltage, vacuum systems, lasers, radiation sources, hazardous materials, physical plasma hardware, or hazardous experiments.
 
 Live demo: https://mishima-computing.github.io/openplazma/
 
-The public demo uses `STATIC_FIXTURE` data only. It does not fetch external fusion data, does not include AI assist, does not include real hardware instructions, and is not a validated fusion simulator.
+The public demo uses `STATIC_FIXTURE` data only. It demonstrates the read-only analysis path: inspect a signal, record observations, pass context to a notebook, log local runs, and compare outputs. It does not fetch external fusion data, include AI assist, or provide operational control instructions.
 
 Public readiness docs:
 
@@ -25,6 +25,7 @@ Public readiness docs:
 - [0.1-alpha.0 release note draft](docs/releases/0.1-alpha.0.md)
 - [Tracking architecture](docs/tracking-architecture.md) and [ADR-0005](docs/adr/0005-openplazma-tracking-layer-and-downstream-target-boundaries.md)
 - [Local RunStore MVP](docs/runstore-mvp.md)
+- [Local signal import](docs/local-signal-import.md)
 - [Notebook tracking integration](docs/notebook-tracking-integration.md)
 - [StudyTask layer](docs/studytask_layer.md)
 - [Guided StudyFlow](docs/guided-study-flow.md)
@@ -39,6 +40,7 @@ Public readiness docs:
 - `packages/data-client`: Fixture-backed data source.
 - `packages/signal-viewer`: Simple React signal chart component.
 - `data/fixtures/static`: Static sample signal records with `provider: "STATIC_FIXTURE"`.
+- `python/openplazma`: Python SDK for static fixtures, read-only local signal imports, notebooks, and local RunStore records.
 - `docs/adr`: Architecture decision records.
 - `docs/safety`: Safety boundaries.
 
@@ -86,6 +88,24 @@ The first guided StudyFlow connects Read the Signal to local RunStore logging, O
 
 For a mission-style first path through the public demo and local workflow, see the [Read the Signal tutorial](docs/tutorials/read-the-signal/README.md).
 
+Import a local CSV signal as read-only decision-support evidence:
+
+```python
+import openplazma as op
+
+imported = op.import_local_signal_csv(
+    "loop_voltage.csv",
+    signal_id="loop-voltage",
+    label="Loop voltage",
+    quantity="voltage",
+    unit="V",
+)
+context = imported["context"]
+signal = imported["signal"]
+```
+
+Local imports use `provider: "LOCAL_SIGNAL_FILE"` and preserve a local source URI, SHA-256 digest, schema-validation status, safe capabilities, and read-only limitations. They do not fetch external data, connect to facilities, validate calibration, or add command/control actions. See [Local signal import](docs/local-signal-import.md).
+
 Export a read-only local Observatory report:
 
 ```sh
@@ -127,7 +147,7 @@ Point the Lab at the local Workbench:
 VITE_OPENPLAZMA_WORKBENCH_LITE_URL=http://127.0.0.1:8000/lab/index.html?path=openplazma/experiment_notebook.ipynb
 ```
 
-Limitations: this MVP uses `STATIC_FIXTURE` data only, fetches no external data, has no AI assist, and has no real hardware instructions.
+Limitations: this MVP uses `STATIC_FIXTURE` data only, fetches no external data, has no AI assist, and has no command/control path. It is meant to prove read-only signal analysis and decision-support contracts.
 
 ## GitHub Pages Static Demo
 
@@ -151,10 +171,10 @@ Serve locally:
 python -m http.server -d dist/pages -b 127.0.0.1 8000
 ```
 
-Limitations: the demo uses `STATIC_FIXTURE` data only, fetches no external fusion data, has no AI assist, has no real hardware instructions, and is not a validated fusion simulator.
+Limitations: the demo uses `STATIC_FIXTURE` data only, fetches no external fusion data, has no AI assist, and has no command/control path. It demonstrates read-only evidence handling rather than facility operation.
 
 ## Current Scope
 
-The initial project scope is contract-first. Fixture data is static and local. External data fetching, toy physics, real-device integration, and operational procedures for hazardous equipment are out of scope.
+The initial project scope is contract-first. Fixture data is static and local. Local Python workflows can also import read-only CSV signal files with explicit provenance and validation boundaries. The intended product direction is read-only observability, diagnostics, comparison, and decision support for plasma signal data. Direct device control, autonomous operation, and operational procedures for hazardous equipment are out of scope.
 
 Placeholder records must not claim FAIR MAST provenance. Static examples use `provider: "STATIC_FIXTURE"` and may use `inspiredBy: "FAIR_MAST"` only as non-provenance context.

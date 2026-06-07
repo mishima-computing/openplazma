@@ -3,13 +3,13 @@
 This is a lightweight outline for someone making slides. It is not a slide deck.
 
 1. What is OpenPlazma?
-   - Local-first learning workflow.
+   - Local-first read-only signal analysis and decision-support workflow.
    - Public demo and local technical path.
 
 2. Mission boundary: `STATIC_FIXTURE` only
    - No public data ingestion.
-   - No real hardware instructions.
-   - Not a validated simulator.
+   - No command/control actions or hazardous operating procedures.
+   - Not a standalone authority for safety-critical operation or reactor design.
 
 3. Enter the Lab
    - Open the public demo.

@@ -1,6 +1,6 @@
 # Tutorials
 
-OpenPlazma tutorials are guided missions for learning the current public demo and local workflow.
+OpenPlazma tutorials are guided missions for learning read-only plasma signal analysis, evidence logging, and comparison workflows.
 
 Available tutorial:
 
@@ -34,6 +34,8 @@ Local technical path:
 
 ## Mission Boundary
 
-These tutorials use `STATIC_FIXTURE` data only.
+These tutorials use `STATIC_FIXTURE` data only in the public path.
 
-No public data ingestion, grading or scoring, AI assist, cloud sync, hosted Observatory, real hardware instructions, validated fusion simulation, reactor design, or real hardware control is included.
+No public data ingestion, grading or scoring, AI assist, cloud sync, hosted Observatory, command/control path, hazardous procedure, or standalone safety-critical design decision is included.
+
+The mission is not to avoid real engineering judgment. The mission is to practice the read-only evidence path that real engineering judgment needs: signal provenance, observation, hypothesis, metrics, run history, and comparison.

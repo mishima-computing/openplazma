@@ -1,5 +1,6 @@
 from .context import load_experiment_context, validate_experiment_context
 from .fixtures import load_static_signal
+from .local_signal import import_local_signal_csv
 from .observatory import (
     compare_runs,
     export_observatory_compare_html,
@@ -48,6 +49,7 @@ __all__ = [
     "flow_expected_artifacts",
     "flow_expected_metrics",
     "flow_to_run_config",
+    "import_local_signal_csv",
     "list_runs",
     "list_study_flows",
     "load_experiment_context",

@@ -39,8 +39,9 @@ def test_workshop_pack_scope_and_commands() -> None:
     assert "teacher-kit/README.md" in root_readme
     assert "Read the Signal, 45 minutes" in kit_readme
     assert "STATIC_FIXTURE" in participant
-    assert "not a validated fusion simulator" in participant
-    assert "Not a real hardware control system" in safety
+    assert "not a standalone authority" in participant
+    assert "Not a command/control path." in safety
+    assert "Not hazardous operating procedures." in safety
     assert "Do not include credentials, secrets" in feedback
     command = "python scripts/run-guided-study-flow.py --run-store .openplazma --clean"
     assert command in setup

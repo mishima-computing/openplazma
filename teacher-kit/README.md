@@ -2,6 +2,8 @@
 
 The OpenPlazma Teacher / Workshop Pack turns the existing Read the Signal Tutorial and guided StudyFlow into session materials for a 45-minute guided Mission.
 
+The pack teaches read-only signal analysis and decision support: participants inspect provenance, record observations and hypotheses, log runs, and compare evidence without controlling equipment.
+
 Current workshop:
 
 - [Read the Signal, 45 minutes](workshops/read-the-signal-45min/README.md)
@@ -43,7 +45,6 @@ Participants will:
 - No cloud sync.
 - No hosted Observatory.
 - No AI assist.
-- No real hardware instructions.
-- Not a validated fusion simulator.
-- Not a reactor design tool.
-- Not a real hardware control system.
+- No command/control actions.
+- No hazardous operating procedures.
+- Not a standalone authority for safety-critical operation or reactor design decisions.

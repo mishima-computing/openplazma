@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "flowId": "read-the-signal-guided-v0.1",
   "title": "Read the Signal Guided Flow",
-  "summary": "A guided STATIC_FIXTURE-only path from Lab observation to local RunStore and Observatory comparison.",
+  "summary": "A guided STATIC_FIXTURE-only path from Lab observation to local RunStore and Observatory comparison for read-only decision support.",
   "level": "beginner",
   "estimatedMinutes": 30,
   "scenarioId": "read-the-signal",
@@ -92,8 +92,8 @@
     "STATIC_FIXTURE data only.",
     "No public data ingestion.",
     "No grading or scoring.",
-    "Not a validated fusion simulator.",
-    "Not a reactor design tool.",
-    "Not a real hardware control system."
+    "Read-only analysis and decision support.",
+    "No command/control path or hazardous operating procedure.",
+    "Not a standalone authority for safety-critical operation or reactor design decisions."
   ]
 }

@@ -4,6 +4,7 @@ from typing import Any
 
 from ._json import load_json
 from ._validation import require_keys, require_list, require_mapping, require_string
+from .sources import validate_data_provider, validate_source_ref
 
 
 def validate_experiment_context(context: dict[str, Any]) -> dict[str, Any]:
@@ -38,8 +39,6 @@ def validate_experiment_context(context: dict[str, Any]) -> dict[str, Any]:
     require_string(context["datasetId"], "ExperimentContext.datasetId")
     require_string(context["description"], "ExperimentContext.description")
     require_string(context["createdAt"], "ExperimentContext.createdAt")
-    if context["safetyClassification"] != "public-educational-fixture":
-        raise ValueError("ExperimentContext.safetyClassification must be public-educational-fixture.")
 
     target = require_mapping(context["target"], "ExperimentContext.target")
     require_keys(target, ["type", "id", "label"], "ExperimentContext.target")
@@ -49,10 +48,18 @@ def validate_experiment_context(context: dict[str, Any]) -> dict[str, Any]:
     require_string(target["label"], "ExperimentContext.target.label")
 
     source = require_mapping(context["source"], "ExperimentContext.source")
-    require_keys(source, ["provider", "sourceLabel"], "ExperimentContext.source")
-    if source["provider"] != "STATIC_FIXTURE":
-        raise ValueError("ExperimentContext.source.provider must be STATIC_FIXTURE.")
-    require_string(source["sourceLabel"], "ExperimentContext.source.sourceLabel")
+    validate_source_ref(source, "ExperimentContext.source")
+
+    if source["provider"] == "STATIC_FIXTURE":
+        if context["safetyClassification"] != "public-educational-fixture":
+            raise ValueError("ExperimentContext.safetyClassification must be public-educational-fixture for STATIC_FIXTURE.")
+        if target["type"] != "static_fixture":
+            raise ValueError("ExperimentContext.target.type must be static_fixture for STATIC_FIXTURE.")
+    else:
+        if context["safetyClassification"] != "read-only-local-signal":
+            raise ValueError("ExperimentContext.safetyClassification must be read-only-local-signal for LOCAL_SIGNAL_FILE.")
+        if target["type"] != "local_run_store":
+            raise ValueError("ExperimentContext.target.type must be local_run_store for LOCAL_SIGNAL_FILE.")
 
     capabilities = require_mapping(context["capabilities"], "ExperimentContext.capabilities")
     require_keys(
@@ -78,8 +85,9 @@ def validate_experiment_context(context: dict[str, Any]) -> dict[str, Any]:
 
     shot_ref = require_mapping(context["shotRef"], "ExperimentContext.shotRef")
     require_keys(shot_ref, ["provider", "shotId"], "ExperimentContext.shotRef")
-    if shot_ref["provider"] != "STATIC_FIXTURE":
-        raise ValueError("ExperimentContext.shotRef.provider must be STATIC_FIXTURE.")
+    validate_data_provider(shot_ref["provider"], "ExperimentContext.shotRef.provider")
+    if shot_ref["provider"] != source["provider"]:
+        raise ValueError("ExperimentContext.shotRef.provider must match ExperimentContext.source.provider.")
     require_string(shot_ref["shotId"], "ExperimentContext.shotRef.shotId")
 
     signals = require_list(context["signals"], "ExperimentContext.signals")

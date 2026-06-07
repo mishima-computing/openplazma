@@ -35,7 +35,9 @@
   "limitations": [
     "This record uses STATIC_FIXTURE data only.",
     "This is not FAIR MAST data.",
-    "This is not a validated fusion simulation, reactor design artifact, or hardware experiment."
+    "This record is for read-only analysis and decision support.",
+    "This record has no command/control path or hazardous operating procedure.",
+    "This record is not a standalone authority for safety-critical operation or reactor design decisions."
   ],
   "context": {
     "kind": "openplazma.experiment_context",
@@ -91,7 +93,9 @@
     "limitations": [
       "This context uses STATIC_FIXTURE data only.",
       "This is not FAIR MAST data.",
-      "This is not a validated fusion simulation, reactor design artifact, or hardware experiment."
+      "This context is for read-only analysis and decision support.",
+      "This context has no command/control path or hazardous operating procedure.",
+      "This context is not a standalone authority for safety-critical operation or reactor design decisions."
     ]
   },
   "shot": {

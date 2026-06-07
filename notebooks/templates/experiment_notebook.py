@@ -5,8 +5,9 @@
 # loads a STATIC_FIXTURE SignalSeries, plots it, writes a StudyRecord, and
 # can log a complete local RunStore Run in local Python or Jupyter.
 #
-# The public browser demo remains STATIC_FIXTURE-only and does not require
-# persistent local RunStore writes.
+# The public browser demo remains STATIC_FIXTURE-only. The local workflow is
+# read-only analysis and decision support: it records evidence, assumptions,
+# and limitations without controlling equipment.
 
 # %% [markdown]
 # ## 1. Load ExperimentContext
@@ -49,7 +50,7 @@ observations = [
     }
 ]
 
-hypothesis = "This is a notebook-side hypothesis placeholder, not a validated scientific conclusion."
+hypothesis = "This is a notebook-side hypothesis placeholder for decision support, not a standalone validated conclusion."
 
 # %% [markdown]
 # ## 5. Create StudyRecord

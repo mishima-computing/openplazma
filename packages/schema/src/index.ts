@@ -9,15 +9,41 @@ import type {
 
 const isoDateTimeSchema = z.string().datetime({ offset: true });
 const versionSchema = z.literal("0.1.0");
-const providerSchema = z.literal("STATIC_FIXTURE");
+const providerSchema = z.enum(["STATIC_FIXTURE", "LOCAL_SIGNAL_FILE"]);
 const inspiredBySchema = z.literal("FAIR_MAST");
+const validationStatusSchema = z.literal("schema_validated");
+const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/);
 const timeRangeSchema = z.tuple([z.number().finite(), z.number().finite()]);
 
-const sourceRefSchema = z.object({
+const baseSourceRefSchema = z.object({
   provider: providerSchema,
   sourceLabel: z.string().min(1),
-  inspiredBy: inspiredBySchema.optional()
+  inspiredBy: inspiredBySchema.optional(),
+  uri: z.string().min(1).optional(),
+  sha256: sha256Schema.optional(),
+  validationStatus: validationStatusSchema.optional()
 });
+
+function requireLocalSourceProvenance(source: z.infer<typeof baseSourceRefSchema>, ctx: z.RefinementCtx): void {
+  if (source.provider === "LOCAL_SIGNAL_FILE") {
+    for (const field of ["uri", "sha256", "validationStatus"] as const) {
+      if (source[field] === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "LOCAL_SIGNAL_FILE source requires uri, sha256, and validationStatus",
+          path: [field]
+        });
+      }
+    }
+  }
+}
+
+const sourceRefSchema = baseSourceRefSchema.superRefine(requireLocalSourceProvenance);
+const studyRecordSourceSchema = baseSourceRefSchema
+  .extend({
+    shotId: z.string().min(1)
+  })
+  .superRefine(requireLocalSourceProvenance);
 
 const capabilitiesSchema = z.object({
   readData: z.literal(true),
@@ -49,7 +75,7 @@ export const experimentContextSchema = z.object({
   datasetId: z.string().min(1),
   campaign: z.string().min(1).optional(),
   description: z.string().min(1),
-  safetyClassification: z.literal("public-educational-fixture"),
+  safetyClassification: z.enum(["public-educational-fixture", "read-only-local-signal"]),
   createdAt: isoDateTimeSchema,
   target: z.object({
     type: z.enum(["static_fixture", "local_run_store"]),
@@ -71,28 +97,86 @@ export const experimentContextSchema = z.object({
   observations: z.array(observationSchema),
   hypothesis: z.string().min(1).optional(),
   limitations: z.array(z.string().min(1)).min(1)
+}).superRefine((context, ctx) => {
+  if (context.shotRef.provider !== context.source.provider) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "shotRef provider must match source provider",
+      path: ["shotRef", "provider"]
+    });
+  }
+
+  if (context.source.provider === "STATIC_FIXTURE") {
+    if (context.safetyClassification !== "public-educational-fixture") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "STATIC_FIXTURE contexts must use public-educational-fixture safety classification",
+        path: ["safetyClassification"]
+      });
+    }
+    if (context.target.type !== "static_fixture") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "STATIC_FIXTURE contexts must target static_fixture",
+        path: ["target", "type"]
+      });
+    }
+  }
+
+  if (context.source.provider === "LOCAL_SIGNAL_FILE") {
+    if (context.safetyClassification !== "read-only-local-signal") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "LOCAL_SIGNAL_FILE contexts must use read-only-local-signal safety classification",
+        path: ["safetyClassification"]
+      });
+    }
+    if (context.target.type !== "local_run_store") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "LOCAL_SIGNAL_FILE contexts must target local_run_store",
+        path: ["target", "type"]
+      });
+    }
+  }
 });
 
-export const shotMetadataSchema = z.object({
-  kind: z.literal("openplazma.shot_metadata"),
-  version: versionSchema,
-  shotId: z.string().min(1),
-  displayName: z.string().min(1),
-  sourceLabel: z.string().min(1),
-  deviceName: z.string().min(1).optional(),
-  recordedAt: isoDateTimeSchema,
-  source: z.object({
-    kind: z.enum(["fixture", "measured", "derived", "synthetic"]),
-    provider: providerSchema,
+export const shotMetadataSchema = z
+  .object({
+    kind: z.literal("openplazma.shot_metadata"),
+    version: versionSchema,
+    shotId: z.string().min(1),
+    displayName: z.string().min(1),
     sourceLabel: z.string().min(1),
-    inspiredBy: inspiredBySchema.optional(),
-    uri: z.string().min(1),
-    license: z.string().min(1)
-  }),
-  signalIds: z.array(z.string().min(1)).min(1),
-  tags: z.array(z.string().min(1)),
-  notes: z.string().min(1).optional()
-});
+    deviceName: z.string().min(1).optional(),
+    recordedAt: isoDateTimeSchema,
+    source: z.object({
+      kind: z.enum(["fixture", "measured", "derived", "synthetic"]),
+      provider: providerSchema,
+      sourceLabel: z.string().min(1),
+      inspiredBy: inspiredBySchema.optional(),
+      uri: z.string().min(1),
+      license: z.string().min(1),
+      sha256: sha256Schema.optional(),
+      validationStatus: validationStatusSchema.optional()
+    }),
+    signalIds: z.array(z.string().min(1)).min(1),
+    tags: z.array(z.string().min(1)),
+    notes: z.string().min(1).optional()
+  })
+  .superRefine((shot, ctx) => {
+    if (shot.source.provider === "LOCAL_SIGNAL_FILE") {
+      for (const field of ["sha256", "validationStatus"] as const) {
+        if (shot.source[field] === undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "LOCAL_SIGNAL_FILE shot source requires sha256 and validationStatus",
+            path: ["source", field]
+          });
+        }
+      }
+    }
+  });
 
 export const signalSeriesSchema = z
   .object({
@@ -134,9 +218,7 @@ export const studyRecordSchema = z
     version: versionSchema,
     studyId: z.string().min(1),
     createdAt: isoDateTimeSchema,
-    source: sourceRefSchema.extend({
-      shotId: z.string().min(1)
-    }),
+    source: studyRecordSourceSchema,
     shotRef: z.object({
       provider: providerSchema,
       shotId: z.string().min(1)

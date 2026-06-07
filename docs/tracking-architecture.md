@@ -13,12 +13,13 @@ The default endpoint is a local-first OpenPlazma RunStore. It is not a physical 
 Current public-demo contracts already describe:
 
 - `STATIC_FIXTURE` source provenance.
+- `LOCAL_SIGNAL_FILE` source provenance for local Python-only read-only imports.
 - Safe `target` metadata.
 - Public-demo `capabilities` where facility control is false.
 - `kind`, `version`, and creation metadata on major JSON artifacts.
 - StudyRecord files as human observation and learning artifacts.
 
-The public demo remains `STATIC_FIXTURE`-only and does not fetch external fusion data.
+The public demo remains `STATIC_FIXTURE`-only and does not fetch external fusion data. Local Python workflows may import local CSV signals as `LOCAL_SIGNAL_FILE` with SHA-256 provenance and schema-validation status.
 
 ## Planned Tracking Concepts
 
@@ -66,6 +67,11 @@ Current safe targets:
 
 - `static_fixture`
 - `local_run_store`
+
+Current safe source providers:
+
+- `STATIC_FIXTURE`
+- `LOCAL_SIGNAL_FILE`
 
 Future possible targets:
 
@@ -129,15 +135,16 @@ See [Local RunStore MVP](runstore-mvp.md), [Notebook tracking integration](noteb
 The tracking architecture does not add:
 
 - public data ingestion
+- external network data fetching
 - grading or scoring
-- real hardware control
-- validated simulation
+- command/control actions
+- validated simulation authority
 - facility operation
 - cloud account dependency
 - external product dependency
 - AI assist
 
-OpenPlazma remains a local-first experiment and learning system for safe plasma and fusion-data workflows.
+OpenPlazma remains a local-first workbench for read-only plasma signal analysis, provenance tracking, comparison, and decision support.
 
 ## Next Milestones
 

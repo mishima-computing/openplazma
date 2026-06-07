@@ -11,11 +11,12 @@ https://mishima-computing.github.io/openplazma/
 ## Scope
 
 - The demo uses `STATIC_FIXTURE` data only.
+- The demo presents OpenPlazma as read-only signal analysis and decision support.
 - The demo does not fetch external fusion data.
 - The demo does not provide AI assist.
-- The demo is not a validated fusion simulator.
-- The demo is not a real hardware control system.
-- The demo must not include real hardware instructions or hazardous experiment procedures.
+- The demo does not provide command/control actions.
+- The demo must not include hazardous operating procedures.
+- The demo must not present itself as the sole authority for safety-critical operation or reactor design decisions.
 
 ## Browser Smoke
 
@@ -32,11 +33,12 @@ https://mishima-computing.github.io/openplazma/
 - Confirm the opened Workbench URL includes an `opContext` query parameter.
 - Confirm the notebook path is `openplazma/experiment_notebook.ipynb`.
 - Confirm no real hardware instructions appear.
-- Confirm no validated-simulator claim appears.
-- Confirm no reactor-design claim appears.
+- Confirm no command/control action appears.
+- Confirm no claim appears that OpenPlazma alone validates a physical process.
+- Confirm no claim appears that OpenPlazma alone makes reactor-design decisions.
 - Confirm no reactor-control or facility-control action appears.
 - Confirm no external data is fetched.
-- Confirm the public demo remains educational and safe.
+- Confirm the public demo preserves provenance, assumptions, and limitations.
 - If checking tutorials, confirm [Read the Signal](tutorials/read-the-signal/README.md) still points to the current public demo and `STATIC_FIXTURE` scope.
 
 ## Static Asset Smoke
@@ -58,14 +60,14 @@ Repository documentation smoke:
 ## Notebook Smoke
 
 - Confirm the notebook text states `STATIC_FIXTURE` only.
-- Confirm the notebook states it is not a validated fusion simulation.
-- Confirm the notebook states it is not a real hardware experiment.
+- Confirm the notebook states it is read-only analysis and decision support.
+- Confirm the notebook states it does not control equipment or provide hazardous procedures.
 - Run the notebook cells if the browser environment is responsive.
 - Confirm the signal plot appears from the static signal JSON.
 
 ## Reporting
 
-Expected result: every check above passes without expanding the public demo beyond `STATIC_FIXTURE` data and safe educational workflows.
+Expected result: every check above passes without expanding the public demo beyond `STATIC_FIXTURE` data and read-only decision-support workflows.
 
 If a check fails, capture the browser, operating system, public URL, relevant console error, and the step that failed.
 

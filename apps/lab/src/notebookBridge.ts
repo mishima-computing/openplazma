@@ -81,8 +81,9 @@ export function buildNotebookExperimentContext(input: {
     observations: observation === undefined ? [] : [{ text: observation, signalId: signal.signalId }],
     limitations: [
       "This context uses STATIC_FIXTURE data only.",
-      "This is not a validated fusion simulation, reactor design artifact, or hardware experiment.",
-      "This context has no facility control capability."
+      "This context is for read-only analysis and decision support.",
+      "This context has no command/control path or hazardous operating procedure.",
+      "This context is not a standalone authority for safety-critical operation or reactor design decisions."
     ]
   };
 

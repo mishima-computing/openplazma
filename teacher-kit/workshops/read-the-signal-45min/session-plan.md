@@ -28,13 +28,14 @@ Local technical participants need Git, Node/Corepack, Python, and the OpenPlazma
 - Understand that the task uses `STATIC_FIXTURE` data only.
 - Understand that a Run is a recorded local workflow.
 - Understand that Observatory and Compare inspect local records.
+- Understand read-only decision support: evidence, assumptions, limitations, and comparison without equipment control.
 
 ## Session Timeline
 
 0-5 min: Mission Briefing and safety/scope.
 
 - State the Workshop Boundary.
-- Explain that this is a learning Mission using `STATIC_FIXTURE` data.
+- Explain that this is a read-only evidence Mission using `STATIC_FIXTURE` data.
 
 5-10 min: Enter the Lab.
 
@@ -86,4 +87,4 @@ Local technical participants need Git, Node/Corepack, Python, and the OpenPlazma
 - Do not use correctness rubrics.
 - Do not ask participants to operate hardware.
 - Do not describe public data ingestion as available.
-- Do not imply validated simulation, reactor design, or real hardware control.
+- Do not imply command/control, hazardous procedure generation, or standalone safety-critical design authority.

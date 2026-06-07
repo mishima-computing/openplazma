@@ -20,7 +20,7 @@ def _prompt_text(task: dict, prompt_type: str) -> str:
 
 
 def main(run_store: str | Path | None = None) -> str:
-    # STATIC_FIXTURE-only, local-only guided StudyFlow example for Python or local Jupyter use.
+    # STATIC_FIXTURE-only, local-only guided StudyFlow for read-only decision support.
     selected_run_store = Path(run_store or os.environ.get("OPENPLAZMA_RUN_STORE", ".openplazma"))
     flow = op.load_study_flow(FLOW_PATH)
     task = op.load_study_task(TASK_PATH)
@@ -44,7 +44,7 @@ def main(run_store: str | Path | None = None) -> str:
             "timeRange": ctx.get("view", {}).get("timeRange"),
         }
     ]
-    hypothesis = f"{hypothesis_prompt} This remains a local learning hypothesis, not a confirmed conclusion."
+    hypothesis = f"{hypothesis_prompt} This remains a decision-support hypothesis, not a standalone confirmed conclusion."
     record = op.create_study_record(
         context=ctx,
         observations=observations,

@@ -2,7 +2,7 @@
 
 The M5 RunStore is a local-first, inspectable tracking layer for Python and local Notebook workflows. It records Runs, metrics, artifacts, events, and manifests as JSON and JSONL files.
 
-This MVP is intentionally small. The local Observatory can read RunStore output, but the RunStore itself does not add cloud sync, external data ingestion, AI assist, simulation, facility operation, or real hardware control.
+This MVP is intentionally small. The local Observatory can read RunStore output, and the Python SDK can log read-only local signal imports. The RunStore itself does not add cloud sync, network data ingestion, AI assist, simulation, facility operation, or command/control actions.
 
 ## Purpose
 
@@ -91,6 +91,36 @@ manifest = op.load_manifest(runs[0]["runId"])
 
 See [Notebook tracking integration](notebook-tracking-integration.md) for the full local notebook workflow. See [Observatory UI MVP](observatory-mvp.md) for read-only local HTML inspection and [Observatory Compare MVP](observatory-compare-mvp.md) for comparing two local Runs.
 
+## Local Signal Import Example
+
+Local Python workflows can import a user-provided CSV signal as `provider: "LOCAL_SIGNAL_FILE"` and then log it to the RunStore:
+
+```python
+import openplazma as op
+
+imported = op.import_local_signal_csv(
+    "loop_voltage.csv",
+    signal_id="loop-voltage",
+    label="Loop voltage",
+    quantity="voltage",
+    unit="V",
+)
+
+ctx = imported["context"]
+signal = imported["signal"]
+record = op.create_study_record(context=ctx, observations=["Reviewed imported local signal."])
+
+with op.start_run(
+    project="openplazma-local",
+    campaign="local-signal-import",
+    run_type="notebook_analysis",
+    context=ctx,
+) as run:
+    op.log_context_signal_and_study_record(run, ctx, signal, record)
+```
+
+The import validates CSV shape and numeric samples, records the file SHA-256 digest, and keeps all facility-control capabilities false. It does not validate physical calibration or facility state.
+
 ## Safety And Scope
 
 Current safe targets are:
@@ -111,9 +141,9 @@ Default capabilities keep:
 }
 ```
 
-The public demo remains `STATIC_FIXTURE`-only. The RunStore does not connect to external facilities, machines, reactors, hardware, or cloud services.
+The public demo remains `STATIC_FIXTURE`-only. Local Python workflows may log `LOCAL_SIGNAL_FILE` records. The RunStore does not connect to external facilities, machines, reactors, hardware, or cloud services.
 
-OpenPlazma is not a validated fusion simulator, not a reactor design tool, and not a real hardware control system.
+OpenPlazma is read-only analysis and decision support. It can preserve evidence, assumptions, metrics, and limitations for qualified review, but it is not a command/control system or a standalone authority for safety-critical operation or reactor design decisions.
 
 ## Limitations
 
@@ -121,10 +151,11 @@ OpenPlazma is not a validated fusion simulator, not a reactor design tool, and n
 - JSON and JSONL only.
 - Read-only local Observatory export and two-Run compare page only.
 - No public data ingestion.
-- No external data fetch.
+- No external network data fetch.
 - No cloud sync.
 - No local notebook server launching.
 - No JupyterHub integration.
 - No AI assist.
-- No toy physics.
-- No real hardware instructions.
+- No predictive physics model in this MVP.
+- No command/control actions.
+- No hazardous operating procedures.

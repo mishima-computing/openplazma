@@ -2,16 +2,16 @@
 
 ## One-page Summary
 
-Read the Signal is a 45-minute Workshop Mission. Participants inspect a `STATIC_FIXTURE` Signal, write one observation, write one hypothesis, and optionally watch or run the local StudyFlow that records Runs and opens Observatory and Compare output.
+Read the Signal is a 45-minute Workshop Mission. Participants inspect a `STATIC_FIXTURE` Signal, write one observation, write one hypothesis, and optionally watch or run the local StudyFlow that records Runs and opens Observatory and Compare output. The workshop is read-only decision support: evidence first, conclusions second, no equipment control.
 
 ## Key Messages
 
 - This mission uses `STATIC_FIXTURE` data only.
-- We are practicing how to observe, record, and compare signal-like data.
+- We are practicing how to observe, record, and compare signal evidence.
 - Observation and hypothesis are different.
 - A Run is a local record of a workflow.
 - Observatory and Compare inspect local records.
-- This is not a validated simulator or hardware control system.
+- OpenPlazma can support technical judgment, but this workshop does not operate hardware or make standalone safety-critical design decisions.
 
 ## Explain The Mission
 
@@ -27,7 +27,7 @@ Use the Mission as a guided path:
 
 ## Explain STATIC_FIXTURE
 
-`STATIC_FIXTURE` means the data is bundled for safe learning and repeatable demos.
+`STATIC_FIXTURE` means the data is bundled for repeatable public demos.
 It is not public data ingestion, live telemetry, or hardware output.
 
 ## Explain Observation vs Hypothesis
@@ -56,16 +56,16 @@ Neither is hosted, synced, or connected to public data.
 ## Safe Language To Use
 
 - "This mission uses `STATIC_FIXTURE` data only."
-- "We are practicing how to observe, record, and compare signal-like data."
-- "This is not a validated simulator or hardware control system."
-- "No real device, reactor, facility, high voltage, vacuum, laser, radiation, or hazardous material is involved."
+- "We are practicing how to observe, record, and compare signal evidence."
+- "This is read-only decision support, not command/control."
+- "No operating procedure for a device, reactor, facility, high voltage, vacuum, laser, radiation, or hazardous material is involved."
 
 ## Misleading Language To Avoid
 
 - Do not describe the Lab as controlling a device.
-- Do not describe the Mission as predicting reactor behavior.
+- Do not describe the Mission as validating reactor behavior by itself.
 - Do not describe fixture records as facility data.
-- Do not invite participants to apply the Mission to hardware.
+- Do not invite participants to operate hardware from the Mission.
 - Do not describe the Mission as having an evaluative outcome.
 
 ## Handling Questions About Reactors, Facilities, Or Hardware
@@ -74,7 +74,8 @@ Keep answers at the boundary:
 
 - OpenPlazma public demos use `STATIC_FIXTURE` data only.
 - The workshop does not provide hardware instructions.
-- The workshop does not validate physical behavior.
+- The workshop does not validate physical behavior by itself.
+- OpenPlazma's useful boundary is read-only evidence handling for qualified human review.
 - Questions asking for procedures should be redirected to the safety and scope notes.
 
 ## Troubleshooting

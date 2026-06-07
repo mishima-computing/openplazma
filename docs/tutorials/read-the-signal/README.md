@@ -2,7 +2,7 @@
 
 Welcome to the first OpenPlazma Tutorial mission.
 
-Mission: inspect a `STATIC_FIXTURE` signal, write a Logbook observation and hypothesis, run the local guided StudyFlow, inspect RunStore output, open the Observatory, and Compare two Runs.
+Mission: inspect a `STATIC_FIXTURE` signal, write a Logbook observation and hypothesis, run the local guided StudyFlow, inspect RunStore output, open the Observatory, and compare two Runs as a read-only decision-support workflow.
 
 Expected time:
 
@@ -18,6 +18,7 @@ Expected time:
 - Inspect RunStore output.
 - Export Observatory.
 - Compare two Runs.
+- Explain what the evidence supports and what it does not support.
 
 ## Recommended Mission Path
 
@@ -39,7 +40,5 @@ Support:
 ## Mission Boundary
 
 This mission uses `STATIC_FIXTURE` data only.
-It does not control hardware.
-It is not a validated fusion simulator.
-It is not a reactor design tool.
-It is not a real hardware control system.
+It does not control hardware or provide hazardous operating procedures.
+It is a read-only analysis and decision-support exercise, not a standalone authority for safety-critical operation or reactor design decisions.

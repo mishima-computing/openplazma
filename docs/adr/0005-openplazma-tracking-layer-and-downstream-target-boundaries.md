@@ -11,11 +11,12 @@ OpenPlazma is built around a safe Lab-to-Notebook flow:
 - The Lab creates an ExperimentContext.
 - The Notebook Workbench reads the ExperimentContext.
 - The current notebook examples can create StudyRecord files.
-- Current records use `STATIC_FIXTURE` data only.
+- Current public-demo records use `STATIC_FIXTURE` data only.
+- Local Python workflows can import CSV signals as `LOCAL_SIGNAL_FILE` with SHA-256 provenance and schema-validation status.
 
 M4.6a made the current contracts tracking-ready by clarifying source provenance, safe targets, capabilities, artifact kind and version fields, and public-demo boundaries. Before implementing a RunStore, OpenPlazma needs a clear architecture decision for what a tracked run means and what downstream targets are allowed to imply.
 
-OpenPlazma is not a validated fusion simulator, not a reactor design tool, and not a real hardware control system. OpenPlazma does not provide instructions for high-voltage systems, vacuum systems, lasers, radiation sources, hazardous materials, physical plasma hardware, or real facility operation.
+OpenPlazma is a read-only analysis and decision-support workbench. It can organize evidence, provenance, assumptions, comparisons, and validation boundaries for qualified human review, but it is not a command/control system and is not a standalone authority for safety-critical operation or reactor design decisions. OpenPlazma does not provide instructions for high-voltage systems, vacuum systems, lasers, radiation sources, hazardous materials, physical plasma hardware, or real facility operation.
 
 ## Decision
 
@@ -31,11 +32,11 @@ OpenPlazma remains connectable by design through explicit Target and Capability 
 
 OpenPlazma already has the foundation of a tracking flow: Lab -> ExperimentContext -> Notebook -> StudyRecord. That flow should become inspectable, replayable, comparable, and shareable without assuming any physical downstream system exists.
 
-M4.6a established contract fields that make this possible, including `target`, `capabilities`, `kind`, `version`, `createdAt`, and explicit `STATIC_FIXTURE` source provenance.
+M4.6a established contract fields that make this possible, including `target`, `capabilities`, `kind`, `version`, `createdAt`, and explicit `STATIC_FIXTURE` source provenance. The read-only decision-support boundary also permits `LOCAL_SIGNAL_FILE` records for local Python analysis when provenance, validation status, and limitations are preserved.
 
 Future RunStore work needs boundary decisions before implementation so that tracked records do not casually imply facility operation, validated simulation, or reactor design. Future integrations must be described explicitly through Target and Capability metadata rather than assumed from project context.
 
-The current public demo remains safe, educational, and `STATIC_FIXTURE`-only.
+The current public demo remains `STATIC_FIXTURE`-only. Local Python analysis may import local CSV signal files, but that does not add public-data ingestion, network fetches, facility telemetry, or command/control behavior.
 
 ## OpenPlazma Tracking Vocabulary
 
@@ -84,6 +85,11 @@ Current safe targets:
 
 - `static_fixture`
 - `local_run_store`
+
+Current safe source providers:
+
+- `STATIC_FIXTURE`
+- `LOCAL_SIGNAL_FILE`
 
 Future possible targets:
 
@@ -186,6 +192,18 @@ STATIC_FIXTURE signal
 -> future Report
 ```
 
+Current local file lineage:
+
+```text
+LOCAL_SIGNAL_FILE CSV
+-> schema-validated SignalSeries
+-> ExperimentContext
+-> local notebook analysis Run
+-> metrics
+-> StudyRecord
+-> Report
+```
+
 Future public-data lineage:
 
 ```text
@@ -212,10 +230,11 @@ The future public-data example is architectural only and is not implemented toda
 - RunStore will be local-first and inspectable.
 - Observatory will be a later UI for comparing Runs, Artifacts, Reports, Metrics, and Lineage.
 - Public demo targets are limited to `static_fixture` and `local_run_store`.
+- Local Python workflows may use `LOCAL_SIGNAL_FILE` source provenance for read-only signal files.
 - Future public-data milestones may introduce `public_data_source` with provenance.
 - Future research milestones may discuss `simulator`, `compute_backend`, `digital_twin`, and `facility_telemetry_readonly`.
 - Facility control is excluded from public core functionality.
 
 ## Non-Goals
 
-ADR-0005 does not implement tracking code, RunStore, Observatory, public data ingestion, simulation, AI assist, JupyterHub, local notebook server launching, facility operation, or hardware integration.
+ADR-0005 does not add public data ingestion, external network data fetching, simulation, AI assist, JupyterHub, local notebook server launching, facility operation, or hardware integration.

@@ -41,7 +41,9 @@ def test_create_study_record_from_context():
     assert record["source"]["inspiredBy"] == "FAIR_MAST"
     assert record["signalsViewed"] == context["signals"]
     assert record["observations"][-1]["text"] == "Notebook test observation."
-    assert "Not a real hardware control system." in record["limitations"]
+    assert record["limitations"] == context["limitations"]
+    assert any("read-only analysis and decision support" in limitation for limitation in record["limitations"])
+    assert any("no command/control path" in limitation for limitation in record["limitations"])
 
 
 def test_summarize_signal():

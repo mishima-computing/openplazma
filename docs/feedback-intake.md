@@ -26,8 +26,8 @@ Ask for initial feedback from:
 ## Do Not Ask
 
 - Do not ask users to perform real hardware experiments.
-- Do not frame OpenPlazma as a validated simulator.
-- Do not frame OpenPlazma as reactor-control software.
+- Do not frame OpenPlazma as a standalone validated authority for operation or reactor design.
+- Do not frame OpenPlazma as command/control software.
 - Do not ask for facility-operation feedback from public users.
 
 ## Intake Channels
@@ -40,9 +40,9 @@ Ask for initial feedback from:
 
 - Keep `STATIC_FIXTURE` provenance explicit.
 - Do not treat fixture behavior as validated plasma physics.
-- Do not accept real hardware instructions or hazardous experiment procedures.
+- Do not accept command/control actions or hazardous experiment procedures.
 - Do not request or collect secrets, credentials, private data, or restricted data.
-- Do not add external fusion data ingestion through feedback issues.
+- Do not add external fusion data ingestion through feedback issues unless a milestone explicitly scopes a read-only source, provenance, and validation boundary.
 - Do not add AI assist through feedback issues.
 
 ## Labels
@@ -61,7 +61,7 @@ For each issue:
 1. Confirm whether the report is in scope for the current `STATIC_FIXTURE` public demo.
 2. Ask for reproduction details only when required to act.
 3. Keep scientific language limited and explicit.
-4. Redirect out-of-scope real hardware or hazardous procedure content to the safety boundary.
+4. Redirect out-of-scope command/control or hazardous procedure content to the safety boundary.
 5. Close requests for external ingestion, AI assist, or validated simulation behavior as future-scope unless a milestone explicitly includes them.
 
 ## Safety-Sensitive Feedback
