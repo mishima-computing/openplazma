@@ -2,7 +2,7 @@
 
 ## Mission Briefing
 
-You will enter the OpenPlazma Lab, inspect a `STATIC_FIXTURE` Signal, write one observation, write one hypothesis, and optionally inspect local RunStore, Observatory, and Compare output.
+You will enter the OpenPlazma Lab, inspect a `STATIC_FIXTURE` Signal, write one observation, write one hypothesis, and optionally inspect local RunStore, Observatory, and Compare output as a read-only decision-support workflow.
 
 Public demo:
 
@@ -13,10 +13,9 @@ https://mishima-computing.github.io/openplazma/
 ## Mission Boundary
 
 This Mission uses `STATIC_FIXTURE` data only.
-It does not control hardware.
-It is not a validated fusion simulator.
-It is not a reactor design tool.
-It is not a real hardware control system.
+It does not control hardware or provide hazardous operating procedures.
+It is not a standalone authority for safety-critical operation or reactor design decisions.
+It is for learning how evidence, provenance, metrics, and limitations support technical judgment.
 
 ## Tasks
 

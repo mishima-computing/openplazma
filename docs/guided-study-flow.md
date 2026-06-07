@@ -107,7 +107,7 @@ python scripts/export-observatory.py --run-store .openplazma --compare RUN_A RUN
 - No cloud sync.
 - No hosted Observatory.
 - No AI assist.
-- No real hardware instructions.
-- Not a validated fusion simulator.
-- Not a reactor design tool.
-- Not a real hardware control system.
+- Read-only decision support only.
+- No command/control actions.
+- No hazardous operating procedures.
+- Not a standalone authority for safety-critical operation or reactor design decisions.

@@ -43,9 +43,9 @@ const runRecord = {
   metricCount: 0,
   limitations: [
     "STATIC_FIXTURE data only.",
-    "Not a validated fusion simulator.",
-    "Not a reactor design tool.",
-    "Not a real hardware control system."
+    "Read-only analysis and decision support.",
+    "No command/control path or hazardous operating procedure.",
+    "Not a standalone authority for safety-critical operation or reactor design decisions."
   ]
 };
 
@@ -127,6 +127,25 @@ describe("tracking schemas", () => {
     };
 
     expect(() => runRecordSchema.parse(badProvider)).toThrow();
+  });
+
+  it("accepts LOCAL_SIGNAL_FILE run source with local provenance", () => {
+    const localRun = {
+      ...runRecord,
+      source: {
+        provider: "LOCAL_SIGNAL_FILE",
+        sourceLabel: "Local CSV",
+        uri: "local-file:signal.csv",
+        sha256: "b".repeat(64),
+        validationStatus: "schema_validated"
+      },
+      limitations: [
+        "LOCAL_SIGNAL_FILE read-only import.",
+        "Read-only analysis and decision support."
+      ]
+    };
+
+    expect(() => runRecordSchema.parse(localRun)).not.toThrow();
   });
 
   it("rejects artifact path traversal", () => {

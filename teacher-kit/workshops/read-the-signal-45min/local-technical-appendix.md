@@ -56,5 +56,7 @@ rm -rf .openplazma
 - Local-only.
 - No cloud sync.
 - No external data.
-- No real hardware.
+- Read-only analysis and decision support only.
+- No command/control path or hazardous operating procedure.
+- Not a standalone authority for safety-critical operation or reactor design.
 - Generated output is ignored by git and should not be committed.

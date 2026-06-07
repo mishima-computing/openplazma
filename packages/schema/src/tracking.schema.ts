@@ -3,14 +3,33 @@ import type { ArtifactRecord, EventRecord, MetricRecord, RunManifest, RunRecord 
 
 const isoDateTimeSchema = z.string().datetime({ offset: true });
 const versionSchema = z.literal("0.1.0");
-const providerSchema = z.literal("STATIC_FIXTURE");
+const providerSchema = z.enum(["STATIC_FIXTURE", "LOCAL_SIGNAL_FILE"]);
 const inspiredBySchema = z.literal("FAIR_MAST");
+const validationStatusSchema = z.literal("schema_validated");
+const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/);
 
-const sourceRefSchema = z.object({
-  provider: providerSchema,
-  sourceLabel: z.string().min(1),
-  inspiredBy: inspiredBySchema.optional()
-});
+const sourceRefSchema = z
+  .object({
+    provider: providerSchema,
+    sourceLabel: z.string().min(1),
+    inspiredBy: inspiredBySchema.optional(),
+    uri: z.string().min(1).optional(),
+    sha256: sha256Schema.optional(),
+    validationStatus: validationStatusSchema.optional()
+  })
+  .superRefine((source, ctx) => {
+    if (source.provider === "LOCAL_SIGNAL_FILE") {
+      for (const field of ["uri", "sha256", "validationStatus"] as const) {
+        if (source[field] === undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "LOCAL_SIGNAL_FILE source requires uri, sha256, and validationStatus",
+            path: [field]
+          });
+        }
+      }
+    }
+  });
 
 const capabilitiesSchema = z.object({
   readData: z.literal(true),

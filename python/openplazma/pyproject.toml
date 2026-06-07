@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "openplazma"
 version = "0.2.0"
-description = "Python bridge for OpenPlazma STATIC_FIXTURE study records."
+description = "Python bridge for OpenPlazma read-only signal analysis records."
 requires-python = ">=3.10"
 dependencies = [
   "matplotlib>=3.8"

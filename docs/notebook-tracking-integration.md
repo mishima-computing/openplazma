@@ -108,7 +108,7 @@ The SDK includes small notebook-oriented helpers:
 record = op.create_study_record(
     context=ctx,
     observations=[{"text": "Observed the selected STATIC_FIXTURE signal."}],
-    hypothesis="Notebook-side placeholder, not a validated scientific conclusion.",
+    hypothesis="Notebook-side placeholder for decision support, not a standalone validated conclusion.",
 )
 
 summary = op.summarize_signal(signal)
@@ -133,7 +133,7 @@ See [StudyTask layer](studytask_layer.md) for the Scenario and StudyTask contrac
 - No public data ingestion.
 - Read-only local Observatory export only.
 - No AI assist.
-- No real hardware instructions.
-- Not a validated fusion simulator.
-- Not a reactor design tool.
-- Not a real hardware control system.
+- Read-only decision support only.
+- No command/control actions.
+- No hazardous operating procedures.
+- Not a standalone authority for safety-critical operation or reactor design decisions.

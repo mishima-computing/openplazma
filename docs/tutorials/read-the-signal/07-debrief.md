@@ -54,6 +54,6 @@ What would you try in the next mission?
 
 ## Mission Boundary
 
-This was a learning mission using `STATIC_FIXTURE` data only.
-It did not control hardware.
-It was not a validated fusion simulator.
+This was a read-only decision-support mission using `STATIC_FIXTURE` data only.
+It did not control hardware or provide hazardous operating procedures.
+It was not a standalone authority for safety-critical operation or reactor design decisions.

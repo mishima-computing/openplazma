@@ -10,7 +10,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def main(run_store: str | Path | None = None) -> str:
-    # STATIC_FIXTURE-only, local-only example for Python or local Jupyter use.
+    # STATIC_FIXTURE-only, local-only read-only analysis example for Python or local Jupyter use.
     selected_run_store = Path(run_store or os.environ.get("OPENPLAZMA_RUN_STORE", ".openplazma"))
     ctx = op.load_experiment_context(REPO_ROOT / "notebooks" / "examples" / "sample-experiment-context.json")
     signal = op.load_static_signal(
@@ -30,7 +30,7 @@ def main(run_store: str | Path | None = None) -> str:
     record = op.create_study_record(
         context=ctx,
         observations=observations,
-        hypothesis="This is a local notebook hypothesis placeholder, not a validated scientific conclusion.",
+        hypothesis="This is a local notebook hypothesis placeholder for decision support, not a standalone validated conclusion.",
         study_id=f"{ctx['contextId']}-local-tracking-study",
     )
 

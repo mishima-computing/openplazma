@@ -117,7 +117,7 @@ The GitHub Pages public demo remains browser/static and `STATIC_FIXTURE`-only. I
 - No hosted service.
 - No public data ingestion.
 - No AI assist.
-- No real hardware instructions.
-- Not a validated fusion simulator.
-- Not a reactor design tool.
-- Not a real hardware control system.
+- Read-only decision support only.
+- No command/control actions.
+- No hazardous operating procedures.
+- Not a standalone authority for safety-critical operation or reactor design decisions.

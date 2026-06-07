@@ -4,6 +4,8 @@ Duration: 45 minutes.
 
 This Workshop Pack supports the mission-style [Read the Signal Tutorial](../../../docs/tutorials/read-the-signal/README.md) and the local [Guided StudyFlow](../../../docs/guided-study-flow.md).
 
+The workshop frames OpenPlazma as read-only signal analysis and decision support: participants inspect evidence, write assumptions, log a run, and compare outputs without controlling equipment.
+
 ## Format
 
 Browser-only path:
@@ -54,4 +56,4 @@ Local technical path:
 ## Workshop Boundary
 
 This workshop uses `STATIC_FIXTURE` data only.
-It does not provide grading, scoring, public data ingestion, cloud sync, hosted Observatory, AI assist, real hardware instructions, validated simulation, reactor design, or real hardware control.
+It does not provide grading, scoring, public data ingestion, cloud sync, hosted Observatory, AI assist, command/control actions, hazardous procedures, or standalone safety-critical design decisions.

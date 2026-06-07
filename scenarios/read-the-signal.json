@@ -10,8 +10,8 @@
   ],
   "limitations": [
     "STATIC_FIXTURE data only.",
-    "Not a validated fusion simulator.",
-    "Not a reactor design tool.",
-    "Not a real hardware control system."
+    "Read-only analysis and decision support.",
+    "No command/control path or hazardous operating procedure.",
+    "Not a standalone authority for safety-critical operation or reactor design decisions."
   ]
 }

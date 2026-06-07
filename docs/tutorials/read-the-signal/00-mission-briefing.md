@@ -15,9 +15,10 @@ You will move through:
 ## Mission Boundary
 
 This mission uses `STATIC_FIXTURE` data only.
-It does not control hardware.
+It is read-only analysis and decision support.
+It does not control hardware or provide hazardous operating procedures.
 It does not fetch external fusion data.
-It is not a validated fusion simulator.
+It is not a standalone authority for safety-critical operation or reactor design decisions.
 
 ## Choose Your Path
 

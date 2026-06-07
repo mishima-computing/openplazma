@@ -14,6 +14,7 @@ from ._validation import require_keys, require_mapping, require_string
 from .context import validate_experiment_context
 from .records import validate_study_record
 from .signals import validate_signal_series
+from .sources import validate_source_ref
 
 SAFE_CAPABILITIES = {
     "readData": True,
@@ -26,9 +27,9 @@ SAFE_CAPABILITIES = {
 
 DEFAULT_LIMITATIONS = [
     "STATIC_FIXTURE data only.",
-    "Not a validated fusion simulator.",
-    "Not a reactor design tool.",
-    "Not a real hardware control system.",
+    "Read-only analysis and decision support.",
+    "No command/control path or hazardous operating procedure.",
+    "Not a standalone authority for safety-critical operation or reactor design decisions.",
 ]
 
 _SAFE_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
@@ -54,26 +55,23 @@ def _safe_capabilities(capabilities: dict[str, Any] | None = None) -> dict[str, 
     return selected
 
 
-def _require_static_fixture_source(source: dict[str, Any]) -> dict[str, Any]:
+def _require_readonly_source(source: dict[str, Any]) -> dict[str, Any]:
     require_keys(source, ["provider", "sourceLabel"], "RunRecord.source")
-    if source["provider"] != "STATIC_FIXTURE":
-        raise ValueError("RunRecord.source.provider must be STATIC_FIXTURE.")
-    require_string(source["sourceLabel"], "RunRecord.source.sourceLabel")
+    validate_source_ref(source, "RunRecord.source")
     result = {
         "provider": source["provider"],
         "sourceLabel": source["sourceLabel"],
     }
-    if source.get("inspiredBy") is not None:
-        if source["inspiredBy"] != "FAIR_MAST":
-            raise ValueError("RunRecord.source.inspiredBy must be FAIR_MAST when provided.")
-        result["inspiredBy"] = "FAIR_MAST"
+    for field in ["inspiredBy", "uri", "sha256", "validationStatus"]:
+        if source.get(field) is not None:
+            result[field] = source[field]
     return result
 
 
 def _default_source(context: dict[str, Any] | None) -> dict[str, Any]:
     if context is not None:
         validate_experiment_context(context)
-        return _require_static_fixture_source(require_mapping(context["source"], "ExperimentContext.source"))
+        return _require_readonly_source(require_mapping(context["source"], "ExperimentContext.source"))
     return {
         "provider": "STATIC_FIXTURE",
         "sourceLabel": "Local OpenPlazma RunStore",
@@ -199,7 +197,7 @@ def _validate_run_record(record: dict[str, Any]) -> dict[str, Any]:
     require_keys(target, ["type", "id", "label"], "RunRecord.target")
     if target["type"] != "local_run_store":
         raise ValueError("RunRecord.target.type must be local_run_store.")
-    _require_static_fixture_source(require_mapping(record["source"], "RunRecord.source"))
+    _require_readonly_source(require_mapping(record["source"], "RunRecord.source"))
     _safe_capabilities(require_mapping(record["capabilities"], "RunRecord.capabilities"))
     return record
 

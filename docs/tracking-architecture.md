@@ -13,12 +13,13 @@ The default endpoint is a local-first OpenPlazma RunStore. It is not a physical 
 Current public-demo contracts already describe:
 
 - `STATIC_FIXTURE` source provenance.
+- `LOCAL_SIGNAL_FILE` source provenance for local Python-only read-only imports.
 - Safe `target` metadata.
 - Public-demo `capabilities` where facility control is false.
 - `kind`, `version`, and creation metadata on major JSON artifacts.
 - StudyRecord files as human observation and learning artifacts.
 
-The public demo remains `STATIC_FIXTURE`-only and does not fetch external fusion data.
+The public demo remains `STATIC_FIXTURE`-only and does not fetch external fusion data. Local Python workflows may import local CSV signals as `LOCAL_SIGNAL_FILE` with SHA-256 provenance and schema-validation status.
 
 ## Planned Tracking Concepts
 
@@ -40,8 +41,12 @@ OpenPlazma-native tracking concepts:
 - Capability
 - RunStore
 - Observatory
+- ObservationModel
+- EvidenceLink
 
 Scenario and StudyTask define local learning context. StudyFlow defines an ordered path across Lab, Notebook, RunStore, Observatory, and Compare. RunRecord is the unit of tracked execution. ArtifactRecord describes saved inputs and outputs. MetricRecord describes timestamped or step-indexed numeric and structured measurements. StudyRecord remains the human observation artifact.
+
+Future observation-model work should preserve theory-to-observation traceability: latent state or theory, observable phenomenon, diagnostic channel, raw signal, derived signal, inference, and claim. Theory variables and sensor signals are many-to-many, not one-to-one. See [Observation Model Direction](observation-model.md).
 
 ## Notebook As First Tracking Client
 
@@ -66,6 +71,11 @@ Current safe targets:
 
 - `static_fixture`
 - `local_run_store`
+
+Current safe source providers:
+
+- `STATIC_FIXTURE`
+- `LOCAL_SIGNAL_FILE`
 
 Future possible targets:
 
@@ -124,20 +134,23 @@ Direction:
 
 See [Local RunStore MVP](runstore-mvp.md), [Notebook tracking integration](notebook-tracking-integration.md), [StudyTask layer](studytask_layer.md), [Guided StudyFlow](guided-study-flow.md), [Observatory UI MVP](observatory-mvp.md), and [Observatory Compare MVP](observatory-compare-mvp.md) for Python API examples and current limitations.
 
+See [Observation Model Direction](observation-model.md) for the future implementation policy around theory, diagnostics, raw signals, derived signals, inference, claims, simulator sweeps, and evidence links.
+
 ## Out Of Scope
 
 The tracking architecture does not add:
 
 - public data ingestion
+- external network data fetching
 - grading or scoring
-- real hardware control
-- validated simulation
+- command/control actions
+- validated simulation authority
 - facility operation
 - cloud account dependency
 - external product dependency
 - AI assist
 
-OpenPlazma remains a local-first experiment and learning system for safe plasma and fusion-data workflows.
+OpenPlazma remains a local-first workbench for read-only plasma signal analysis, provenance tracking, comparison, and decision support.
 
 ## Next Milestones
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Any
 
 from ._validation import require_keys, require_number_list, require_string
@@ -24,6 +25,8 @@ def validate_signal_series(signal: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("SignalSeries.time must include at least one sample.")
     if len(time) != len(values):
         raise ValueError("SignalSeries.time and SignalSeries.values must have matching lengths.")
+    if not all(math.isfinite(value) for value in [*time, *values]):
+        raise ValueError("SignalSeries.time and SignalSeries.values must contain only finite numbers.")
 
     for index in range(1, len(time)):
         if time[index] <= time[index - 1]:

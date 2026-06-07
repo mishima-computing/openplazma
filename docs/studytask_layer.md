@@ -85,7 +85,7 @@ The Read the Signal task suggests:
 - `signal_max`
 - `signal_mean`
 
-These are learning workflow metrics, not validated scientific results.
+These are decision-support workflow metrics. They can support inspection and comparison, but they are not standalone validated scientific conclusions.
 
 ## Boundaries
 
@@ -117,7 +117,7 @@ Current StudyTask capabilities keep:
 - No cloud sync.
 - No hosted Observatory.
 - No AI assist.
-- No real hardware instructions.
-- Not a validated fusion simulator.
-- Not a reactor design tool.
-- Not a real hardware control system.
+- Read-only decision support only.
+- No command/control actions.
+- No hazardous operating procedures.
+- Not a standalone authority for safety-critical operation or reactor design decisions.

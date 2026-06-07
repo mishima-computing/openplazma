@@ -27,5 +27,6 @@ Workshop boundary reminder:
 
 - No grading or scoring.
 - No public data ingestion.
-- No real hardware instructions.
-- No validated simulator claim.
+- No command/control actions.
+- No hazardous operating procedures.
+- No standalone safety-critical operation or reactor-design authority claim.

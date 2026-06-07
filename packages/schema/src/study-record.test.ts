@@ -83,6 +83,51 @@ describe("study record schemas", () => {
     expect(() => experimentContextSchema.parse(fixture.context)).toThrow();
   });
 
+  it("accepts read-only LOCAL_SIGNAL_FILE experiment context provenance", () => {
+    const context = {
+      kind: "openplazma.experiment_context",
+      version: "0.1.0",
+      contextId: "ctx-local-signal",
+      projectId: "openplazma-local",
+      datasetId: "local-sample",
+      description: "Read-only local signal import.",
+      safetyClassification: "read-only-local-signal",
+      createdAt: "2026-05-24T00:00:00.000Z",
+      target: {
+        type: "local_run_store",
+        id: ".openplazma",
+        label: "Local OpenPlazma RunStore"
+      },
+      source: {
+        provider: "LOCAL_SIGNAL_FILE",
+        sourceLabel: "Local CSV",
+        uri: "local-file:signal.csv",
+        sha256: "a".repeat(64),
+        validationStatus: "schema_validated"
+      },
+      capabilities: {
+        readData: true,
+        writeArtifacts: true,
+        runSimulation: false,
+        submitComputeJob: false,
+        readFacilityTelemetry: false,
+        controlFacility: false
+      },
+      shotRef: {
+        provider: "LOCAL_SIGNAL_FILE",
+        shotId: "local-sample"
+      },
+      signals: [{ signalId: "loop-voltage" }],
+      observations: [],
+      limitations: [
+        "LOCAL_SIGNAL_FILE read-only import.",
+        "Read-only analysis and decision support."
+      ]
+    };
+
+    expect(() => experimentContextSchema.parse(context)).not.toThrow();
+  });
+
   it("validates the static fixture manifest", () => {
     const fixturePath = join(process.cwd(), "data", "fixtures", "static", "manifest.json");
     const fixture = JSON.parse(readFileSync(fixturePath, "utf8")) as unknown;
