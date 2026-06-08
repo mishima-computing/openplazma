@@ -1,7 +1,9 @@
 import type { DiagnosticArray, RotationTrackPoint, SignalSeries } from "@openplazma/core";
 import { describe, expect, it } from "vitest";
 import {
+  analyzeElms,
   buildInferenceFromArray,
+  detectElmCrashes,
   detectModeLocking,
   estimatePoloidalModeNumber,
   estimateToroidalModeNumber,
@@ -157,5 +159,49 @@ describe("forward/inverse mode analysis", () => {
     const mid = track[Math.floor(track.length / 2)];
     expect(mid).toBeDefined();
     expect(Math.abs((mid?.rotationFreqHz ?? 0) - 2000)).toBeLessThan(200);
+  });
+});
+
+function dalphaSignal(periodSec: number, count: number, dt: number): SignalSeries {
+  const samples = Math.round((count + 1) * periodSec / dt);
+  const time: number[] = [];
+  const values: number[] = [];
+  for (let i = 0; i < samples; i += 1) {
+    const t = i * dt;
+    let v = 0.2;
+    for (let k = 1; k <= count; k += 1) {
+      const tc = k * periodSec;
+      v += 1.5 * Math.exp(-((t - tc) * (t - tc)) / (2 * (dt * 1.5) ** 2));
+    }
+    time.push(Number(t.toFixed(6)));
+    values.push(Number(v.toFixed(4)));
+  }
+  return {
+    kind: "openplazma.signal_series",
+    version: "0.1.0",
+    signalId: "d-alpha",
+    label: "D-alpha",
+    quantity: "photon_flux",
+    unit: "a.u.",
+    timeUnit: "s",
+    time,
+    values
+  };
+}
+
+describe("ELM analysis", () => {
+  it("detects periodic ELM crashes in a D-alpha signal", () => {
+    const series = dalphaSignal(0.01, 10, 1e-4);
+    const crashes = detectElmCrashes(series, { thresholdSigma: 1.5, minSpacingSec: 0.005 });
+    expect(crashes.length).toBe(10);
+  });
+
+  it("estimates ELM frequency and flags regular crashes as Type I", () => {
+    const series = dalphaSignal(0.01, 10, 1e-4); // 100 Hz cadence
+    const analysis = analyzeElms(series, { thresholdSigma: 1.5, minSpacingSec: 0.005 });
+    expect(Math.abs(analysis.elmFrequencyHz - 100)).toBeLessThan(10);
+    expect(analysis.regularity).toBeGreaterThan(0.9);
+    expect(analysis.classification).toBe("type_I");
+    expect(analysis.sourceSignalId).toBe("d-alpha");
   });
 });

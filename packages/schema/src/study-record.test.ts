@@ -35,6 +35,23 @@ describe("study record schemas", () => {
     expect(parsed.mhd?.observationModels[0]?.producedSignalIds).toHaveLength(8);
   });
 
+  it("validates the synthetic ELM H-mode fixture", () => {
+    const fixturePath = join(
+      process.cwd(),
+      "data",
+      "fixtures",
+      "static",
+      "elm-h-mode-001",
+      "study-record.json"
+    );
+    const fixture = JSON.parse(readFileSync(fixturePath, "utf8")) as unknown;
+
+    const parsed = studyRecordSchema.parse(fixture);
+    expect(parsed.mhd?.elmAnalyses?.[0]?.classification).toBe("type_I");
+    expect(parsed.mhd?.elmAnalyses?.[0]?.crashes).toHaveLength(10);
+    expect(parsed.mhd?.claims[0]?.elmAnalysisId).toBe("elm-d-alpha");
+  });
+
   it("accepts STATIC_FIXTURE provider and FAIR_MAST inspiration separately", () => {
     const fixturePath = join(
       process.cwd(),

@@ -1,6 +1,9 @@
 import type {
   DiagnosticArray,
   DiagnosticChannel,
+  ElmAnalysis,
+  ElmClassification,
+  ElmCrash,
   EvidenceLink,
   Inference,
   ModeNumberEstimate,
@@ -472,4 +475,114 @@ export function evaluateEvidence(
   }
 
   return links;
+}
+
+// ---------------------------------------------------------------------------
+// Edge-localised modes (ELMs)
+// ---------------------------------------------------------------------------
+
+function mean(values: number[]): number {
+  if (values.length === 0) {
+    return 0;
+  }
+  return values.reduce((sum, v) => sum + v, 0) / values.length;
+}
+
+function stddev(values: number[]): number {
+  if (values.length < 2) {
+    return 0;
+  }
+  const m = mean(values);
+  const variance = values.reduce((sum, v) => sum + (v - m) * (v - m), 0) / values.length;
+  return Math.sqrt(variance);
+}
+
+export interface ElmDetectOptions {
+  /** Crash threshold as mean + thresholdSigma * stddev of the signal. */
+  thresholdSigma?: number;
+  /** Minimum spacing between crashes, seconds (refractory period). */
+  minSpacingSec?: number;
+}
+
+/**
+ * Detect ELM crashes as sharp local maxima (e.g. in a D-alpha recycling-light
+ * signal) above an adaptive threshold, respecting a refractory spacing.
+ */
+export function detectElmCrashes(series: SignalSeries, options: ElmDetectOptions = {}): ElmCrash[] {
+  const { values, time } = series;
+  const n = values.length;
+  if (n < 3) {
+    return [];
+  }
+  const threshold = mean(values) + (options.thresholdSigma ?? 2) * stddev(values);
+  const dt = inferDt(time);
+  const minSpacing = options.minSpacingSec ?? 0;
+  const crashes: ElmCrash[] = [];
+  let lastTime = Number.NEGATIVE_INFINITY;
+  for (let i = 1; i < n - 1; i += 1) {
+    const v = values[i] ?? 0;
+    const prev = values[i - 1] ?? 0;
+    const next = values[i + 1] ?? 0;
+    if (v > threshold && v >= prev && v > next) {
+      const t = time[i] ?? i * dt;
+      if (t - lastTime >= minSpacing) {
+        crashes.push({ time: t, amplitude: v });
+        lastTime = t;
+      }
+    }
+  }
+  return crashes;
+}
+
+function classifyElms(frequencyHz: number, regularity: number): ElmClassification {
+  if (frequencyHz <= 0) {
+    return "unknown";
+  }
+  // Coarse heuristic: regular, well-separated crashes read as Type I;
+  // dense and irregular bursts read as Type III.
+  if (regularity >= 0.6) {
+    return "type_I";
+  }
+  if (frequencyHz > 200) {
+    return "type_III";
+  }
+  return "unknown";
+}
+
+export interface AnalyzeElmsOptions extends ElmDetectOptions {
+  analysisId?: string;
+  label?: string;
+}
+
+export function analyzeElms(series: SignalSeries, options: AnalyzeElmsOptions = {}): ElmAnalysis {
+  const crashes = detectElmCrashes(series, options);
+  const intervals: number[] = [];
+  for (let i = 1; i < crashes.length; i += 1) {
+    intervals.push((crashes[i]?.time ?? 0) - (crashes[i - 1]?.time ?? 0));
+  }
+  const meanInterval = mean(intervals);
+  const elmFrequencyHz = meanInterval > 0 ? 1 / meanInterval : 0;
+  const cv = meanInterval > 0 ? stddev(intervals) / meanInterval : 1;
+  const regularity = intervals.length === 0 ? 0 : Math.max(0, Math.min(1, 1 - cv));
+  const classification = classifyElms(elmFrequencyHz, regularity);
+
+  return {
+    kind: "openplazma.elm_analysis",
+    version: "0.1.0",
+    analysisId: options.analysisId ?? `elm-${series.signalId}`,
+    label: options.label ?? `ELM analysis on ${series.label}`,
+    sourceSignalId: series.signalId,
+    crashes,
+    elmFrequencyHz,
+    regularity,
+    classification,
+    assumptions: [
+      "Crashes appear as sharp positive spikes in the source signal.",
+      "Crash spacing reflects the ELM cycle."
+    ],
+    limitations: [
+      "Threshold-based detection can miss small crashes or merge close ones.",
+      "Classification is a coarse heuristic, not a pedestal-stability calculation."
+    ]
+  };
 }

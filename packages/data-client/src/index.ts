@@ -3,17 +3,19 @@ import { parseFixtureManifest, parseStudyRecord } from "@openplazma/schema";
 import fixtureManifestJson from "../../../data/fixtures/static/manifest.json";
 import sampleStudyRecordJson from "../../../data/fixtures/static/sample-001/study-record.json";
 import mhdStudyRecordJson from "../../../data/fixtures/static/mhd-mode-001/study-record.json";
+import elmStudyRecordJson from "../../../data/fixtures/static/elm-h-mode-001/study-record.json";
 
 export const staticFixtureManifest = parseFixtureManifest(fixtureManifestJson);
 export const sampleFixtureStudyRecord = parseStudyRecord(sampleStudyRecordJson);
 export const mhdFixtureStudyRecord = parseStudyRecord(mhdStudyRecordJson);
+export const elmFixtureStudyRecord = parseStudyRecord(elmStudyRecordJson);
 
 export class StaticFixtureDataSource implements FusionDataSource {
   private readonly records: Map<string, StudyRecord>;
   readonly manifest: FixtureManifest;
 
   constructor(
-    records: StudyRecord[] = [sampleFixtureStudyRecord, mhdFixtureStudyRecord],
+    records: StudyRecord[] = [sampleFixtureStudyRecord, mhdFixtureStudyRecord, elmFixtureStudyRecord],
     manifest = staticFixtureManifest
   ) {
     this.manifest = manifest;

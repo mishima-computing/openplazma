@@ -5,7 +5,7 @@ describe("StaticFixtureDataSource", () => {
   it("loads the bundled manifest and sample shot", async () => {
     const dataSource = new StaticFixtureDataSource();
 
-    await expect(dataSource.listShots()).resolves.toHaveLength(2);
+    await expect(dataSource.listShots()).resolves.toHaveLength(3);
     await expect(dataSource.getStudyRecord("sample-001")).resolves.toMatchObject({
       context: {
         datasetId: "static-fixture-v0",
@@ -34,6 +34,15 @@ describe("StaticFixtureDataSource", () => {
     expect(record?.mhd?.arrays[0]?.channels).toHaveLength(8);
     expect(record?.mhd?.claims[0]?.observationModelId).toBe("tm-2-1");
     expect(record?.mhd?.inferences[0]?.lockingDetected).toBe(true);
+  });
+
+  it("loads the synthetic ELM H-mode shot with its ELM analysis", async () => {
+    const dataSource = new StaticFixtureDataSource();
+
+    const record = await dataSource.getStudyRecord("elm-h-mode-001");
+    expect(record?.mhd?.elmAnalyses?.[0]?.classification).toBe("type_I");
+    expect(record?.mhd?.elmAnalyses?.[0]?.crashes).toHaveLength(10);
+    expect(record?.mhd?.claims[0]?.elmAnalysisId).toBe("elm-d-alpha");
   });
 
   it("returns null for an unknown shot", async () => {

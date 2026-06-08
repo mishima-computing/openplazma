@@ -40,7 +40,8 @@ const phenomenonEventSchema = z.object({
     "rotation_slowdown",
     "mode_locking",
     "current_quench",
-    "disruption"
+    "disruption",
+    "elm_crash"
   ]),
   label: z.string().min(1),
   timeRange: timeRangeSchema,
@@ -113,26 +114,56 @@ const claimSchema = z.object({
   version: versionSchema,
   claimId: z.string().min(1),
   statement: z.string().min(1),
-  observationModelId: z.string().min(1),
+  observationModelId: z.string().min(1).optional(),
   inferenceId: z.string().min(1).optional(),
+  elmAnalysisId: z.string().min(1).optional(),
   evidence: z.array(evidenceLinkSchema)
+});
+
+const elmCrashSchema = z.object({
+  time: z.number().finite(),
+  amplitude: z.number().finite()
+});
+
+const elmAnalysisSchema = z.object({
+  kind: z.literal("openplazma.elm_analysis"),
+  version: versionSchema,
+  analysisId: z.string().min(1),
+  label: z.string().min(1),
+  sourceSignalId: z.string().min(1),
+  crashes: z.array(elmCrashSchema),
+  elmFrequencyHz: z.number().finite().nonnegative(),
+  regularity: z.number().min(0).max(1),
+  classification: z.enum(["type_I", "type_III", "unknown"]),
+  assumptions: z.array(z.string().min(1)),
+  limitations: z.array(z.string().min(1))
 });
 
 export const mhdAnalysisBundleSchema = z
   .object({
     kind: z.literal("openplazma.mhd_analysis_bundle"),
     version: versionSchema,
-    arrays: z.array(diagnosticArraySchema).min(1),
+    arrays: z.array(diagnosticArraySchema),
     events: z.array(phenomenonEventSchema),
-    observationModels: z.array(observationModelSchema).min(1),
+    observationModels: z.array(observationModelSchema),
     inferences: z.array(inferenceSchema),
     claims: z.array(claimSchema),
-    provenanceKind: provenanceKindSchema
+    provenanceKind: provenanceKindSchema,
+    elmAnalyses: z.array(elmAnalysisSchema).optional()
   })
   .superRefine((bundle, ctx) => {
     const arrayIds = new Set(bundle.arrays.map((array) => array.arrayId));
     const modelIds = new Set(bundle.observationModels.map((model) => model.modelId));
     const inferenceIds = new Set(bundle.inferences.map((inference) => inference.inferenceId));
+    const elmIds = new Set((bundle.elmAnalyses ?? []).map((elm) => elm.analysisId));
+
+    if (bundle.arrays.length === 0 && bundle.observationModels.length === 0 && (bundle.elmAnalyses ?? []).length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "an MHD analysis bundle must contain at least one array, observation model, or ELM analysis",
+        path: []
+      });
+    }
 
     for (const model of bundle.observationModels) {
       if (!arrayIds.has(model.targetArrayId)) {
@@ -155,10 +186,28 @@ export const mhdAnalysisBundleSchema = z
     }
 
     for (const claim of bundle.claims) {
-      if (!modelIds.has(claim.observationModelId)) {
+      if (
+        claim.observationModelId === undefined &&
+        claim.inferenceId === undefined &&
+        claim.elmAnalysisId === undefined
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `claim '${claim.claimId}' must reference an observation model, inference, or ELM analysis`,
+          path: ["claims"]
+        });
+      }
+      if (claim.observationModelId !== undefined && !modelIds.has(claim.observationModelId)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: `claim '${claim.claimId}' references unknown observation model '${claim.observationModelId}'`,
+          path: ["claims"]
+        });
+      }
+      if (claim.elmAnalysisId !== undefined && !elmIds.has(claim.elmAnalysisId)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `claim '${claim.claimId}' references unknown ELM analysis '${claim.elmAnalysisId}'`,
           path: ["claims"]
         });
       }

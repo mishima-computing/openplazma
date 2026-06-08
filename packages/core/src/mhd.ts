@@ -53,7 +53,8 @@ export type PhenomenonKind =
   | "rotation_slowdown"
   | "mode_locking"
   | "current_quench"
-  | "disruption";
+  | "disruption"
+  | "elm_crash";
 
 export interface PhenomenonEvent {
   kind: "openplazma.phenomenon_event";
@@ -146,9 +147,41 @@ export interface Claim {
   version: "0.1.0";
   claimId: string;
   statement: string;
-  observationModelId: string;
+  /** Backing artifacts; a claim references at least one of these. */
+  observationModelId?: string | undefined;
   inferenceId?: string | undefined;
+  elmAnalysisId?: string | undefined;
   evidence: EvidenceLink[];
+}
+
+export interface ElmCrash {
+  /** Time of the ELM crash, seconds. */
+  time: number;
+  /** Crash amplitude in the source signal's units. */
+  amplitude: number;
+}
+
+export type ElmClassification = "type_I" | "type_III" | "unknown";
+
+/**
+ * Edge-localised mode (ELM) summary inferred from a recycling-light or
+ * divertor signal: the detected crashes, their repetition frequency, how
+ * regular they are, and a coarse classification.
+ */
+export interface ElmAnalysis {
+  kind: "openplazma.elm_analysis";
+  version: "0.1.0";
+  analysisId: string;
+  label: string;
+  /** SignalSeries.signalId the crashes were detected on (e.g. D-alpha). */
+  sourceSignalId: string;
+  crashes: ElmCrash[];
+  elmFrequencyHz: number;
+  /** 0..1, where 1 is perfectly periodic crash spacing. */
+  regularity: number;
+  classification: ElmClassification;
+  assumptions: string[];
+  limitations: string[];
 }
 
 export interface MhdAnalysisBundle {
@@ -160,4 +193,5 @@ export interface MhdAnalysisBundle {
   inferences: Inference[];
   claims: Claim[];
   provenanceKind: DataProvenanceKind;
+  elmAnalyses?: ElmAnalysis[] | undefined;
 }

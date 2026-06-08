@@ -1,6 +1,14 @@
 from .context import load_experiment_context, validate_experiment_context
 from .fixtures import load_static_signal
 from .local_signal import import_local_signal_csv
+from .mhd import validate_mhd_analysis_bundle
+from .mhd_analysis import (
+    analyze_elms,
+    detect_elm_crashes,
+    estimate_toroidal_mode_number,
+    forward_tearing_mode_signal,
+    goertzel_phase_amplitude,
+)
 from .observatory import (
     compare_runs,
     export_observatory_compare_html,
@@ -42,8 +50,14 @@ from .tasks import (
 )
 
 __all__ = [
+    "analyze_elms",
     "create_study_record",
     "compare_runs",
+    "detect_elm_crashes",
+    "estimate_toroidal_mode_number",
+    "forward_tearing_mode_signal",
+    "goertzel_phase_amplitude",
+    "validate_mhd_analysis_bundle",
     "export_observatory_compare_html",
     "export_observatory_html",
     "flow_expected_artifacts",

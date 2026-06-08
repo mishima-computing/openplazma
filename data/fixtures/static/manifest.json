@@ -12,6 +12,10 @@
     {
       "shotId": "mhd-mode-001",
       "path": "data/fixtures/static/mhd-mode-001/study-record.json"
+    },
+    {
+      "shotId": "elm-h-mode-001",
+      "path": "data/fixtures/static/elm-h-mode-001/study-record.json"
     }
   ]
 }

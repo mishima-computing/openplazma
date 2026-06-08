@@ -472,3 +472,14 @@ pre {
   color: #5b6872;
   font-size: 0.82rem;
 }
+
+.elm-section {
+  border-top: 1px solid #e0e7ea;
+  padding-top: 12px;
+  margin-top: 8px;
+}
+
+.elm-section h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}

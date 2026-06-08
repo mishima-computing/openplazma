@@ -299,6 +299,15 @@ export const studyRecordSchema = z
           }
         }
       }
+      for (const elm of record.mhd.elmAnalyses ?? []) {
+        if (!actualSignalIds.has(elm.sourceSignalId)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `ELM analysis '${elm.analysisId}' references missing signal '${elm.sourceSignalId}'`,
+            path: ["mhd", "elmAnalyses"]
+          });
+        }
+      }
     }
   });
 
