@@ -7,6 +7,7 @@ from typing import Any
 from ._json import load_json, save_json
 from ._validation import require_keys, require_list, require_mapping, require_string
 from .context import validate_experiment_context
+from .mhd import validate_mhd_analysis_bundle
 from .signals import validate_signal_series
 from .sources import validate_data_provider, validate_source_ref
 
@@ -191,10 +192,15 @@ def validate_study_record(record: dict[str, Any]) -> dict[str, Any]:
     if shot_ref["provider"] != record["source"]["provider"]:
         raise ValueError("StudyRecord.shotRef.provider must match StudyRecord.source.provider.")
     signal_ids = set(shot["signalIds"])
+    actual_signal_ids: set[str] = set()
     for index, signal in enumerate(signals):
         validated_signal = validate_signal_series(require_mapping(signal, f"StudyRecord.signals[{index}]"))
+        actual_signal_ids.add(validated_signal["signalId"])
         if validated_signal["signalId"] not in signal_ids:
             raise ValueError("StudyRecord.signals contains a signal not listed in shot.signalIds.")
+
+    if "mhd" in record and record["mhd"] is not None:
+        validate_mhd_analysis_bundle(require_mapping(record["mhd"], "StudyRecord.mhd"), actual_signal_ids)
 
     return record
 

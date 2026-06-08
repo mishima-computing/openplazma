@@ -1,3 +1,5 @@
+import type { MhdAnalysisBundle } from "./mhd";
+
 export type DataProvenanceKind = "fixture" | "measured" | "derived" | "synthetic";
 export type DataProvider = "STATIC_FIXTURE" | "LOCAL_SIGNAL_FILE";
 export type InspiredBySource = "FAIR_MAST";
@@ -121,6 +123,7 @@ export interface StudyRecord {
   context: ExperimentContext;
   shot: ShotMetadata;
   signals: SignalSeries[];
+  mhd?: MhdAnalysisBundle | undefined;
 }
 
 export interface FixtureManifest {
@@ -171,3 +174,28 @@ export type {
   StudyFlowStep,
   StudyFlowSurface
 } from "./study-flow";
+
+export type {
+  Claim,
+  DiagnosticArray,
+  DiagnosticArrayKind,
+  DiagnosticChannel,
+  DiagnosticKind,
+  ElmAnalysis,
+  ElmClassification,
+  ElmCrash,
+  EvidenceLink,
+  EvidenceVerdict,
+  Inference,
+  InferenceMethod,
+  MhdAnalysisBundle,
+  ModeEstimateMethod,
+  ModeNumberEstimate,
+  ObservationModel,
+  ObservationModelType,
+  PhenomenonEvent,
+  PhenomenonKind,
+  ProbeGeometry,
+  RotationTrackPoint,
+  TearingModeHypothesis
+} from "./mhd";

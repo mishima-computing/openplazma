@@ -8,6 +8,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@openplazma/analysis": "workspace:*",
     "@openplazma/core": "workspace:*",
     "@openplazma/data-client": "workspace:*",
     "@openplazma/schema": "workspace:*",

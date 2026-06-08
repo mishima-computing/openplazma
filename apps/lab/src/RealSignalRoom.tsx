@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ShotMetadata, StudyRecord } from "@openplazma/core";
 import { StaticFixtureDataSource } from "@openplazma/data-client";
 import { SignalChart } from "@openplazma/signal-viewer";
+import { MhdAnalysisPanel } from "./MhdAnalysisPanel";
 import { NotebookLauncherButton } from "./NotebookLauncherButton";
 import { ObservationNotebook } from "./ObservationNotebook";
 import {
@@ -163,6 +164,8 @@ export function RealSignalRoom() {
             onHypothesisChange={setHypothesis}
           />
         </section>
+
+        {record.mhd ? <MhdAnalysisPanel record={record} /> : null}
 
         <section className="panel export-panel" aria-labelledby="export-heading">
           <div className="panel-heading">

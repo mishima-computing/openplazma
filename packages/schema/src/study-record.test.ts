@@ -18,6 +18,40 @@ describe("study record schemas", () => {
     expect(() => studyRecordSchema.parse(fixture)).not.toThrow();
   });
 
+  it("validates the synthetic MHD mode fixture and its analysis bundle", () => {
+    const fixturePath = join(
+      process.cwd(),
+      "data",
+      "fixtures",
+      "static",
+      "mhd-mode-001",
+      "study-record.json"
+    );
+    const fixture = JSON.parse(readFileSync(fixturePath, "utf8")) as unknown;
+
+    const parsed = studyRecordSchema.parse(fixture);
+    expect(parsed.mhd?.provenanceKind).toBe("synthetic");
+    expect(parsed.mhd?.arrays[0]?.channels).toHaveLength(8);
+    expect(parsed.mhd?.observationModels[0]?.producedSignalIds).toHaveLength(8);
+  });
+
+  it("validates the synthetic ELM H-mode fixture", () => {
+    const fixturePath = join(
+      process.cwd(),
+      "data",
+      "fixtures",
+      "static",
+      "elm-h-mode-001",
+      "study-record.json"
+    );
+    const fixture = JSON.parse(readFileSync(fixturePath, "utf8")) as unknown;
+
+    const parsed = studyRecordSchema.parse(fixture);
+    expect(parsed.mhd?.elmAnalyses?.[0]?.classification).toBe("type_I");
+    expect(parsed.mhd?.elmAnalyses?.[0]?.crashes).toHaveLength(10);
+    expect(parsed.mhd?.claims[0]?.elmAnalysisId).toBe("elm-d-alpha");
+  });
+
   it("accepts STATIC_FIXTURE provider and FAIR_MAST inspiration separately", () => {
     const fixturePath = join(
       process.cwd(),
