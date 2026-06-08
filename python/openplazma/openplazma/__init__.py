@@ -1,16 +1,21 @@
 from .context import load_experiment_context, validate_experiment_context
 from .fixtures import load_static_signal
+from .local_array import import_mirnov_array_csv
 from .local_signal import import_local_signal_csv
 from .mhd import validate_mhd_analysis_bundle
 from .mhd_analysis import (
     analyze_elms,
+    build_inference_from_array,
     detect_elm_crashes,
+    detect_mode_locking,
     detect_periodic_crashes,
     detect_threshold_crossing,
+    dominant_frequency,
     estimate_ntm_island_width,
     estimate_toroidal_mode_number,
     forward_tearing_mode_signal,
     goertzel_phase_amplitude,
+    track_rotation_frequency,
 )
 from .observatory import (
     compare_runs,
@@ -54,15 +59,20 @@ from .tasks import (
 
 __all__ = [
     "analyze_elms",
+    "build_inference_from_array",
     "create_study_record",
     "compare_runs",
     "detect_elm_crashes",
+    "detect_mode_locking",
     "detect_periodic_crashes",
     "detect_threshold_crossing",
+    "dominant_frequency",
     "estimate_ntm_island_width",
     "estimate_toroidal_mode_number",
     "forward_tearing_mode_signal",
     "goertzel_phase_amplitude",
+    "import_mirnov_array_csv",
+    "track_rotation_frequency",
     "validate_mhd_analysis_bundle",
     "export_observatory_compare_html",
     "export_observatory_html",

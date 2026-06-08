@@ -117,6 +117,91 @@ def estimate_toroidal_mode_number(
     }
 
 
+def dominant_frequency(values: list[float], dt: float, max_freq_hz: float | None = None) -> float:
+    """Coarse grid scan + golden-ish refinement for the dominant component."""
+    n = len(values)
+    if n < 4 or dt <= 0:
+        return 0.0
+    nyquist = 1 / (2 * dt)
+    top = min(max_freq_hz, nyquist) if max_freq_hz is not None else nyquist
+    min_freq = 1 / (n * dt)
+    steps = 256
+    best_freq = min_freq
+    best_amp = -1.0
+    for s in range(steps + 1):
+        freq = min_freq + (top - min_freq) * s / steps
+        amp, _ = goertzel_phase_amplitude(values, dt, freq)
+        if amp > best_amp:
+            best_amp = amp
+            best_freq = freq
+    span = (top - min_freq) / steps
+    lo = max(min_freq, best_freq - span)
+    hi = min(top, best_freq + span)
+    for _ in range(20):
+        mid1 = lo + (hi - lo) / 3
+        mid2 = hi - (hi - lo) / 3
+        a1, _ = goertzel_phase_amplitude(values, dt, mid1)
+        a2, _ = goertzel_phase_amplitude(values, dt, mid2)
+        if a1 >= a2:
+            hi = mid2
+        else:
+            lo = mid1
+    return (lo + hi) / 2
+
+
+def _window_slice(time: list[float], values: list[float], window: tuple[float, float]) -> list[float]:
+    out = []
+    for t, v in zip(time, values):
+        if window[0] <= t <= window[1]:
+            out.append(v)
+    return out or values
+
+
+def track_rotation_frequency(
+    time: list[float],
+    reference_values: list[float],
+    window_samples: int | None = None,
+    step_samples: int | None = None,
+) -> list[dict[str, float]]:
+    dt = _infer_dt(time)
+    n = len(reference_values)
+    win = max(8, window_samples or n // 12)
+    step = max(1, step_samples or win // 2)
+    track: list[dict[str, float]] = []
+    start = 0
+    while start + win <= n:
+        chunk = reference_values[start : start + win]
+        freq = dominant_frequency(chunk, dt)
+        amp, _ = goertzel_phase_amplitude(chunk, dt, freq)
+        centre = start + win // 2
+        track.append({"time": time[centre] if centre < len(time) else 0.0, "rotationFreqHz": freq, "amplitude": amp})
+        start += step
+    return track
+
+
+def detect_mode_locking(
+    track: list[dict[str, float]],
+    lock_freq_threshold_hz: float | None = None,
+    min_amplitude_fraction: float = 0.3,
+) -> dict[str, Any]:
+    if not track:
+        return {"locked": False, "lockTimeRange": None}
+    peak_amp = max(p["amplitude"] for p in track)
+    amp_floor = peak_amp * min_amplitude_fraction
+    max_freq = max(p["rotationFreqHz"] for p in track)
+    threshold = lock_freq_threshold_hz if lock_freq_threshold_hz is not None else max(50.0, max_freq * 0.1)
+    lock_start = None
+    lock_end = None
+    for p in track:
+        if p["rotationFreqHz"] <= threshold and p["amplitude"] >= amp_floor:
+            if lock_start is None:
+                lock_start = p["time"]
+            lock_end = p["time"]
+    if lock_start is None or lock_end is None:
+        return {"locked": False, "lockTimeRange": None}
+    return {"locked": True, "lockTimeRange": [lock_start, lock_end]}
+
+
 def _mean(values: list[float]) -> float:
     return sum(values) / len(values) if values else 0.0
 
@@ -173,6 +258,61 @@ def detect_threshold_crossing(values: list[float], time: list[float], threshold:
 def estimate_ntm_island_width(amplitude: float, gain_m_per_sqrt_au: float = 1.0) -> float:
     """Island width ~ gain * sqrt(amplitude). Educational scaling only."""
     return gain_m_per_sqrt_au * math.sqrt(max(0.0, amplitude))
+
+
+def build_inference_from_array(
+    array: dict[str, Any],
+    signals: list[dict[str, Any]],
+    island_width_gain: float | None = None,
+    mode_window: tuple[float, float] | None = None,
+) -> dict[str, Any]:
+    """Estimate the toroidal mode number, rotation, and locking for an array."""
+    by_id = {s["signalId"]: s for s in signals}
+    channels = array["channels"]
+    ref = next((by_id[c["signalId"]] for c in channels if c["signalId"] in by_id), None)
+    if ref is None:
+        raise ValueError("build_inference_from_array: no channel signals found.")
+    time = [float(t) for t in ref["time"]]
+    dt = _infer_dt(time)
+    t0, t1 = time[0], time[-1]
+    window = mode_window or (t0, t0 + (t1 - t0) * 0.4)
+
+    angles = []
+    sliced = []
+    for channel in channels:
+        signal = by_id.get(channel["signalId"])
+        if signal is None:
+            continue
+        angles.append(float(channel["geometry"]["toroidalAngleRad"]))
+        sliced.append(_window_slice([float(t) for t in signal["time"]], [float(v) for v in signal["values"]], window))
+    freq = dominant_frequency(sliced[0], dt) if sliced else 0.0
+    mode_estimate = estimate_toroidal_mode_number(angles, sliced, dt, freq)
+
+    track = track_rotation_frequency(time, [float(v) for v in ref["values"]])
+    locking = detect_mode_locking(track)
+    nyquist_n = len(channels) // 2
+
+    if island_width_gain is not None:
+        peak_amp = max((p["amplitude"] for p in track), default=0.0)
+        mode_estimate["islandWidthM"] = estimate_ntm_island_width(peak_amp, island_width_gain)
+
+    return {
+        "kind": "openplazma.inference",
+        "version": "0.1.0",
+        "inferenceId": f"inf-{array['arrayId']}",
+        "label": f"Phase-fit mode estimate for {array['label']}",
+        "method": "magnetic_mode_phase_fit",
+        "sourceArrayId": array["arrayId"],
+        "modeEstimate": mode_estimate,
+        "rotationTrack": track,
+        "lockingDetected": locking["locked"],
+        "lockTimeRange": locking["lockTimeRange"],
+        "assumptions": ["Single dominant rotating mode within the analysis window."],
+        "limitations": [
+            f"Toroidal mode number resolved only up to |n| <= {nyquist_n} (Nyquist).",
+            "Rotation frequency estimated per window.",
+        ],
+    }
 
 
 def _classify_elms(frequency_hz: float, regularity: float) -> str:

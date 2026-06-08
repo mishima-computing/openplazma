@@ -385,6 +385,11 @@ export interface BuildInferenceOptions {
   modeWindow?: [number, number];
   rotation?: RotationTrackOptions;
   locking?: LockingOptions;
+  /**
+   * If set, estimate a magnetic-island width from the peak fluctuation
+   * amplitude using this calibration gain (metres per sqrt of a.u.).
+   */
+  islandWidthGain?: number;
 }
 
 export function buildInferenceFromArray(
@@ -400,10 +405,21 @@ export function buildInferenceFromArray(
   const fullEnd = ref?.time[ref.time.length - 1] ?? 1;
   const modeWindow = options.modeWindow ?? [fullStart, fullStart + (fullEnd - fullStart) * 0.4];
 
-  const modeEstimate = estimateToroidalModeNumber(array.channels, signals, modeWindow);
+  const baseEstimate = estimateToroidalModeNumber(array.channels, signals, modeWindow);
   const rotationTrack = trackRotationFrequency(array.channels, signals, options.rotation);
   const locking = detectModeLocking(rotationTrack, options.locking);
   const nyquistN = Math.floor(array.channels.length / 2);
+
+  const modeEstimate =
+    options.islandWidthGain === undefined
+      ? baseEstimate
+      : {
+          ...baseEstimate,
+          islandWidthM: estimateNtmIslandWidth(
+            rotationTrack.reduce((max, p) => Math.max(max, p.amplitude), 0),
+            options.islandWidthGain
+          )
+        };
 
   return {
     kind: "openplazma.inference",

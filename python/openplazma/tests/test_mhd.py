@@ -12,6 +12,7 @@ from openplazma import (
     estimate_ntm_island_width,
     estimate_toroidal_mode_number,
     forward_tearing_mode_signal,
+    import_mirnov_array_csv,
     load_study_record,
     validate_mhd_analysis_bundle,
 )
@@ -140,6 +141,40 @@ def test_detect_periodic_crashes_counts_sawteeth():
         values.append(v)
     crashes = detect_periodic_crashes(values, time, threshold_sigma=1.5, min_spacing_sec=0.002)
     assert len(crashes) == 12
+
+
+def test_import_mirnov_array_csv_recovers_mode(tmp_path):
+    channels = 8
+    dt = 1e-4
+    freq = 2000.0
+    samples = 2000
+    time = [i * dt for i in range(samples)]
+    angles = [(k * TWO_PI) / channels for k in range(channels)]
+    columns = {
+        f"probe{k + 1}": forward_tearing_mode_signal(0.0, angles[k], 2, 1, 1.0, freq, 0.3, time)
+        for k in range(channels)
+    }
+    csv_path = tmp_path / "mirnov.csv"
+    headers = ["time", *columns.keys()]
+    with csv_path.open("w", encoding="utf-8", newline="") as handle:
+        handle.write(",".join(headers) + "\n")
+        for i, t in enumerate(time):
+            row = [f"{t:.6f}"] + [f"{columns[c][i]:.6f}" for c in columns]
+            handle.write(",".join(row) + "\n")
+
+    probes = [
+        {"column": f"probe{k + 1}", "toroidalAngleRad": angles[k]}
+        for k in range(channels)
+    ]
+    result = import_mirnov_array_csv(csv_path, probes=probes, island_width_gain=0.05)
+
+    assert result["inference"]["modeEstimate"]["toroidalModeNumber"] == 1
+    assert result["inference"]["modeEstimate"]["islandWidthM"] > 0
+    assert result["context"]["source"]["provider"] == "LOCAL_SIGNAL_FILE"
+    assert result["context"]["capabilities"]["controlFacility"] is False
+    assert len(result["signals"]) == channels
+    # the returned bundle is already schema-validated by the importer
+    validate_mhd_analysis_bundle(result["mhd"], {s["signalId"] for s in result["signals"]})
 
 
 def test_bundle_rejects_dangling_claim():

@@ -148,6 +148,20 @@ describe("forward/inverse mode analysis", () => {
     expect(inference.modeEstimate.toroidalModeNumber).toBe(1);
     expect(inference.rotationTrack.length).toBeGreaterThan(0);
     expect(inference.limitations.join(" ")).toContain("Nyquist");
+    expect(inference.modeEstimate.islandWidthM).toBeUndefined();
+  });
+
+  it("includes an island-width estimate when a calibration gain is given", () => {
+    const array = toroidalArray(8);
+    const time = timeGrid(2000, 1e-5);
+    const signals = forwardTearingModeSignals(
+      array,
+      { poloidalModeNumber: 3, toroidalModeNumber: 2, amplitude: 1.5, rotationFreqHz: 2000, phaseRad: 0, timeRange: [0, 0.02] },
+      time
+    ).map((s, k) => ({ ...s, signalId: `mirnov-${k}` }));
+
+    const inference = buildInferenceFromArray(array, signals, { islandWidthGain: 0.05 });
+    expect(inference.modeEstimate.islandWidthM).toBeGreaterThan(0);
   });
 
   it("tracks rotation frequency near the imprinted value", () => {
