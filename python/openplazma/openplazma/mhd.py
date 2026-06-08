@@ -19,6 +19,11 @@ _PHENOMENA = {
     "current_quench",
     "disruption",
     "elm_crash",
+    "sawtooth_crash",
+    "ntm_onset",
+    "ntm_saturation",
+    "radiative_collapse",
+    "density_limit",
 }
 _VERDICTS = {"support", "contradict", "inconclusive"}
 
@@ -142,7 +147,7 @@ def _validate_elm(elm: dict[str, Any], name: str) -> None:
     require_list(elm["crashes"], f"{name}.crashes")
 
 
-def _validate_claim(claim: dict[str, Any], name: str, model_ids: set[str], inference_ids: set[str], elm_ids: set[str], array_ids: set[str]) -> None:
+def _validate_claim(claim: dict[str, Any], name: str, model_ids: set[str], inference_ids: set[str], elm_ids: set[str], array_ids: set[str], event_ids: set[str]) -> None:
     require_keys(claim, ["kind", "version", "claimId", "statement", "evidence"], name)
     if claim["kind"] != "openplazma.claim":
         raise ValueError(f"{name}.kind must be openplazma.claim.")
@@ -152,14 +157,18 @@ def _validate_claim(claim: dict[str, Any], name: str, model_ids: set[str], infer
     model_id = claim.get("observationModelId")
     inference_id = claim.get("inferenceId")
     elm_id = claim.get("elmAnalysisId")
-    if model_id is None and inference_id is None and elm_id is None:
-        raise ValueError(f"{name} must reference an observation model, inference, or ELM analysis.")
+    claim_event_ids = claim.get("eventIds") or []
+    if model_id is None and inference_id is None and elm_id is None and not claim_event_ids:
+        raise ValueError(f"{name} must reference an observation model, inference, ELM analysis, or events.")
     if model_id is not None and model_id not in model_ids:
         raise ValueError(f"{name} references unknown observation model '{model_id}'.")
     if inference_id is not None and inference_id not in inference_ids:
         raise ValueError(f"{name} references unknown inference '{inference_id}'.")
     if elm_id is not None and elm_id not in elm_ids:
         raise ValueError(f"{name} references unknown ELM analysis '{elm_id}'.")
+    for event_id in claim_event_ids:
+        if event_id not in event_ids:
+            raise ValueError(f"{name} references unknown event '{event_id}'.")
     for index, link in enumerate(require_list(claim["evidence"], f"{name}.evidence")):
         link_map = require_mapping(link, f"{name}.evidence[{index}]")
         require_keys(link_map, ["kind", "version", "verdict", "timeRange", "rationale"], f"{name}.evidence[{index}]")
@@ -190,8 +199,8 @@ def validate_mhd_analysis_bundle(bundle: dict[str, Any], signal_ids: set[str] | 
     if elms is not None:
         elms = require_list(elms, "MhdAnalysisBundle.elmAnalyses")
 
-    if len(arrays) == 0 and len(models) == 0 and not elms:
-        raise ValueError("MhdAnalysisBundle must contain at least one array, observation model, or ELM analysis.")
+    if len(arrays) == 0 and len(models) == 0 and len(inferences) == 0 and len(events) == 0 and len(claims) == 0 and not elms:
+        raise ValueError("MhdAnalysisBundle must contain at least one array, model, inference, ELM analysis, event, or claim.")
 
     for index, array in enumerate(arrays):
         _validate_array(require_mapping(array, f"MhdAnalysisBundle.arrays[{index}]"), f"MhdAnalysisBundle.arrays[{index}]")
@@ -208,6 +217,7 @@ def validate_mhd_analysis_bundle(bundle: dict[str, Any], signal_ids: set[str] | 
     model_ids = {model["modelId"] for model in models}
     inference_ids = {inference["inferenceId"] for inference in inferences}
     elm_ids = {elm["analysisId"] for elm in (elms or [])}
+    event_ids = {event["eventId"] for event in events}
 
     for model in models:
         if model["targetArrayId"] not in array_ids:
@@ -216,7 +226,7 @@ def validate_mhd_analysis_bundle(bundle: dict[str, Any], signal_ids: set[str] | 
         if inference["sourceArrayId"] not in array_ids:
             raise ValueError(f"inference '{inference['inferenceId']}' references unknown array '{inference['sourceArrayId']}'.")
     for index, claim in enumerate(claims):
-        _validate_claim(require_mapping(claim, f"MhdAnalysisBundle.claims[{index}]"), f"MhdAnalysisBundle.claims[{index}]", model_ids, inference_ids, elm_ids, array_ids)
+        _validate_claim(require_mapping(claim, f"MhdAnalysisBundle.claims[{index}]"), f"MhdAnalysisBundle.claims[{index}]", model_ids, inference_ids, elm_ids, array_ids, event_ids)
 
     if signal_ids is not None:
         for array in arrays:

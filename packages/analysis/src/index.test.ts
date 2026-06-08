@@ -3,8 +3,12 @@ import { describe, expect, it } from "vitest";
 import {
   analyzeElms,
   buildInferenceFromArray,
+  crashStats,
   detectElmCrashes,
   detectModeLocking,
+  detectPeriodicCrashes,
+  detectThresholdCrossing,
+  estimateNtmIslandWidth,
   estimatePoloidalModeNumber,
   estimateToroidalModeNumber,
   forwardTearingModeSignals,
@@ -203,5 +207,40 @@ describe("ELM analysis", () => {
     expect(analysis.regularity).toBeGreaterThan(0.9);
     expect(analysis.classification).toBe("type_I");
     expect(analysis.sourceSignalId).toBe("d-alpha");
+  });
+});
+
+describe("sawtooth / threshold / island helpers", () => {
+  it("detects periodic sawtooth crashes and their frequency", () => {
+    const series = { ...dalphaSignal(0.004, 12, 1e-4), signalId: "sxr-core", label: "Central SXR" };
+    const crashes = detectPeriodicCrashes(series, { thresholdSigma: 1.5, minSpacingSec: 0.002 });
+    expect(crashes.length).toBe(12);
+    const stats = crashStats(crashes);
+    expect(Math.abs(stats.frequencyHz - 250)).toBeLessThan(25); // 1 / 0.004 s
+    expect(stats.regularity).toBeGreaterThan(0.9);
+  });
+
+  it("finds the first threshold crossing of a rising signal", () => {
+    const time = Array.from({ length: 11 }, (_, i) => Number((i * 0.01).toFixed(3)));
+    const values = time.map((_, i) => i / 10); // 0 .. 1.0
+    const series: SignalSeries = {
+      kind: "openplazma.signal_series",
+      version: "0.1.0",
+      signalId: "f-rad",
+      label: "Radiated fraction",
+      quantity: "fraction",
+      unit: "",
+      timeUnit: "s",
+      time,
+      values
+    };
+    const crossing = detectThresholdCrossing(series, 0.8);
+    expect(crossing.crossed).toBe(true);
+    expect(crossing.time).toBeCloseTo(0.08, 5);
+  });
+
+  it("scales island width as sqrt of amplitude", () => {
+    expect(estimateNtmIslandWidth(0)).toBe(0);
+    expect(estimateNtmIslandWidth(4, 0.03)).toBeCloseTo(0.06, 6);
   });
 });

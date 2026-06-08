@@ -128,12 +128,13 @@ def _stddev(values: list[float]) -> float:
     return math.sqrt(sum((v - m) ** 2 for v in values) / len(values))
 
 
-def detect_elm_crashes(
+def detect_periodic_crashes(
     values: list[float],
     time: list[float],
     threshold_sigma: float = 2.0,
     min_spacing_sec: float = 0.0,
 ) -> list[dict[str, float]]:
+    """Sharp local maxima above an adaptive threshold (ELM or sawtooth crashes)."""
     n = len(values)
     if n < 3:
         return []
@@ -149,6 +150,29 @@ def detect_elm_crashes(
                 crashes.append({"time": t, "amplitude": v})
                 last_time = t
     return crashes
+
+
+def detect_elm_crashes(
+    values: list[float],
+    time: list[float],
+    threshold_sigma: float = 2.0,
+    min_spacing_sec: float = 0.0,
+) -> list[dict[str, float]]:
+    """Alias of :func:`detect_periodic_crashes` for ELM call sites."""
+    return detect_periodic_crashes(values, time, threshold_sigma, min_spacing_sec)
+
+
+def detect_threshold_crossing(values: list[float], time: list[float], threshold: float) -> dict[str, Any]:
+    """First time the signal rises to or above ``threshold``."""
+    for i, v in enumerate(values):
+        if v >= threshold:
+            return {"crossed": True, "time": time[i] if i < len(time) else None}
+    return {"crossed": False, "time": None}
+
+
+def estimate_ntm_island_width(amplitude: float, gain_m_per_sqrt_au: float = 1.0) -> float:
+    """Island width ~ gain * sqrt(amplitude). Educational scaling only."""
+    return gain_m_per_sqrt_au * math.sqrt(max(0.0, amplitude))
 
 
 def _classify_elms(frequency_hz: float, regularity: float) -> str:

@@ -7,6 +7,9 @@ import pytest
 
 from openplazma import (
     analyze_elms,
+    detect_periodic_crashes,
+    detect_threshold_crossing,
+    estimate_ntm_island_width,
     estimate_toroidal_mode_number,
     forward_tearing_mode_signal,
     load_study_record,
@@ -14,8 +17,12 @@ from openplazma import (
 )
 
 REPO_ROOT = Path(__file__).parents[3]
-MHD_FIXTURE = REPO_ROOT / "data" / "fixtures" / "static" / "mhd-mode-001" / "study-record.json"
-ELM_FIXTURE = REPO_ROOT / "data" / "fixtures" / "static" / "elm-h-mode-001" / "study-record.json"
+STATIC = REPO_ROOT / "data" / "fixtures" / "static"
+MHD_FIXTURE = STATIC / "mhd-mode-001" / "study-record.json"
+ELM_FIXTURE = STATIC / "elm-h-mode-001" / "study-record.json"
+SAWTOOTH_FIXTURE = STATIC / "sawtooth-001" / "study-record.json"
+NTM_FIXTURE = STATIC / "ntm-3-2-001" / "study-record.json"
+DENSITY_FIXTURE = STATIC / "density-limit-001" / "study-record.json"
 
 TWO_PI = 2 * math.pi
 
@@ -91,6 +98,48 @@ def test_analyze_elms_recovers_frequency_and_type():
     assert abs(analysis["elmFrequencyHz"] - 100) < 10
     assert analysis["classification"] == "type_I"
     assert len(analysis["crashes"]) == 10
+
+
+def test_phenomenon_fixtures_validate():
+    sawtooth = load_study_record(SAWTOOTH_FIXTURE)
+    assert all(e["phenomenon"] == "sawtooth_crash" for e in sawtooth["mhd"]["events"])
+    assert len(sawtooth["mhd"]["claims"][0]["eventIds"]) == 12
+
+    ntm = load_study_record(NTM_FIXTURE)
+    estimate = ntm["mhd"]["inferences"][0]["modeEstimate"]
+    assert estimate["toroidalModeNumber"] == 2
+    assert estimate["islandWidthM"] > 0
+    assert ntm["mhd"]["inferences"][0]["lockingDetected"] is False
+
+    density = load_study_record(DENSITY_FIXTURE)
+    phenomena = {e["phenomenon"] for e in density["mhd"]["events"]}
+    assert "density_limit" in phenomena
+    assert "radiative_collapse" in phenomena
+
+
+def test_detect_threshold_and_island():
+    crossing = detect_threshold_crossing([0.1, 0.5, 0.9], [0.0, 0.1, 0.2], 0.8)
+    assert crossing["crossed"] is True
+    assert crossing["time"] == pytest.approx(0.2)
+    assert estimate_ntm_island_width(4.0, 0.03) == pytest.approx(0.06)
+
+
+def test_detect_periodic_crashes_counts_sawteeth():
+    dt = 1e-4
+    period = 0.004
+    count = 12
+    width = dt * 1.5
+    samples = int((count + 1) * period / dt)
+    time = [i * dt for i in range(samples)]
+    crash_times = [(k + 1) * period for k in range(count)]
+    values = []
+    for t in time:
+        v = 0.2
+        for tc in crash_times:
+            v += 1.5 * math.exp(-((t - tc) ** 2) / (2 * width * width))
+        values.append(v)
+    crashes = detect_periodic_crashes(values, time, threshold_sigma=1.5, min_spacing_sec=0.002)
+    assert len(crashes) == 12
 
 
 def test_bundle_rejects_dangling_claim():

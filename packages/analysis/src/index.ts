@@ -497,18 +497,22 @@ function stddev(values: number[]): number {
   return Math.sqrt(variance);
 }
 
-export interface ElmDetectOptions {
+export interface CrashDetectOptions {
   /** Crash threshold as mean + thresholdSigma * stddev of the signal. */
   thresholdSigma?: number;
   /** Minimum spacing between crashes, seconds (refractory period). */
   minSpacingSec?: number;
 }
 
+/** Backwards-compatible alias for ELM-specific call sites. */
+export type ElmDetectOptions = CrashDetectOptions;
+
 /**
- * Detect ELM crashes as sharp local maxima (e.g. in a D-alpha recycling-light
- * signal) above an adaptive threshold, respecting a refractory spacing.
+ * Detect periodic crashes as sharp local maxima above an adaptive threshold,
+ * respecting a refractory spacing. Shared by ELM (D-alpha) and sawtooth
+ * (central soft-X-ray) detection.
  */
-export function detectElmCrashes(series: SignalSeries, options: ElmDetectOptions = {}): ElmCrash[] {
+export function detectPeriodicCrashes(series: SignalSeries, options: CrashDetectOptions = {}): ElmCrash[] {
   const { values, time } = series;
   const n = values.length;
   if (n < 3) {
@@ -534,6 +538,54 @@ export function detectElmCrashes(series: SignalSeries, options: ElmDetectOptions
   return crashes;
 }
 
+/** Detect ELM crashes (alias of {@link detectPeriodicCrashes}). */
+export function detectElmCrashes(series: SignalSeries, options: ElmDetectOptions = {}): ElmCrash[] {
+  return detectPeriodicCrashes(series, options);
+}
+
+export interface CrashStats {
+  frequencyHz: number;
+  /** 0..1, where 1 is perfectly periodic crash spacing. */
+  regularity: number;
+}
+
+/** Repetition frequency and regularity of a crash train. */
+export function crashStats(crashes: ElmCrash[]): CrashStats {
+  const intervals: number[] = [];
+  for (let i = 1; i < crashes.length; i += 1) {
+    intervals.push((crashes[i]?.time ?? 0) - (crashes[i - 1]?.time ?? 0));
+  }
+  const meanInterval = mean(intervals);
+  const frequencyHz = meanInterval > 0 ? 1 / meanInterval : 0;
+  const cv = meanInterval > 0 ? stddev(intervals) / meanInterval : 1;
+  const regularity = intervals.length === 0 ? 0 : Math.max(0, Math.min(1, 1 - cv));
+  return { frequencyHz, regularity };
+}
+
+export interface ThresholdCrossing {
+  crossed: boolean;
+  time?: number | undefined;
+}
+
+/** First time the signal rises to or above a threshold (e.g. radiated fraction -> 1). */
+export function detectThresholdCrossing(series: SignalSeries, threshold: number): ThresholdCrossing {
+  for (let i = 0; i < series.values.length; i += 1) {
+    if ((series.values[i] ?? Number.NEGATIVE_INFINITY) >= threshold) {
+      return { crossed: true, time: series.time[i] };
+    }
+  }
+  return { crossed: false };
+}
+
+/**
+ * Estimate a magnetic-island width from a fluctuation amplitude. Island width
+ * scales as sqrt of the perturbed field, so this is width ~ gain * sqrt(amp).
+ * Educational scaling only, not a calibrated reconstruction.
+ */
+export function estimateNtmIslandWidth(amplitude: number, gainMPerSqrtAu = 1): number {
+  return gainMPerSqrtAu * Math.sqrt(Math.max(0, amplitude));
+}
+
 function classifyElms(frequencyHz: number, regularity: number): ElmClassification {
   if (frequencyHz <= 0) {
     return "unknown";
@@ -556,14 +608,7 @@ export interface AnalyzeElmsOptions extends ElmDetectOptions {
 
 export function analyzeElms(series: SignalSeries, options: AnalyzeElmsOptions = {}): ElmAnalysis {
   const crashes = detectElmCrashes(series, options);
-  const intervals: number[] = [];
-  for (let i = 1; i < crashes.length; i += 1) {
-    intervals.push((crashes[i]?.time ?? 0) - (crashes[i - 1]?.time ?? 0));
-  }
-  const meanInterval = mean(intervals);
-  const elmFrequencyHz = meanInterval > 0 ? 1 / meanInterval : 0;
-  const cv = meanInterval > 0 ? stddev(intervals) / meanInterval : 1;
-  const regularity = intervals.length === 0 ? 0 : Math.max(0, Math.min(1, 1 - cv));
+  const { frequencyHz: elmFrequencyHz, regularity } = crashStats(crashes);
   const classification = classifyElms(elmFrequencyHz, regularity);
 
   return {

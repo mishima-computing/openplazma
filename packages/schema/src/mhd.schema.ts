@@ -41,7 +41,12 @@ const phenomenonEventSchema = z.object({
     "mode_locking",
     "current_quench",
     "disruption",
-    "elm_crash"
+    "elm_crash",
+    "sawtooth_crash",
+    "ntm_onset",
+    "ntm_saturation",
+    "radiative_collapse",
+    "density_limit"
   ]),
   label: z.string().min(1),
   timeRange: timeRangeSchema,
@@ -75,7 +80,8 @@ const modeNumberEstimateSchema = z.object({
   toroidalModeNumber: z.number().int(),
   poloidalModeNumber: z.number().int().optional(),
   confidence: z.number().min(0).max(1),
-  method: z.enum(["phase_fit_toroidal", "phase_fit_poloidal"])
+  method: z.enum(["phase_fit_toroidal", "phase_fit_poloidal"]),
+  islandWidthM: z.number().finite().nonnegative().optional()
 });
 
 const rotationTrackPointSchema = z.object({
@@ -117,6 +123,7 @@ const claimSchema = z.object({
   observationModelId: z.string().min(1).optional(),
   inferenceId: z.string().min(1).optional(),
   elmAnalysisId: z.string().min(1).optional(),
+  eventIds: z.array(z.string().min(1)).optional(),
   evidence: z.array(evidenceLinkSchema)
 });
 
@@ -156,11 +163,19 @@ export const mhdAnalysisBundleSchema = z
     const modelIds = new Set(bundle.observationModels.map((model) => model.modelId));
     const inferenceIds = new Set(bundle.inferences.map((inference) => inference.inferenceId));
     const elmIds = new Set((bundle.elmAnalyses ?? []).map((elm) => elm.analysisId));
+    const eventIds = new Set(bundle.events.map((event) => event.eventId));
 
-    if (bundle.arrays.length === 0 && bundle.observationModels.length === 0 && (bundle.elmAnalyses ?? []).length === 0) {
+    const isEmpty =
+      bundle.arrays.length === 0 &&
+      bundle.observationModels.length === 0 &&
+      bundle.inferences.length === 0 &&
+      bundle.events.length === 0 &&
+      bundle.claims.length === 0 &&
+      (bundle.elmAnalyses ?? []).length === 0;
+    if (isEmpty) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "an MHD analysis bundle must contain at least one array, observation model, or ELM analysis",
+        message: "an MHD analysis bundle must contain at least one array, model, inference, ELM analysis, event, or claim",
         path: []
       });
     }
@@ -189,13 +204,23 @@ export const mhdAnalysisBundleSchema = z
       if (
         claim.observationModelId === undefined &&
         claim.inferenceId === undefined &&
-        claim.elmAnalysisId === undefined
+        claim.elmAnalysisId === undefined &&
+        (claim.eventIds ?? []).length === 0
       ) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: `claim '${claim.claimId}' must reference an observation model, inference, or ELM analysis`,
+          message: `claim '${claim.claimId}' must reference an observation model, inference, ELM analysis, or events`,
           path: ["claims"]
         });
+      }
+      for (const eventId of claim.eventIds ?? []) {
+        if (!eventIds.has(eventId)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `claim '${claim.claimId}' references unknown event '${eventId}'`,
+            path: ["claims"]
+          });
+        }
       }
       if (claim.observationModelId !== undefined && !modelIds.has(claim.observationModelId)) {
         ctx.addIssue({

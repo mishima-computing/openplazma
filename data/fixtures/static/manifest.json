@@ -16,6 +16,18 @@
     {
       "shotId": "elm-h-mode-001",
       "path": "data/fixtures/static/elm-h-mode-001/study-record.json"
+    },
+    {
+      "shotId": "sawtooth-001",
+      "path": "data/fixtures/static/sawtooth-001/study-record.json"
+    },
+    {
+      "shotId": "ntm-3-2-001",
+      "path": "data/fixtures/static/ntm-3-2-001/study-record.json"
+    },
+    {
+      "shotId": "density-limit-001",
+      "path": "data/fixtures/static/density-limit-001/study-record.json"
     }
   ]
 }

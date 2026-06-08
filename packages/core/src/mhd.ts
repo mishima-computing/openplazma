@@ -54,7 +54,12 @@ export type PhenomenonKind =
   | "mode_locking"
   | "current_quench"
   | "disruption"
-  | "elm_crash";
+  | "elm_crash"
+  | "sawtooth_crash"
+  | "ntm_onset"
+  | "ntm_saturation"
+  | "radiative_collapse"
+  | "density_limit";
 
 export interface PhenomenonEvent {
   kind: "openplazma.phenomenon_event";
@@ -105,6 +110,8 @@ export interface ModeNumberEstimate {
   /** 0..1 confidence derived from the phase-fit residual. */
   confidence: number;
   method: ModeEstimateMethod;
+  /** Estimated magnetic-island width in metres (e.g. for NTMs). */
+  islandWidthM?: number | undefined;
 }
 
 export interface RotationTrackPoint {
@@ -151,6 +158,8 @@ export interface Claim {
   observationModelId?: string | undefined;
   inferenceId?: string | undefined;
   elmAnalysisId?: string | undefined;
+  /** PhenomenonEvent.eventId values this claim rests on. */
+  eventIds?: string[] | undefined;
   evidence: EvidenceLink[];
 }
 

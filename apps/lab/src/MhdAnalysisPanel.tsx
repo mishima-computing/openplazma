@@ -95,6 +95,29 @@ export function MhdAnalysisPanel({ record }: { record: StudyRecord }) {
     return buildInferenceFromArray(array, coilSignals);
   }, [array, coilSignals]);
 
+  // For event-driven shots (sawtooth, density limit) pick the signal most events
+  // point at, and show it with the timeline markers.
+  const overviewSignal = useMemo(() => {
+    if (!mhd) {
+      return null;
+    }
+    const counts = new Map<string, number>();
+    for (const event of mhd.events) {
+      if (event.signalId) {
+        counts.set(event.signalId, (counts.get(event.signalId) ?? 0) + 1);
+      }
+    }
+    let bestId = record.signalsViewed[0]?.signalId ?? record.signals[0]?.signalId ?? "";
+    let best = -1;
+    for (const [id, count] of counts) {
+      if (count > best) {
+        best = count;
+        bestId = id;
+      }
+    }
+    return record.signals.find((s) => s.signalId === bestId) ?? null;
+  }, [mhd, record.signals, record.signalsViewed]);
+
   if (!mhd) {
     return null;
   }
@@ -111,16 +134,20 @@ export function MhdAnalysisPanel({ record }: { record: StudyRecord }) {
       <div className="panel-heading">
         <div>
           <p className="eyebrow">Post-ignition dynamics</p>
-          <h2 id="mhd-heading">{array ? "MHD mode analysis" : "Edge instability analysis"}</h2>
+          <h2 id="mhd-heading">
+            {array ? "MHD mode analysis" : headerElm ? "Edge instability analysis" : "Event & instability analysis"}
+          </h2>
         </div>
         {array ? (
           <span className={stored?.lockingDetected ? "mhd-badge is-locked" : "mhd-badge"}>
-            {stored?.lockingDetected ? "Mode locking detected" : "No locking"}
+            {stored?.lockingDetected ? "Mode locking detected" : "Rotating, no locking"}
           </span>
         ) : headerElm ? (
           <span className="mhd-badge is-locked">
             {headerElm.classification.replace("_", "-")} ELMs @ {headerElm.elmFrequencyHz.toFixed(0)} Hz
           </span>
+        ) : mhd.events.length > 0 ? (
+          <span className="mhd-badge">{mhd.events.length} events</span>
         ) : null}
       </div>
 
@@ -152,8 +179,18 @@ export function MhdAnalysisPanel({ record }: { record: StudyRecord }) {
                 {liveInference ? <small> · locking {liveInference.lockingDetected ? "yes" : "no"}</small> : null}
               </dd>
             </div>
+            {stored?.modeEstimate.islandWidthM != null ? (
+              <div>
+                <dt>Island width</dt>
+                <dd>{(stored.modeEstimate.islandWidthM * 100).toFixed(1)} cm</dd>
+              </div>
+            ) : null}
           </dl>
         </>
+      ) : null}
+
+      {!array && elmAnalyses.length === 0 && overviewSignal ? (
+        <SignalChart series={overviewSignal} markers={markers} height={180} />
       ) : null}
 
       {elmAnalyses.map((analysis) => (
