@@ -6,6 +6,7 @@ import type {
   SignalSeries,
   StudyRecord
 } from "@openplazma/core";
+import { mhdAnalysisBundleSchema } from "./mhd.schema";
 
 const isoDateTimeSchema = z.string().datetime({ offset: true });
 const versionSchema = z.literal("0.1.0");
@@ -229,7 +230,8 @@ export const studyRecordSchema = z
     limitations: z.array(z.string().min(1)).min(1),
     context: experimentContextSchema,
     shot: shotMetadataSchema,
-    signals: z.array(signalSeriesSchema).min(1)
+    signals: z.array(signalSeriesSchema).min(1),
+    mhd: mhdAnalysisBundleSchema.optional()
   })
   .superRefine((record, ctx) => {
     const declaredSignalIds = new Set(record.shot.signalIds);
@@ -271,6 +273,31 @@ export const studyRecordSchema = z
           message: `viewed signal '${signalId}' is not included in signals`,
           path: ["signalsViewed"]
         });
+      }
+    }
+
+    if (record.mhd) {
+      for (const array of record.mhd.arrays) {
+        for (const channel of array.channels) {
+          if (!actualSignalIds.has(channel.signalId)) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `diagnostic channel '${channel.channelId}' references missing signal '${channel.signalId}'`,
+              path: ["mhd", "arrays"]
+            });
+          }
+        }
+      }
+      for (const model of record.mhd.observationModels) {
+        for (const signalId of model.producedSignalIds) {
+          if (!actualSignalIds.has(signalId)) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `observation model '${model.modelId}' produced signal '${signalId}' is not included in signals`,
+              path: ["mhd", "observationModels"]
+            });
+          }
+        }
       }
     }
   });
@@ -331,3 +358,5 @@ export {
   studyFlowManifestSchema,
   studyFlowSchema
 } from "./study-flow.schema";
+
+export { mhdAnalysisBundleSchema, parseMhdAnalysisBundle } from "./mhd.schema";

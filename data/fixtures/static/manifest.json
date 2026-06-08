@@ -8,6 +8,10 @@
     {
       "shotId": "sample-001",
       "path": "data/fixtures/static/sample-001/study-record.json"
+    },
+    {
+      "shotId": "mhd-mode-001",
+      "path": "data/fixtures/static/mhd-mode-001/study-record.json"
     }
   ]
 }

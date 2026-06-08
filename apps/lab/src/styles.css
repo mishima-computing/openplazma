@@ -319,3 +319,156 @@ pre {
     justify-content: flex-start;
   }
 }
+
+/* MHD mode-analysis panel */
+.mhd-panel {
+  grid-column: 1 / -1;
+}
+
+.signal-overlay {
+  stroke: #94a3b8;
+  stroke-width: 1.5;
+  stroke-dasharray: 4 4;
+}
+
+.signal-marker line {
+  stroke: #b91c1c;
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.signal-marker text {
+  fill: #b91c1c;
+  font-size: 9px;
+}
+
+.mirnov-array-chart figcaption {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.mirnov-array-chart figcaption span {
+  color: #5b6872;
+  font-size: 0.86rem;
+}
+
+.mirnov-array-chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.mirnov-array-chart polyline {
+  stroke: #0f766e;
+  stroke-width: 1.5;
+}
+
+.mirnov-row-label {
+  fill: #5b6872;
+  font-size: 8px;
+}
+
+.mhd-badge {
+  align-self: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.mhd-badge.is-locked {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.mhd-estimate-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.mhd-estimate-grid dt {
+  color: #5b6872;
+  font-size: 0.8rem;
+}
+
+.mhd-estimate-grid dd {
+  margin: 2px 0 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.mhd-estimate-grid small {
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: #5b6872;
+}
+
+.mhd-claim {
+  border-top: 1px solid #e0e7ea;
+  padding-top: 12px;
+}
+
+.mhd-claim-statement {
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.mhd-evidence-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.mhd-evidence-list .verdict {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: baseline;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #f7fafb;
+  font-size: 0.88rem;
+}
+
+.verdict-tag {
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.verdict-support {
+  border-left: 4px solid #15803d;
+}
+.verdict-support .verdict-tag {
+  color: #15803d;
+}
+
+.verdict-contradict {
+  border-left: 4px solid #b91c1c;
+}
+.verdict-contradict .verdict-tag {
+  color: #b91c1c;
+}
+
+.verdict-inconclusive {
+  border-left: 4px solid #b45309;
+}
+.verdict-inconclusive .verdict-tag {
+  color: #b45309;
+}
+
+.mhd-disclaimer {
+  margin-top: 14px;
+  color: #5b6872;
+  font-size: 0.82rem;
+}
