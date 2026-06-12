@@ -25,6 +25,11 @@ import type {
   SignalSeries,
   TearingModeHypothesis
 } from "@openplazma/core";
+import {
+  parseInvestigationPackage,
+  parseInvestigationReport,
+  parseInvestigationSession
+} from "@openplazma/schema";
 
 /**
  * In-process forward/inverse analysis for magnetic MHD mode diagnostics.
@@ -905,22 +910,16 @@ function assertClaimArtifactRefs(pack: InvestigationPackage, claim: Investigatio
   }
 }
 
-function assertIsoDateTime(value: string, name: string): void {
-  if (Number.isNaN(Date.parse(value)) || !/(?:Z|[+-]\d{2}:\d{2})$/.test(value)) {
-    throw new Error(`${name} must be an ISO datetime with timezone offset.`);
-  }
-}
-
 function assertInvestigationReportContract(pack: InvestigationPackage, report: InvestigationReport): void {
-  if (report.packageId !== pack.packageId) {
-    throw new Error("Investigation report packageId must match the session package.");
-  }
-  assertIsoDateTime(report.createdAt, "Investigation report createdAt");
   if (report.claims.length === 0) {
     throw new Error("Investigation report requires at least one claim.");
   }
   if (report.limitations.length === 0) {
     throw new Error("Investigation report requires at least one limitation.");
+  }
+  parseInvestigationReport(report);
+  if (report.packageId !== pack.packageId) {
+    throw new Error("Investigation report packageId must match the session package.");
   }
   for (const claim of report.claims) {
     assertClaimArtifactRefs(pack, claim);
@@ -928,14 +927,7 @@ function assertInvestigationReportContract(pack: InvestigationPackage, report: I
 }
 
 function assertInvestigationSessionContract(session: InvestigationSession): void {
-  assertIsoDateTime(session.createdAt, "Investigation session createdAt");
-  assertIsoDateTime(session.updatedAt, "Investigation session updatedAt");
-  if (session.status === "reported" && session.reports.length === 0) {
-    throw new Error("reported investigation sessions require at least one report.");
-  }
-  for (const report of session.reports) {
-    assertInvestigationReportContract(session.package, report);
-  }
+  parseInvestigationSession(session);
 }
 
 function deriveSessionStatus(pack: InvestigationPackage, reports: InvestigationReport[]): InvestigationSessionStatus {
@@ -974,7 +966,7 @@ export function buildInvestigationPackage(input: BuildInvestigationPackageInput)
   for (const claim of pack.claims) {
     assertClaimArtifactRefs(pack, claim);
   }
-  return pack;
+  return parseInvestigationPackage(pack);
 }
 
 export function createInvestigationSession(input: CreateInvestigationSessionInput): InvestigationSession {
