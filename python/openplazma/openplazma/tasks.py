@@ -35,6 +35,18 @@ def _validate_limitations(limitations: Any, label: str) -> list[Any]:
     return values
 
 
+def _resolve_manifest_path(selected_root: Path, value: Any, label: str) -> Path:
+    raw_path = require_string(value, label)
+    entry_path = Path(raw_path)
+    if entry_path.is_absolute() or "\\" in raw_path or ".." in entry_path.parts or any(":" in part for part in entry_path.parts):
+        raise ValueError(f"{label} manifest path must be relative and stay under the manifest root.")
+    base = selected_root.parent.resolve()
+    resolved = (base / entry_path).resolve()
+    if base != resolved and base not in resolved.parents:
+        raise ValueError(f"{label} manifest path must stay under the manifest root.")
+    return resolved
+
+
 def validate_study_task(task: dict[str, Any]) -> dict[str, Any]:
     require_keys(
         task,
@@ -247,13 +259,15 @@ def list_study_tasks(root: str | Path = "study-tasks") -> list[dict[str, Any]]:
         raise ValueError("StudyTaskManifest.kind must be openplazma.study_task_manifest.")
     if manifest["version"] != "0.1.0":
         raise ValueError("StudyTaskManifest.version must be 0.1.0.")
+    if manifest.get("inspiredBy") is not None and manifest["inspiredBy"] != "FAIR_MAST":
+        raise ValueError("StudyTaskManifest.inspiredBy must be FAIR_MAST when provided.")
     tasks = []
     for index, entry_ref in enumerate(require_list(manifest["tasks"], "StudyTaskManifest.tasks")):
         entry = require_mapping(entry_ref, f"StudyTaskManifest.tasks[{index}]")
-        require_keys(entry, ["path"], f"StudyTaskManifest.tasks[{index}]")
-        task_path = Path(entry["path"])
-        if not task_path.is_absolute():
-            task_path = selected_root.parent / task_path
+        require_keys(entry, ["taskId", "path", "scenarioId"], f"StudyTaskManifest.tasks[{index}]")
+        require_string(entry["taskId"], f"StudyTaskManifest.tasks[{index}].taskId")
+        require_string(entry["scenarioId"], f"StudyTaskManifest.tasks[{index}].scenarioId")
+        task_path = _resolve_manifest_path(selected_root, entry["path"], f"StudyTaskManifest.tasks[{index}].path")
         tasks.append(load_study_task(task_path))
     return tasks
 
@@ -266,13 +280,14 @@ def list_study_flows(root: str | Path = "study-flows") -> list[dict[str, Any]]:
         raise ValueError("StudyFlowManifest.kind must be openplazma.study_flow_manifest.")
     if manifest["version"] != "0.1.0":
         raise ValueError("StudyFlowManifest.version must be 0.1.0.")
+    if manifest.get("inspiredBy") is not None and manifest["inspiredBy"] != "FAIR_MAST":
+        raise ValueError("StudyFlowManifest.inspiredBy must be FAIR_MAST when provided.")
     flows = []
     for index, entry_ref in enumerate(require_list(manifest["flows"], "StudyFlowManifest.flows")):
         entry = require_mapping(entry_ref, f"StudyFlowManifest.flows[{index}]")
-        require_keys(entry, ["path"], f"StudyFlowManifest.flows[{index}]")
-        flow_path = Path(entry["path"])
-        if not flow_path.is_absolute():
-            flow_path = selected_root.parent / flow_path
+        require_keys(entry, ["flowId", "path"], f"StudyFlowManifest.flows[{index}]")
+        require_string(entry["flowId"], f"StudyFlowManifest.flows[{index}].flowId")
+        flow_path = _resolve_manifest_path(selected_root, entry["path"], f"StudyFlowManifest.flows[{index}].path")
         flows.append(load_study_flow(flow_path))
     return flows
 

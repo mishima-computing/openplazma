@@ -45,3 +45,11 @@ def test_facility_control_capability_is_rejected():
 
     with pytest.raises(ValueError, match="controlFacility"):
         op.validate_experiment_context(context)
+
+
+def test_experiment_context_timestamp_must_be_iso_datetime():
+    context = op.load_experiment_context(EXAMPLE_CONTEXT)
+    context["createdAt"] = "today"
+
+    with pytest.raises(ValueError, match="createdAt"):
+        op.validate_experiment_context(context)

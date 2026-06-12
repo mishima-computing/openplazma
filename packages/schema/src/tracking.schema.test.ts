@@ -81,6 +81,17 @@ describe("tracking schemas", () => {
       })
     ).not.toThrow();
     expect(() =>
+      metricRecordSchema.parse({
+        kind: "openplazma.metric",
+        version: "0.1.0",
+        runId: "OPR-20260524-000001",
+        name: "nested_summary",
+        value: { window: [0, 1], ok: true, note: null },
+        step: null,
+        createdAt: "2026-05-24T00:00:02.000Z"
+      })
+    ).not.toThrow();
+    expect(() =>
       eventRecordSchema.parse({
         kind: "openplazma.event",
         version: "0.1.0",
@@ -113,6 +124,43 @@ describe("tracking schemas", () => {
     };
 
     expect(() => runRecordSchema.parse(unsafe)).toThrow();
+  });
+
+  it("rejects run lifecycle status and finishedAt mismatches", () => {
+    expect(() =>
+      runRecordSchema.parse({
+        ...runRecord,
+        status: "finished",
+        finishedAt: null
+      })
+    ).toThrow();
+
+    expect(() =>
+      runRecordSchema.parse({
+        ...runRecord,
+        status: "running",
+        finishedAt: "2026-05-24T00:00:03.000Z"
+      })
+    ).toThrow();
+  });
+
+  it("rejects reversed RunRecord timestamps", () => {
+    expect(() =>
+      runRecordSchema.parse({
+        ...runRecord,
+        createdAt: "2026-05-24T00:00:02.000Z",
+        updatedAt: "2026-05-24T00:00:01.000Z"
+      })
+    ).toThrow();
+
+    expect(() =>
+      runRecordSchema.parse({
+        ...runRecord,
+        status: "finished",
+        updatedAt: "2026-05-24T00:00:02.000Z",
+        finishedAt: "2026-05-24T00:00:01.000Z"
+      })
+    ).toThrow();
   });
 
   it("rejects FAIR_MAST as provider and accepts it only as inspiredBy", () => {
@@ -153,6 +201,138 @@ describe("tracking schemas", () => {
       artifactRecordSchema.parse({
         ...artifactRecord,
         path: "artifacts/../signal-series.json"
+      })
+    ).toThrow();
+  });
+
+  it("rejects duplicate artifact ids and paths in run manifests", () => {
+    expect(() =>
+      runManifestSchema.parse({
+        kind: "openplazma.run_manifest",
+        version: "0.1.0",
+        runId: "OPR-20260524-000001",
+        createdAt: "2026-05-24T00:00:00.000Z",
+        updatedAt: "2026-05-24T00:00:03.000Z",
+        artifacts: [
+          artifactRecord,
+          {
+            ...artifactRecord,
+            name: "duplicate_id",
+            path: "artifacts/duplicate-id.json"
+          }
+        ]
+      })
+    ).toThrow();
+
+    expect(() =>
+      runManifestSchema.parse({
+        kind: "openplazma.run_manifest",
+        version: "0.1.0",
+        runId: "OPR-20260524-000001",
+        createdAt: "2026-05-24T00:00:00.000Z",
+        updatedAt: "2026-05-24T00:00:03.000Z",
+        artifacts: [
+          artifactRecord,
+          {
+            ...artifactRecord,
+            artifactId: "OPA-20260524-000002",
+            name: "duplicate_path"
+          }
+        ]
+      })
+    ).toThrow();
+  });
+
+  it("rejects reversed RunManifest timestamps", () => {
+    expect(() =>
+      runManifestSchema.parse({
+        kind: "openplazma.run_manifest",
+        version: "0.1.0",
+        runId: "OPR-20260524-000001",
+        createdAt: "2026-05-24T00:00:02.000Z",
+        updatedAt: "2026-05-24T00:00:01.000Z",
+        artifacts: []
+      })
+    ).toThrow();
+  });
+
+  it("rejects RunManifest timestamps outside artifact time range", () => {
+    expect(() =>
+      runManifestSchema.parse({
+        kind: "openplazma.run_manifest",
+        version: "0.1.0",
+        runId: "OPR-20260524-000001",
+        createdAt: "2026-05-24T00:00:00.000Z",
+        updatedAt: "2026-05-24T00:00:01.000Z",
+        artifacts: [
+          {
+            ...artifactRecord,
+            createdAt: "2026-05-24T00:00:02.000Z"
+          }
+        ]
+      })
+    ).toThrow();
+
+    expect(() =>
+      runManifestSchema.parse({
+        kind: "openplazma.run_manifest",
+        version: "0.1.0",
+        runId: "OPR-20260524-000001",
+        createdAt: "2026-05-24T00:00:02.000Z",
+        updatedAt: "2026-05-24T00:00:03.000Z",
+        artifacts: [
+          {
+            ...artifactRecord,
+            createdAt: "2026-05-24T00:00:01.000Z"
+          }
+        ]
+      })
+    ).toThrow();
+  });
+
+  it("rejects nested non-finite metric values", () => {
+    expect(() =>
+      metricRecordSchema.parse({
+        kind: "openplazma.metric",
+        version: "0.1.0",
+        runId: "OPR-20260524-000001",
+        name: "bad_metric",
+        value: { nested: Number.NaN },
+        step: null,
+        createdAt: "2026-05-24T00:00:02.000Z"
+      })
+    ).toThrow();
+
+    expect(() =>
+      metricRecordSchema.parse({
+        kind: "openplazma.metric",
+        version: "0.1.0",
+        runId: "OPR-20260524-000001",
+        name: "bad_metric",
+        value: [Number.POSITIVE_INFINITY],
+        step: null,
+        createdAt: "2026-05-24T00:00:02.000Z"
+      })
+    ).toThrow();
+  });
+
+  it("rejects nested non-finite artifact and event metadata", () => {
+    expect(() =>
+      artifactRecordSchema.parse({
+        ...artifactRecord,
+        metadata: { nested: Number.NaN }
+      })
+    ).toThrow();
+
+    expect(() =>
+      eventRecordSchema.parse({
+        kind: "openplazma.event",
+        version: "0.1.0",
+        runId: "OPR-20260524-000001",
+        eventType: "artifact_logged",
+        createdAt: "2026-05-24T00:00:03.000Z",
+        message: "Logged artifact signal_series",
+        metadata: { nested: Number.POSITIVE_INFINITY }
       })
     ).toThrow();
   });

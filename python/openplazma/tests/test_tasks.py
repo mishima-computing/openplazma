@@ -105,6 +105,45 @@ def test_validate_study_flow_rejects_unsafe_capabilities_and_provider():
     assert op.validate_study_flow(inspired)["source"]["inspiredBy"] == "FAIR_MAST"
 
 
+def test_study_task_manifest_paths_must_stay_under_repo_root(tmp_path: Path):
+    manifest_root = tmp_path / "study-tasks"
+    manifest_root.mkdir()
+    manifest = {
+        "kind": "openplazma.study_task_manifest",
+        "version": "0.1.0",
+        "tasks": [
+            {
+                "taskId": "read-the-signal-static-v0.1",
+                "scenarioId": "read-the-signal",
+                "path": str(TASK_PATH),
+            }
+        ],
+    }
+    (manifest_root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="manifest path"):
+        op.list_study_tasks(manifest_root)
+
+
+def test_study_flow_manifest_paths_must_stay_under_repo_root(tmp_path: Path):
+    manifest_root = tmp_path / "study-flows"
+    manifest_root.mkdir()
+    manifest = {
+        "kind": "openplazma.study_flow_manifest",
+        "version": "0.1.0",
+        "flows": [
+            {
+                "flowId": "read-the-signal-guided-v0.1",
+                "path": "../outside-flow.json",
+            }
+        ],
+    }
+    (manifest_root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="manifest path"):
+        op.list_study_flows(manifest_root)
+
+
 def test_read_the_signal_task_example_runs_and_logs_expected_records(tmp_path: Path):
     run_store = tmp_path / ".openplazma"
     env = dict(os.environ)

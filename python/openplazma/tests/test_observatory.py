@@ -66,7 +66,20 @@ def rewrite_signal_artifact_path(manifest_path: Path, artifact_path: str) -> Non
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
 
+def insert_run_event_before_terminal(run_store: Path, run_id: str, event: dict) -> None:
+    events_path = run_store / "runs" / run_id / "events.jsonl"
+    events = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()]
+    if events and events[-1]["eventType"] in {"run_finished", "run_failed"}:
+        events.insert(len(events) - 1, event)
+    else:
+        events.append(event)
+    events_path.write_text("\n".join(json.dumps(item) for item in events) + "\n", encoding="utf-8")
+
+
 def append_metric(run_store: Path, run_id: str, name: str, value: object) -> None:
+    run_path = run_store / "runs" / run_id / "run.json"
+    run_record = json.loads(run_path.read_text(encoding="utf-8"))
+    created_at = run_record.get("finishedAt") or run_record["updatedAt"]
     metric = {
         "kind": "openplazma.metric",
         "version": "0.1.0",
@@ -74,35 +87,72 @@ def append_metric(run_store: Path, run_id: str, name: str, value: object) -> Non
         "name": name,
         "value": value,
         "step": None,
-        "createdAt": "2026-05-24T00:00:00Z",
+        "createdAt": created_at,
     }
     metrics_path = run_store / "runs" / run_id / "metrics.jsonl"
     with metrics_path.open("a", encoding="utf-8") as file:
         file.write(json.dumps(metric, sort_keys=True) + "\n")
+    run_record["metricCount"] += 1
+    run_record["updatedAt"] = metric["createdAt"]
+    run_path.write_text(json.dumps(run_record, indent=2) + "\n", encoding="utf-8")
+    insert_run_event_before_terminal(
+        run_store,
+        run_id,
+        {
+            "kind": "openplazma.event",
+            "version": "0.1.0",
+            "runId": run_id,
+            "eventType": "metric_logged",
+            "createdAt": created_at,
+            "message": f"Logged metric {name}",
+            "metadata": {"name": name},
+        },
+    )
 
 
 def add_manifest_artifact(run_store: Path, run_id: str, name: str, artifact_type: str, payload: dict) -> None:
     run_dir = run_store / "runs" / run_id
+    run_path = run_dir / "run.json"
+    run_record = json.loads(run_path.read_text(encoding="utf-8"))
+    created_at = run_record.get("finishedAt") or run_record["updatedAt"]
     artifact_path = run_dir / "artifacts" / f"{name}.json"
     artifact_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     relative_path = artifact_path.relative_to(run_dir).as_posix()
     manifest_path = run_dir / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    artifact_count = len(manifest["artifacts"]) + 1
     manifest["artifacts"].append(
         {
             "kind": "openplazma.artifact",
             "version": "0.1.0",
-            "artifactId": f"OPA-{name}",
+            "artifactId": f"OPA-20260524-{artifact_count:06d}",
             "runId": run_id,
             "name": name,
             "type": artifact_type,
             "path": relative_path,
             "sha256": hashlib.sha256(artifact_path.read_bytes()).hexdigest(),
-            "createdAt": "2026-05-24T00:00:00Z",
+            "createdAt": created_at,
             "metadata": {},
         }
     )
+    manifest["updatedAt"] = created_at
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    run_record["artifactCount"] = len(manifest["artifacts"])
+    run_record["updatedAt"] = created_at
+    run_path.write_text(json.dumps(run_record, indent=2) + "\n", encoding="utf-8")
+    insert_run_event_before_terminal(
+        run_store,
+        run_id,
+        {
+            "kind": "openplazma.event",
+            "version": "0.1.0",
+            "runId": run_id,
+            "eventType": "artifact_logged",
+            "createdAt": created_at,
+            "message": f"Logged artifact {name}",
+            "metadata": {"artifactId": f"OPA-20260524-{artifact_count:06d}"},
+        },
+    )
 
 
 def assert_no_external_references(output_dir: Path) -> None:
@@ -140,6 +190,56 @@ def test_load_run_artifacts_and_events(tmp_path: Path):
     assert [artifact["name"] for artifact in artifacts] == ["experiment_context", "signal_series", "study_record"]
     assert events[0]["eventType"] == "run_started"
     assert events[-1]["eventType"] == "run_finished"
+
+
+def test_load_run_events_rejects_tampered_event_record(tmp_path: Path):
+    run_store = tmp_path / ".openplazma"
+    run_id = create_sample_run(run_store)
+    events_path = run_store / "runs" / run_id / "events.jsonl"
+    events = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()]
+    events[-1]["eventType"] = "control_attempt"
+    events_path.write_text("\n".join(json.dumps(event) for event in events) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="EventRecord.eventType"):
+        op.load_run_events(run_id, run_store=run_store)
+
+
+def test_load_run_events_rejects_missing_start_event(tmp_path: Path):
+    run_store = tmp_path / ".openplazma"
+    run_id = create_sample_run(run_store)
+    events_path = run_store / "runs" / run_id / "events.jsonl"
+    events = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()]
+    events_path.write_text("\n".join(json.dumps(event) for event in events[1:]) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="run_started"):
+        op.load_run_events(run_id, run_store=run_store)
+
+
+def test_export_observatory_html_rejects_tampered_event_record(tmp_path: Path):
+    run_store = tmp_path / ".openplazma"
+    run_id = create_sample_run(run_store)
+    events_path = run_store / "runs" / run_id / "events.jsonl"
+    events = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()]
+    events[-1]["runId"] = "OPR-20990101-999999"
+    events_path.write_text("\n".join(json.dumps(event) for event in events) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="EventRecord.runId"):
+        op.export_observatory_html(run_store=run_store)
+
+
+def test_export_observatory_html_rejects_tampered_event_without_partial_output(tmp_path: Path):
+    run_store = tmp_path / ".openplazma"
+    output_dir = tmp_path / "observatory-output"
+    run_id = create_sample_run(run_store)
+    events_path = run_store / "runs" / run_id / "events.jsonl"
+    events = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()]
+    events[-1]["eventType"] = "control_attempt"
+    events_path.write_text("\n".join(json.dumps(event) for event in events) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="EventRecord.eventType"):
+        op.export_observatory_html(run_store=run_store, output_dir=output_dir)
+
+    assert not output_dir.exists()
 
 
 def test_export_observatory_html_creates_static_report(tmp_path: Path):
@@ -201,6 +301,21 @@ def test_observatory_rejects_unsafe_run_id_and_artifact_path(tmp_path: Path):
     rewrite_signal_artifact_path(manifest_path, "artifacts/../signal-series.json")
 
     with pytest.raises(ValueError, match="Artifact path"):
+        op.export_observatory_html(run_store=run_store)
+
+
+def test_summarize_runstore_rejects_tampered_run_record(tmp_path: Path):
+    run_store = tmp_path / ".openplazma"
+    run_id = create_sample_run(run_store)
+    run_path = run_store / "runs" / run_id / "run.json"
+    record = json.loads(run_path.read_text(encoding="utf-8"))
+    record["capabilities"]["controlFacility"] = True
+    run_path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="controlFacility"):
+        op.summarize_runstore(run_store=run_store)
+
+    with pytest.raises(ValueError, match="controlFacility"):
         op.export_observatory_html(run_store=run_store)
 
 
@@ -370,7 +485,18 @@ def test_compare_rejects_invalid_missing_or_identical_runs(tmp_path: Path):
         op.compare_runs("OPR-20990101-999999", run_id, run_store=run_store)
 
 
-def test_compare_page_flags_unsafe_capability_without_normalizing(tmp_path: Path):
+def test_export_observatory_compare_rejects_invalid_pair_without_partial_output(tmp_path: Path):
+    run_store = tmp_path / ".openplazma"
+    output_dir = tmp_path / "compare-output"
+    run_id = create_sample_run(run_store)
+
+    with pytest.raises(ValueError, match="distinct"):
+        op.export_observatory_compare_html(run_id, run_id, run_store=run_store, output_dir=output_dir)
+
+    assert not output_dir.exists()
+
+
+def test_compare_rejects_tampered_run_record(tmp_path: Path):
     run_store = tmp_path / ".openplazma"
     run_a = create_sample_run(run_store)
     run_b = create_sample_run(run_store)
@@ -379,13 +505,8 @@ def test_compare_page_flags_unsafe_capability_without_normalizing(tmp_path: Path
     run_b_record["capabilities"]["controlFacility"] = True
     run_b_path.write_text(json.dumps(run_b_record, indent=2) + "\n", encoding="utf-8")
 
-    comparison = op.compare_runs(run_a, run_b, run_store=run_store)
-    capabilities = {row["field"]: row for row in comparison["capabilities"]}
-    compare_path = op.export_observatory_compare_html(run_a, run_b, run_store=run_store)
-    compare_html = compare_path.read_text(encoding="utf-8")
-    detail_html = (run_store / "observatory" / "runs" / f"{run_b}.html").read_text(encoding="utf-8")
+    with pytest.raises(ValueError, match="controlFacility"):
+        op.compare_runs(run_a, run_b, run_store=run_store)
 
-    assert capabilities["capabilities.controlFacility"]["runBValue"] is True
-    assert capabilities["capabilities.controlFacility"]["safetyStatus"] == "unsafe_true"
-    assert "unsafe_true" in compare_html
-    assert 'class="unsafe">True' in detail_html
+    with pytest.raises(ValueError, match="controlFacility"):
+        op.export_observatory_compare_html(run_a, run_b, run_store=run_store)

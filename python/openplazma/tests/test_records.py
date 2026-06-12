@@ -61,3 +61,29 @@ def test_missing_required_kind_version_is_rejected():
 
     with pytest.raises(ValueError, match="missing required"):
         op.validate_study_record(record)
+
+
+def test_study_record_timestamps_must_be_iso_datetimes():
+    record = op.load_study_record(FIXTURE_RECORD)
+    record["createdAt"] = "today"
+    record["context"]["createdAt"] = "today"
+    record["shot"]["recordedAt"] = "today"
+
+    with pytest.raises(ValueError, match="createdAt"):
+        op.validate_study_record(record)
+
+
+def test_study_record_shot_ref_must_match_shot_metadata():
+    record = op.load_study_record(FIXTURE_RECORD)
+    record["shotRef"]["shotId"] = "not-the-shot"
+
+    with pytest.raises(ValueError, match="shotRef"):
+        op.validate_study_record(record)
+
+
+def test_study_record_viewed_signals_must_exist_in_payload():
+    record = op.load_study_record(FIXTURE_RECORD)
+    record["signalsViewed"] = [{"signalId": "not-in-signals"}]
+
+    with pytest.raises(ValueError, match="signalsViewed"):
+        op.validate_study_record(record)

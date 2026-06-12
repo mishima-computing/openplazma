@@ -3,8 +3,42 @@ from __future__ import annotations
 from typing import Any
 
 from ._json import load_json
-from ._validation import require_keys, require_list, require_mapping, require_string
+from ._validation import require_finite_number, require_iso_datetime, require_keys, require_list, require_mapping, require_string
 from .sources import validate_data_provider, validate_source_ref
+
+
+def _validate_time_range(value: Any, name: str) -> None:
+    items = require_list(value, name)
+    if len(items) != 2:
+        raise ValueError(f"{name} must be a [start, end] pair.")
+    require_finite_number(items[0], f"{name}[0]")
+    require_finite_number(items[1], f"{name}[1]")
+
+
+def _validate_signal_ref(signal_ref: dict[str, Any], name: str) -> None:
+    require_keys(signal_ref, ["signalId"], name)
+    require_string(signal_ref["signalId"], f"{name}.signalId")
+    for field in ["label", "quantity", "unit"]:
+        if signal_ref.get(field) is not None:
+            require_string(signal_ref[field], f"{name}.{field}")
+
+
+def _validate_observation(observation: dict[str, Any], name: str) -> None:
+    require_keys(observation, ["text"], name)
+    require_string(observation["text"], f"{name}.text")
+    if observation.get("signalId") is not None:
+        require_string(observation["signalId"], f"{name}.signalId")
+    if observation.get("timeRange") is not None:
+        _validate_time_range(observation["timeRange"], f"{name}.timeRange")
+
+
+def _validate_string_list(value: Any, name: str, *, min_items: int = 0) -> list[Any]:
+    items = require_list(value, name)
+    if len(items) < min_items:
+        raise ValueError(f"{name} must include at least {min_items} item(s).")
+    for index, item in enumerate(items):
+        require_string(item, f"{name}[{index}]")
+    return items
 
 
 def validate_experiment_context(context: dict[str, Any]) -> dict[str, Any]:
@@ -38,7 +72,7 @@ def validate_experiment_context(context: dict[str, Any]) -> dict[str, Any]:
     require_string(context["projectId"], "ExperimentContext.projectId")
     require_string(context["datasetId"], "ExperimentContext.datasetId")
     require_string(context["description"], "ExperimentContext.description")
-    require_string(context["createdAt"], "ExperimentContext.createdAt")
+    require_iso_datetime(context["createdAt"], "ExperimentContext.createdAt")
 
     target = require_mapping(context["target"], "ExperimentContext.target")
     require_keys(target, ["type", "id", "label"], "ExperimentContext.target")
@@ -96,13 +130,18 @@ def validate_experiment_context(context: dict[str, Any]) -> dict[str, Any]:
 
     for index, signal_ref in enumerate(signals):
         signal = require_mapping(signal_ref, f"ExperimentContext.signals[{index}]")
-        require_keys(signal, ["signalId"], f"ExperimentContext.signals[{index}]")
-        require_string(signal["signalId"], f"ExperimentContext.signals[{index}].signalId")
+        _validate_signal_ref(signal, f"ExperimentContext.signals[{index}]")
 
-    require_list(context["observations"], "ExperimentContext.observations")
-    limitations = require_list(context["limitations"], "ExperimentContext.limitations")
-    if len(limitations) == 0:
-        raise ValueError("ExperimentContext.limitations must include at least one limitation.")
+    if context.get("view") is not None:
+        view = require_mapping(context["view"], "ExperimentContext.view")
+        if view.get("timeRange") is not None:
+            _validate_time_range(view["timeRange"], "ExperimentContext.view.timeRange")
+
+    observations = require_list(context["observations"], "ExperimentContext.observations")
+    for index, observation_ref in enumerate(observations):
+        observation = require_mapping(observation_ref, f"ExperimentContext.observations[{index}]")
+        _validate_observation(observation, f"ExperimentContext.observations[{index}]")
+    _validate_string_list(context["limitations"], "ExperimentContext.limitations", min_items=1)
 
     return context
 

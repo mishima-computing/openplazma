@@ -30,7 +30,11 @@ export interface RunRecord {
   limitations: string[];
 }
 
-export type MetricValue = string | number | boolean | null | Record<string, unknown> | unknown[];
+export type JsonValue = string | number | boolean | null | JsonObject | JsonValue[];
+export interface JsonObject {
+  [key: string]: JsonValue;
+}
+export type MetricValue = JsonValue;
 
 export interface MetricRecord {
   kind: "openplazma.metric";
@@ -52,7 +56,7 @@ export interface ArtifactRecord {
   path: string;
   sha256: string;
   createdAt: string;
-  metadata: Record<string, unknown>;
+  metadata: JsonObject;
 }
 
 export type EventType = "run_started" | "metric_logged" | "artifact_logged" | "run_finished" | "run_failed";
@@ -64,7 +68,7 @@ export interface EventRecord {
   eventType: EventType;
   createdAt: string;
   message: string;
-  metadata: Record<string, unknown>;
+  metadata: JsonObject;
 }
 
 export interface RunManifest {

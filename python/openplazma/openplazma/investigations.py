@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from ._json import load_json, save_json
-from ._validation import require_keys, require_list, require_mapping, require_string
+from ._validation import require_finite_number, require_iso_datetime, require_keys, require_list, require_mapping, require_string
 
 VERSION = "0.1.0"
 
@@ -249,14 +249,7 @@ def _require_bool(value: Any, name: str) -> bool:
 
 
 def _require_number(value: Any, name: str, *, positive: bool = False, nonnegative: bool = False) -> float:
-    if not isinstance(value, (int, float)) or isinstance(value, bool):
-        raise ValueError(f"{name} must be a number.")
-    number = float(value)
-    if positive and number <= 0:
-        raise ValueError(f"{name} must be positive.")
-    if nonnegative and number < 0:
-        raise ValueError(f"{name} must be nonnegative.")
-    return number
+    return require_finite_number(value, name, positive=positive, nonnegative=nonnegative)
 
 
 def _require_optional_number(value: Any, name: str, *, positive: bool = False, nonnegative: bool = False) -> None:
@@ -265,11 +258,24 @@ def _require_optional_number(value: Any, name: str, *, positive: bool = False, n
 
 
 def _require_datetime_string(value: Any, name: str) -> str:
-    timestamp = require_string(value, name)
-    parsed = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-    if parsed.tzinfo is None:
-        raise ValueError(f"{name} must include a timezone offset.")
-    return timestamp
+    return require_iso_datetime(value, name)
+
+
+def _validate_manifest_path(value: Any, name: str) -> str:
+    raw_path = require_string(value, name)
+    entry_path = Path(raw_path)
+    if entry_path.is_absolute() or "\\" in raw_path or ".." in entry_path.parts or any(":" in part for part in entry_path.parts):
+        raise ValueError(f"{name} manifest path must be relative and stay under the repository root.")
+    return raw_path
+
+
+def _resolve_manifest_path(repo_root: str | Path, value: Any, name: str) -> Path:
+    raw_path = _validate_manifest_path(value, name)
+    root = Path(repo_root).resolve()
+    resolved = (root / raw_path).resolve()
+    if root != resolved and root not in resolved.parents:
+        raise ValueError(f"{name} manifest path must stay under the repository root.")
+    return resolved
 
 
 def _validate_region(region: dict[str, Any], name: str) -> None:
@@ -539,7 +545,10 @@ def validate_investigation_package(package: dict[str, Any]) -> dict[str, Any]:
     region_ids = _validate_target(require_mapping(package["target"], "InvestigationPackage.target"))
 
     for index, question_ref in enumerate(_require_nonempty_list(package["questions"], "InvestigationPackage.questions")):
-        _validate_question(require_mapping(question_ref, f"InvestigationPackage.questions[{index}]"), f"InvestigationPackage.questions[{index}]")
+        _validate_question(
+            require_mapping(question_ref, f"InvestigationPackage.questions[{index}]"),
+            f"InvestigationPackage.questions[{index}]",
+        )
 
     artifacts = require_list(package["artifacts"], "InvestigationPackage.artifacts")
     artifact_ids: set[str] = set()
@@ -553,9 +562,17 @@ def validate_investigation_package(package: dict[str, Any]) -> dict[str, Any]:
     assessment = require_mapping(package["fusionAssessment"], "InvestigationPackage.fusionAssessment")
     _validate_fusion_assessment(assessment)
     for index, estimate in enumerate(assessment["observedOrInferredConditions"]):
-        _check_artifact_refs(artifact_ids, estimate["evidenceArtifactIds"], f"fusionAssessment.observedOrInferredConditions[{index}].evidenceArtifactIds")
+        _check_artifact_refs(
+            artifact_ids,
+            estimate["evidenceArtifactIds"],
+            f"fusionAssessment.observedOrInferredConditions[{index}].evidenceArtifactIds",
+        )
     for index, estimate in enumerate(assessment["requiredConditions"]):
-        _check_artifact_refs(artifact_ids, estimate["evidenceArtifactIds"], f"fusionAssessment.requiredConditions[{index}].evidenceArtifactIds")
+        _check_artifact_refs(
+            artifact_ids,
+            estimate["evidenceArtifactIds"],
+            f"fusionAssessment.requiredConditions[{index}].evidenceArtifactIds",
+        )
 
     for index, claim_ref in enumerate(require_list(package["claims"], "InvestigationPackage.claims")):
         claim = require_mapping(claim_ref, f"InvestigationPackage.claims[{index}]")
@@ -582,7 +599,7 @@ def validate_investigation_fixture_manifest(manifest: dict[str, Any]) -> dict[st
             raise ValueError(f"duplicate investigation package id '{package_id}'.")
         seen.add(package_id)
         require_string(entry["title"], f"InvestigationFixtureManifest.packages[{index}].title")
-        require_string(entry["path"], f"InvestigationFixtureManifest.packages[{index}].path")
+        _validate_manifest_path(entry["path"], f"InvestigationFixtureManifest.packages[{index}].path")
     return manifest
 
 
@@ -631,7 +648,9 @@ def list_static_investigation_packages(repo_root: str | Path) -> list[dict[str, 
 def load_static_investigation_package(repo_root: str | Path, package_id: str) -> dict[str, Any]:
     for entry in list_static_investigation_packages(repo_root):
         if entry["packageId"] == package_id:
-            package = load_investigation_package(Path(repo_root) / entry["path"])
+            package = load_investigation_package(
+                _resolve_manifest_path(repo_root, entry["path"], f"InvestigationFixtureManifest.package '{package_id}'")
+            )
             if package["packageId"] != entry["packageId"]:
                 raise ValueError(
                     f"Investigation fixture manifest packageId '{entry['packageId']}' "
@@ -669,7 +688,11 @@ def create_investigation_report(
         "packageId": validated_package["packageId"],
         "createdAt": created_at or _now(),
         "claims": selected_claims,
-        "assumptions": assumptions if assumptions is not None else ["The supplied investigation package is the evidence set under review."],
+        "assumptions": (
+            assumptions
+            if assumptions is not None
+            else ["The supplied investigation package is the evidence set under review."]
+        ),
         "limitations": limitations if limitations is not None else list(validated_package["limitations"]),
         "nextObservations": (
             next_observations

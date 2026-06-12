@@ -7,7 +7,7 @@ from html import escape
 from pathlib import Path
 from typing import Any
 
-from .runstore import load_manifest, load_metrics
+from .runstore import load_events, load_manifest, load_metrics, load_run
 
 _RUN_ID_RE = re.compile(r"^OPR-\d{8}-\d{6}$")
 _UNSAFE_CAPABILITY_FIELDS = {
@@ -32,29 +32,6 @@ def _run_dir(run_id: str, run_store: str | Path) -> Path:
     return _runs_root(run_store) / run_id
 
 
-def _load_json(path: Path) -> dict[str, Any]:
-    with path.open("r", encoding="utf-8") as file:
-        value = json.load(file)
-    if not isinstance(value, dict):
-        raise ValueError(f"Expected JSON object in {path}.")
-    return value
-
-
-def _read_jsonl(path: Path) -> list[dict[str, Any]]:
-    if not path.exists():
-        return []
-    records: list[dict[str, Any]] = []
-    with path.open("r", encoding="utf-8") as file:
-        for line in file:
-            line = line.strip()
-            if line:
-                value = json.loads(line)
-                if not isinstance(value, dict):
-                    raise ValueError(f"Expected JSON object line in {path}.")
-                records.append(value)
-    return records
-
-
 def _ensure_inside(parent: Path, child: Path) -> None:
     parent_resolved = parent.resolve()
     child_resolved = child.resolve()
@@ -66,7 +43,7 @@ def _html(value: Any) -> str:
     if value is None:
         return ""
     if isinstance(value, (dict, list)):
-        return escape(json.dumps(value, sort_keys=True), quote=True)
+        return escape(json.dumps(value, sort_keys=True, allow_nan=False), quote=True)
     return escape(str(value), quote=True)
 
 
@@ -105,11 +82,8 @@ def _validate_run_exists(run_id: str, run_store: str | Path) -> Path:
 
 
 def _load_observatory_run(run_id: str, run_store: str | Path) -> dict[str, Any]:
-    run_dir = _validate_run_exists(run_id, run_store)
-    run = _load_json(run_dir / "run.json")
-    if run.get("runId") != run_id:
-        raise ValueError(f"RunRecord runId does not match {run_id}.")
-    return run
+    _validate_run_exists(run_id, run_store)
+    return load_run(run_id, run_store=run_store)
 
 
 def summarize_run(run_id: str, run_store: str | Path = ".openplazma") -> dict[str, Any]:
@@ -150,7 +124,7 @@ def load_run_artifacts(run_id: str, run_store: str | Path = ".openplazma") -> li
 
 
 def load_run_events(run_id: str, run_store: str | Path = ".openplazma") -> list[dict[str, Any]]:
-    return _read_jsonl(_run_dir(run_id, run_store) / "events.jsonl")
+    return load_events(run_id, run_store=run_store)
 
 
 def _latest_metrics_by_name(metrics: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
@@ -465,6 +439,19 @@ def _run_detail_html(
     return _page(f"OpenPlazma Run {run['runId']}", body, "../assets/observatory.css")
 
 
+def _collect_observatory_data(run_store: str | Path) -> tuple[list[dict[str, Any]], list[tuple[str, dict[str, Any], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]]]:
+    summaries = summarize_runstore(run_store=run_store)
+    run_pages = []
+    for summary in summaries:
+        run_id = summary["runId"]
+        run = _load_observatory_run(run_id, run_store=run_store)
+        metrics = load_metrics(run_id, run_store=run_store)
+        artifacts = load_run_artifacts(run_id, run_store=run_store)
+        events = load_run_events(run_id, run_store=run_store)
+        run_pages.append((run_id, run, metrics, artifacts, events))
+    return summaries, run_pages
+
+
 def _compare_file_name(run_a_id: str, run_b_id: str) -> str:
     if not _RUN_ID_RE.fullmatch(run_a_id) or not _RUN_ID_RE.fullmatch(run_b_id):
         raise ValueError("Compare run IDs must look like OPR-YYYYMMDD-000001.")
@@ -596,7 +583,7 @@ def _compare_html(comparison: dict[str, Any]) -> str:
 
 
 def export_observatory_html(run_store: str | Path = ".openplazma", output_dir: str | Path | None = None) -> Path:
-    summaries = summarize_runstore(run_store=run_store)
+    summaries, run_pages = _collect_observatory_data(run_store=run_store)
     selected_output = Path(output_dir) if output_dir is not None else _run_store_root(run_store) / "observatory"
     selected_output.mkdir(parents=True, exist_ok=True)
     _write_css(selected_output)
@@ -616,12 +603,7 @@ def export_observatory_html(run_store: str | Path = ".openplazma", output_dir: s
     if compare_dir.exists():
         shutil.rmtree(compare_dir)
 
-    for summary in summaries:
-        run_id = summary["runId"]
-        run = _load_observatory_run(run_id, run_store=run_store)
-        metrics = load_metrics(run_id, run_store=run_store)
-        artifacts = load_run_artifacts(run_id, run_store=run_store)
-        events = load_run_events(run_id, run_store=run_store)
+    for run_id, run, metrics, artifacts, events in run_pages:
         run_page = runs_dir / f"{run_id}.html"
         _ensure_inside(selected_output, run_page)
         run_page.write_text(_run_detail_html(run, metrics, artifacts, events), encoding="utf-8")
@@ -635,12 +617,12 @@ def export_observatory_compare_html(
     run_store: str | Path = ".openplazma",
     output_dir: str | Path | None = None,
 ) -> Path:
+    comparison = compare_runs(run_a_id, run_b_id, run_store=run_store)
     selected_output = export_observatory_html(run_store=run_store, output_dir=output_dir)
     compare_dir = selected_output / "compare"
     _ensure_inside(selected_output, compare_dir)
     compare_dir.mkdir(parents=True, exist_ok=True)
 
-    comparison = compare_runs(run_a_id, run_b_id, run_store=run_store)
     compare_path = compare_dir / _compare_file_name(run_a_id, run_b_id)
     _ensure_inside(compare_dir, compare_path)
     compare_path.write_text(_compare_html(comparison), encoding="utf-8")
