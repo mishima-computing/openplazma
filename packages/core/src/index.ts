@@ -148,6 +148,8 @@ export type {
   ContextArtifactRef,
   EventRecord,
   EventType,
+  JsonObject,
+  JsonValue,
   MetricRecord,
   MetricValue,
   RunManifest,

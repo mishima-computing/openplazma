@@ -30,6 +30,24 @@ This directory is ignored by git. It is local output, not source code.
 
 RunStore records do not require an account, cloud service, external sync, or external data fetch.
 
+## Integrity, Locking, And Limits
+
+The local RunStore is still a file-based MVP, but it now fails closed for the main corruption cases that can happen during notebook use.
+
+Writes and reads share a local `.openplazma/.write.lock` directory lock. The lock is re-entrant inside one thread, so internal read-after-write validation can run without deadlocking. Other threads or processes wait for the lock before reading or writing, which prevents readers from observing half-written `run.json`, `manifest.json`, `metrics.jsonl`, or `events.jsonl` state.
+
+The lock owner is recorded as `pid=<process id>`. A lock with a dead owner pid is treated as stale and cleared. A malformed lock owner is cleared only after a grace period. A live owner pid is not cleared automatically; callers wait until the lock is released or until the lock timeout is reached.
+
+The current local limits are:
+
+- metrics per Run: `100000`
+- artifacts per Run: `10000`
+- artifact file size: `64 MiB`
+
+The SDK enforces these limits both when writing and when reading existing RunStore files. A RunStore that exceeds the limits is rejected instead of being partially loaded into memory.
+
+JSON files are written through atomic replace. Multi-file Run mutations such as `log_metric`, `log_artifact`, `finish`, and `fail` snapshot the affected files and roll back if a later write step fails. JSONL files must end with a newline, and malformed or truncated JSONL records are rejected with an explicit validation error.
+
 ## Directory Layout
 
 Each Run is written as inspectable files:
@@ -149,7 +167,9 @@ OpenPlazma is read-only analysis and decision support. It can preserve evidence,
 
 - Local files only.
 - JSON and JSONL only.
+- File-based lock, not a database transaction log.
 - Read-only local Observatory export and two-Run compare page only.
+- No automatic repair of corrupted RunStore records.
 - No public data ingestion.
 - No external network data fetch.
 - No cloud sync.
