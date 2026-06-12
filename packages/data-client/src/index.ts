@@ -64,7 +64,13 @@ export class StaticFixtureDataSource implements FusionDataSource, InvestigationD
     this.manifest = manifest;
     this.investigationManifest = investigationManifest;
     this.records = new Map(records.map((record) => [record.shot.shotId, record]));
-    this.investigationPackages = new Map(investigationPackages.map((pack) => [pack.packageId, pack]));
+    this.investigationPackages = new Map<string, InvestigationPackage>();
+    for (const pack of investigationPackages) {
+      if (this.investigationPackages.has(pack.packageId)) {
+        throw new Error(`duplicate investigation package id '${pack.packageId}'`);
+      }
+      this.investigationPackages.set(pack.packageId, pack);
+    }
     for (const entry of this.investigationManifest.packages) {
       if (!this.investigationPackages.has(entry.packageId)) {
         throw new Error(`Investigation fixture manifest references missing package '${entry.packageId}'`);
