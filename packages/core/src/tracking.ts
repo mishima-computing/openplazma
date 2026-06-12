@@ -61,6 +61,16 @@ export interface MetricRecord {
   createdAt: string;
 }
 
+export interface ArtifactBlobRef {
+  kind: "openplazma.artifact_blob_ref";
+  version: "0.1.0";
+  algorithm: "sha256";
+  digest: string;
+  path: string;
+  byteSize: number;
+  mediaType?: string | undefined;
+}
+
 export interface ArtifactRecord {
   kind: "openplazma.artifact";
   version: "0.1.0";
@@ -71,6 +81,7 @@ export interface ArtifactRecord {
   path: string;
   sha256: string;
   byteSize?: number | undefined;
+  blobRef?: ArtifactBlobRef | undefined;
   createdAt: string;
   metadata: JsonObject;
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  artifactBlobRefSchema,
   artifactRecordSchema,
   eventRecordSchema,
   metricRecordSchema,
@@ -64,6 +65,16 @@ const artifactRecord = {
   metadata: {}
 };
 
+const blobRef = {
+  kind: "openplazma.artifact_blob_ref",
+  version: "0.1.0",
+  algorithm: "sha256",
+  digest: "a".repeat(64),
+  path: `blobs/sha256/aa/${"a".repeat(64)}`,
+  byteSize: 1024,
+  mediaType: "application/octet-stream"
+};
+
 describe("tracking schemas", () => {
   it("validates a Python-like RunRecord", () => {
     expect(() => runRecordSchema.parse(runRecord)).not.toThrow();
@@ -71,6 +82,15 @@ describe("tracking schemas", () => {
 
   it("validates ArtifactRecord, MetricRecord, EventRecord, and RunManifest samples", () => {
     expect(() => artifactRecordSchema.parse(artifactRecord)).not.toThrow();
+    expect(() => artifactBlobRefSchema.parse(blobRef)).not.toThrow();
+    expect(() =>
+      artifactRecordSchema.parse({
+        ...artifactRecord,
+        name: "large_signal",
+        type: "signal_blob",
+        blobRef
+      })
+    ).not.toThrow();
     expect(() =>
       metricRecordSchema.parse({
         kind: "openplazma.metric",
@@ -114,6 +134,15 @@ describe("tracking schemas", () => {
         artifacts: [artifactRecord]
       })
     ).not.toThrow();
+  });
+
+  it("rejects blob refs whose path does not match the digest", () => {
+    expect(() =>
+      artifactBlobRefSchema.parse({
+        ...blobRef,
+        path: `blobs/sha256/bb/${"a".repeat(64)}`
+      })
+    ).toThrow();
   });
 
   it("validates distributed RunStore identity and machine-scoped run records", () => {

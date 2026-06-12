@@ -77,6 +77,27 @@ const artifactPathSchema = z
   .refine((path) => path.startsWith("artifacts/"), "artifact path must live under artifacts/")
   .refine((path) => !path.includes(".."), "artifact path must not contain path traversal");
 
+export const artifactBlobRefSchema = z
+  .object({
+    kind: z.literal("openplazma.artifact_blob_ref"),
+    version: versionSchema,
+    algorithm: z.literal("sha256"),
+    digest: sha256Schema,
+    path: z.string().min(1),
+    byteSize: z.number().int().nonnegative(),
+    mediaType: z.string().min(1).optional()
+  })
+  .superRefine((blob, ctx) => {
+    const expectedPath = `blobs/sha256/${blob.digest.slice(0, 2)}/${blob.digest}`;
+    if (blob.path !== expectedPath) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "ArtifactBlobRef.path must match digest",
+        path: ["path"]
+      });
+    }
+  });
+
 export const runRecordSchema = z
   .object({
     kind: z.literal("openplazma.run"),
@@ -161,6 +182,7 @@ export const artifactRecordSchema = z.object({
   path: artifactPathSchema,
   sha256: z.string().regex(/^[a-f0-9]{64}$/),
   byteSize: z.number().int().nonnegative().optional(),
+  blobRef: artifactBlobRefSchema.optional(),
   createdAt: isoDateTimeSchema,
   metadata: metadataSchema
 });

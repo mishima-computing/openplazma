@@ -187,6 +187,81 @@ def test_log_artifact_records_json_byte_size_without_fixed_cap(tmp_path: Path):
     assert op.load_run(run.run_id, run_store=run_store)["artifactCount"] == 1
 
 
+def test_log_content_addressed_source_file_writes_pointer_and_blob(tmp_path: Path):
+    run_store = run_store_path(tmp_path)
+    run = op.start_run(
+        project="openplazma-demo",
+        campaign="read-the-signal",
+        run_type="notebook_analysis",
+        context=sample_context(),
+        run_store=run_store,
+    )
+    source_path = tmp_path / "large-signal.bin"
+    source_path.write_bytes(b"0123456789" * 128)
+
+    artifact = run.log_artifact(
+        "large_signal",
+        "signal_blob",
+        source_path,
+        content_addressed=True,
+        media_type="application/octet-stream",
+    )
+
+    blob_ref = artifact["blobRef"]
+    blob_path = run_store / blob_ref["path"]
+    pointer_path = run_store / "runs" / run.run_id / artifact["path"]
+    assert blob_path.is_file()
+    assert pointer_path.is_file()
+    assert blob_path.read_bytes() == source_path.read_bytes()
+    assert blob_ref["digest"] == hashlib.sha256(source_path.read_bytes()).hexdigest()
+    assert blob_ref["byteSize"] == source_path.stat().st_size
+    assert blob_ref["mediaType"] == "application/octet-stream"
+    assert artifact["sha256"] == hashlib.sha256(pointer_path.read_bytes()).hexdigest()
+    assert op.load_artifact_blob(artifact, run_store=run_store) == blob_path
+    assert op.load_manifest(run.run_id, run_store=run_store)["artifacts"] == [artifact]
+
+
+def test_log_content_addressed_json_artifact_deduplicates_blob(tmp_path: Path):
+    run_store = run_store_path(tmp_path)
+    run = op.start_run(
+        project="openplazma-demo",
+        campaign="read-the-signal",
+        run_type="notebook_analysis",
+        context=sample_context(),
+        run_store=run_store,
+    )
+    payload = {"kind": "large_summary", "values": list(range(32))}
+
+    first = run.log_artifact("large_json_a", "summary_blob", payload, content_addressed=True)
+    second = run.log_artifact("large_json_b", "summary_blob", payload, content_addressed=True)
+
+    assert first["blobRef"]["digest"] == second["blobRef"]["digest"]
+    assert first["blobRef"]["path"] == second["blobRef"]["path"]
+    assert first["blobRef"]["mediaType"] == "application/json"
+    assert len(list((run_store / "blobs" / "sha256").rglob(first["blobRef"]["digest"]))) == 1
+    assert op.load_artifact_blob(first, run_store=run_store) == op.load_artifact_blob(second, run_store=run_store)
+    assert op.load_run(run.run_id, run_store=run_store)["artifactCount"] == 2
+
+
+def test_load_manifest_rejects_content_addressed_blob_digest_mismatch(tmp_path: Path):
+    run_store = run_store_path(tmp_path)
+    run = op.start_run(
+        project="openplazma-demo",
+        campaign="read-the-signal",
+        run_type="notebook_analysis",
+        context=sample_context(),
+        run_store=run_store,
+    )
+    source_path = tmp_path / "large-signal.bin"
+    source_path.write_bytes(b"signal-bytes")
+    artifact = run.log_artifact("large_signal", "signal_blob", source_path, content_addressed=True)
+    blob_path = run_store / artifact["blobRef"]["path"]
+    blob_path.write_bytes(b"x" * artifact["blobRef"]["byteSize"])
+
+    with pytest.raises(ValueError, match="ArtifactBlobRef.digest"):
+        op.load_manifest(run.run_id, run_store=run_store)
+
+
 def test_log_artifact_accepts_nested_json_metadata(tmp_path: Path):
     run = op.start_run(
         project="openplazma-demo",

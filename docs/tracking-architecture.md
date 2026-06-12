@@ -111,6 +111,10 @@ The first RunStore backend uses inspectable local files:
 ```text
 .openplazma/
   runstore.json
+  blobs/
+    sha256/
+      ab/
+        abcdef...
   runs/
     OPR-YYYYMMDD-000001/
       run.json
@@ -139,6 +143,7 @@ Direction:
 - Collision-resistant Run IDs for machine-scoped writers.
 - `storeId`, `machineId`, `runGroupId`, and `partitionId` on Run records when scale-out workflows need them.
 - Streaming and paged read APIs instead of fixed global caps.
+- Content-addressed artifact blobs for large payload bytes, with small Run-local pointer artifacts and manifest records.
 - No binary-first run format in the local backend.
 - No cloud dependency in the local backend.
 - No account required in the local backend.
@@ -146,6 +151,8 @@ Direction:
 Removing fixed caps is not the same thing as claiming unlimited local filesystem scale. If a backend or operator needs resource ceilings, those ceilings must be explicit policy. They must not be hidden correctness constants that make long campaigns invalid by default.
 
 The local filesystem backend is a safe default and compatibility layer. It records multi-machine identity and refuses to clear remote-host locks by PID inference, but it is not a scheduler, workflow engine, object-store ledger, or facility integration layer.
+
+Content-addressed blobs are the local bridge between small inspectable JSON records and large evidence payloads. The manifest keeps metadata, checksums, sizes, and blob references; the blob store owns immutable bytes. This prevents large signals or derived arrays from being forced into one JSON manifest while preserving read-only provenance and digest validation.
 
 See [Local RunStore MVP](runstore-mvp.md), [Notebook tracking integration](notebook-tracking-integration.md), [StudyTask layer](studytask_layer.md), [Guided StudyFlow](guided-study-flow.md), [Observatory UI MVP](observatory-mvp.md), and [Observatory Compare MVP](observatory-compare-mvp.md) for Python API examples and current limitations.
 

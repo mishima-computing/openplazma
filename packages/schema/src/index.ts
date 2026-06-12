@@ -377,6 +377,7 @@ export function parseFixtureManifest(input: unknown): FixtureManifest {
 }
 
 export {
+  artifactBlobRefSchema,
   artifactRecordSchema,
   eventRecordSchema,
   metricRecordSchema,
