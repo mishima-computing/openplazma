@@ -40,7 +40,7 @@ def jupyter_lite_command() -> list[str]:
     if jupyter_lite is not None:
         return [jupyter_lite]
 
-    scripts_dir = Path(sys.executable).resolve().parent / ("Scripts" if os.name == "nt" else "bin")
+    scripts_dir = Path(sys.executable).parent
     executable = scripts_dir / ("jupyter-lite.exe" if os.name == "nt" else "jupyter-lite")
     if executable.exists():
         return [str(executable)]

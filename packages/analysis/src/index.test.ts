@@ -589,6 +589,32 @@ describe("mixed-signal diagnostic assessment", () => {
         nextObservations: []
       })
     ).toThrow("packageId");
+
+    expect(() =>
+      recordInvestigationReport(session, {
+        kind: "openplazma.investigation_report",
+        version: "0.1.0",
+        reportId: "missing-artifact-report",
+        packageId: "boundary-test",
+        createdAt: "2026-06-13T00:00:00.000Z",
+        claims: [
+          {
+            kind: "openplazma.investigation_claim",
+            version: "0.1.0",
+            claimId: "claim-missing-report-artifact",
+            claimType: "source_identity",
+            statement: "The report references evidence outside the package.",
+            status: "support",
+            evidenceArtifactIds: ["missing-artifact"],
+            assumptions: [],
+            limitations: []
+          }
+        ],
+        assumptions: [],
+        limitations: ["Wrong evidence boundary."],
+        nextObservations: []
+      })
+    ).toThrow("unknown diagnostic artifact");
   });
 });
 

@@ -431,7 +431,7 @@ export const investigationPackageSchema = z
     title: z.string().min(1),
     target: investigationTargetSchema,
     questions: z.array(investigationQuestionSchema).min(1),
-    artifacts: z.array(diagnosticArtifactSchema).min(1),
+    artifacts: z.array(diagnosticArtifactSchema),
     fusionAssessment: fusionConditionAssessmentSchema,
     claims: z.array(investigationClaimSchema),
     limitations: z.array(z.string().min(1)).min(1)
@@ -541,6 +541,7 @@ export const investigationSessionSchema = z
         path: ["reports"]
       });
     }
+    const sessionArtifactIds = new Set(session.package.artifacts.map((artifact) => artifact.artifactId));
     for (const [index, report] of session.reports.entries()) {
       if (report.packageId !== session.package.packageId) {
         ctx.addIssue({
@@ -548,6 +549,14 @@ export const investigationSessionSchema = z
           message: "session report packageId must match the session package",
           path: ["reports", index, "packageId"]
         });
+      }
+      for (const [claimIndex, claim] of report.claims.entries()) {
+        checkArtifactRefs(
+          sessionArtifactIds,
+          claim.evidenceArtifactIds,
+          ["reports", index, "claims", claimIndex, "evidenceArtifactIds"],
+          ctx
+        );
       }
     }
   });
