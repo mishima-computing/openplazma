@@ -2,6 +2,8 @@ import type { DiagnosticArray, RotationTrackPoint, SignalSeries } from "@openpla
 import { describe, expect, it } from "vitest";
 import {
   analyzeElms,
+  analyzeTemporalFrequency,
+  buildElectromagneticCarrierAnalysis,
   buildInferenceFromArray,
   crashStats,
   detectElmCrashes,
@@ -221,6 +223,70 @@ describe("ELM analysis", () => {
     expect(analysis.regularity).toBeGreaterThan(0.9);
     expect(analysis.classification).toBe("type_I");
     expect(analysis.sourceSignalId).toBe("d-alpha");
+  });
+});
+
+describe("investigation frequency analysis", () => {
+  it("extracts a dominant brightness modulation frequency from a signal", () => {
+    const time = timeGrid(1000, 0.01);
+    const values = time.map((t) => 2 + 0.5 * Math.cos(TWO_PI * 3 * t + 0.2));
+    const series: SignalSeries = {
+      kind: "openplazma.signal_series",
+      version: "0.1.0",
+      signalId: "brightness",
+      label: "Brightness",
+      quantity: "brightness",
+      unit: "a.u.",
+      timeUnit: "s",
+      time,
+      values
+    };
+
+    const analysis = analyzeTemporalFrequency(series, {
+      analysisId: "brightness-fft",
+      domain: "intensity_modulation",
+      maxFrequencyHz: 20
+    });
+
+    expect(analysis.domain).toBe("intensity_modulation");
+    expect(analysis.method).toBe("fft");
+    expect(analysis.sampleRateHz).toBeCloseTo(100, 6);
+    expect(analysis.bands[0]?.upperFrequencyHz).toBeLessThanOrEqual(20);
+    expect(analysis.peaks[0]?.frequencyHz).toBeCloseTo(3, 1);
+    expect(analysis.limitations.join(" ")).toContain("does not prove");
+  });
+
+  it("builds an electromagnetic carrier analysis from wavelengths", () => {
+    const analysis = buildElectromagneticCarrierAnalysis({
+      analysisId: "visible-carrier",
+      sourceQuantity: "spectral_radiance",
+      lowerWavelengthMeters: 700e-9,
+      upperWavelengthMeters: 400e-9,
+      bandId: "visible",
+      label: "Visible carrier band",
+      peakWavelengthMeters: 550e-9,
+      description: "Visible-light carrier range."
+    });
+
+    expect(analysis.domain).toBe("electromagnetic_carrier");
+    expect(analysis.method).toBe("spectral_line_fit");
+    expect(analysis.bands[0]?.lowerFrequencyHz).toBeLessThan(analysis.bands[0]?.upperFrequencyHz ?? 0);
+    expect(analysis.peaks[0]?.frequencyHz).toBeGreaterThan(5e14);
+    expect(analysis.peaks[0]?.limitations.join(" ")).toContain("not a fusion-product claim");
+  });
+
+  it("rejects invalid wavelengths", () => {
+    expect(() =>
+      buildElectromagneticCarrierAnalysis({
+        analysisId: "bad-carrier",
+        sourceQuantity: "spectral_radiance",
+        lowerWavelengthMeters: 0,
+        upperWavelengthMeters: 400e-9,
+        bandId: "bad",
+        label: "Bad carrier band",
+        description: "Invalid wavelength."
+      })
+    ).toThrow("wavelengthMeters");
   });
 });
 

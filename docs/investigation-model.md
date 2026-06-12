@@ -300,3 +300,14 @@ getInvestigationPackage(packageId)
 
 This keeps investigation package loading read-only and fixture-backed until a
 future ADR approves external data sources.
+
+`@openplazma/analysis` also provides read-only helpers for deriving
+`FrequencyAnalysis` objects from signal-shaped records:
+
+```text
+analyzeTemporalFrequency(signal, { domain })
+buildElectromagneticCarrierAnalysis(...)
+```
+
+These helpers identify bands and candidate peaks. They do not identify plasma,
+fusion, or source identity without additional evidence.
