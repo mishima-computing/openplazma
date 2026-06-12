@@ -483,3 +483,167 @@ pre {
   margin: 0 0 8px;
   font-size: 1rem;
 }
+
+/* Investigation workbench */
+.investigation-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.investigation-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.9fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.investigation-summary h3,
+.investigation-artifact h3 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.investigation-meta-grid,
+.measurement-strip {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.investigation-meta-grid dd,
+.measurement-strip dd {
+  font-size: 0.9rem;
+}
+
+.region-list,
+.claim-list,
+.investigation-token-list,
+.frequency-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.region-list {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.region-list li,
+.measurement-strip > div {
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid #d8e1e5;
+  border-radius: 6px;
+  background: #f8fbfc;
+}
+
+.region-list strong {
+  font-size: 0.92rem;
+}
+
+.region-list span {
+  color: #5b6872;
+  font-size: 0.82rem;
+}
+
+.investigation-artifact-list {
+  display: grid;
+  gap: 12px;
+}
+
+.investigation-artifact {
+  display: grid;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid #e0e7ea;
+}
+
+.investigation-artifact-main {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.artifact-kind,
+.claim-status {
+  align-self: start;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: #e7f7fd;
+  color: #075985;
+  font-size: 0.74rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.investigation-token-list {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.investigation-token-list li,
+.frequency-list li,
+.claim-row {
+  display: grid;
+  gap: 4px;
+  padding: 9px 10px;
+  border-left: 4px solid #8aa1ad;
+  background: #f7fafb;
+  border-radius: 6px;
+}
+
+.investigation-token-list span,
+.frequency-list strong {
+  color: #17202a;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.investigation-token-list small,
+.frequency-list span {
+  color: #5b6872;
+  font-size: 0.8rem;
+}
+
+.frequency-list {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.claim-row {
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.claim-support .claim-status {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.claim-inconclusive .claim-status,
+.claim-untested .claim-status {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.claim-contradict .claim-status {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+@media (max-width: 920px) {
+  .investigation-summary,
+  .investigation-meta-grid,
+  .measurement-strip,
+  .claim-row {
+    grid-template-columns: 1fr;
+  }
+
+  .investigation-artifact-main {
+    display: grid;
+  }
+}
