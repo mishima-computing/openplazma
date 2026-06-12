@@ -27,6 +27,7 @@ Public readiness docs:
 - [Local RunStore MVP](docs/runstore-mvp.md)
 - [Local signal import](docs/local-signal-import.md)
 - [Observation model direction](docs/observation-model.md)
+- [Investigation model](docs/investigation-model.md)
 - [Notebook tracking integration](docs/notebook-tracking-integration.md)
 - [StudyTask layer](docs/studytask_layer.md)
 - [Guided StudyFlow](docs/guided-study-flow.md)

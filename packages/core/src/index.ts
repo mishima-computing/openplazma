@@ -199,3 +199,26 @@ export type {
   RotationTrackPoint,
   TearingModeHypothesis
 } from "./mhd";
+
+export type {
+  ArtifactProvenanceKind,
+  CandidateEnergySource,
+  ConditionEstimateStatus,
+  ConditionLogicalRole,
+  DiagnosticArtifact,
+  DiagnosticArtifactKind,
+  FusionConditionAssessment,
+  FusionConditionEstimate,
+  FusionConditionMode,
+  FusionConditionParameter,
+  FusionReactionCandidate,
+  FusionStatus,
+  InvestigationClaim,
+  InvestigationClaimStatus,
+  InvestigationClaimType,
+  InvestigationPackage,
+  InvestigationQuestion,
+  InvestigationQuestionKind,
+  InvestigationTarget,
+  InvestigationTargetKind
+} from "./investigation";

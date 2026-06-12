@@ -1,6 +1,8 @@
 # Observation Model Direction
 
-This document defines an implementation direction, not an implemented schema.
+This document defines the observation-model direction. Parts of this direction
+are now implemented for MHD analysis and unknown-energy investigations; see
+the MHD contracts and [Investigation Model](investigation-model.md).
 
 OpenPlazma should not treat a sensor signal as a direct copy of a theory variable. Fusion development often works with a latent physical state that is not directly observable. The useful engineering question is how that state appears through diagnostics, simulated diagnostics, derived signals, and interpretation layers.
 
