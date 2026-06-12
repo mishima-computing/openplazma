@@ -372,7 +372,9 @@ export { mhdAnalysisBundleSchema, parseMhdAnalysisBundle } from "./mhd.schema";
 
 export {
   fusionConditionAssessmentSchema,
+  investigationFixtureManifestSchema,
   investigationPackageSchema,
   parseFusionConditionAssessment,
+  parseInvestigationFixtureManifest,
   parseInvestigationPackage
 } from "./investigation.schema";

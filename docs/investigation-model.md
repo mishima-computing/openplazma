@@ -273,3 +273,20 @@ necessary fusion diagnostics are missing
 
 These contracts are core infrastructure. They do not implement gameplay,
 narrative progression, Steam features, facility telemetry, or control.
+
+## Static Investigation Fixtures
+
+The first schema-validated investigation fixtures live under:
+
+```text
+data/fixtures/static/investigations/
+  manifest.json
+  will-o-wisp-001/investigation-package.json
+  organism-interior-001/investigation-package.json
+  solar-inverse-001/investigation-package.json
+```
+
+The fixture manifest is intentionally separate from the shot manifest. Shot
+fixtures carry signal records for the Real Signal Room; investigation fixtures
+carry evidence packages for unknown-energy reasoning. Both use repo-root
+relative paths and `STATIC_FIXTURE` provenance.

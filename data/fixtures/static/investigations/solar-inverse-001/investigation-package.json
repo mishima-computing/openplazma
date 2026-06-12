@@ -1,0 +1,204 @@
+{
+  "kind": "openplazma.investigation_package",
+  "version": "0.1.0",
+  "packageId": "solar-inverse-001",
+  "title": "Solar inverse fusion-condition seed",
+  "target": {
+    "kind": "openplazma.investigation_target",
+    "version": "0.1.0",
+    "targetId": "the-sun",
+    "targetKind": "stellar_object",
+    "label": "The Sun",
+    "description": "A stellar object used as an inverse reasoning seed for fusion-condition literacy.",
+    "candidateEnergySources": ["fusion", "plasma", "unknown"],
+    "regions": [
+      {
+        "regionId": "core",
+        "label": "Core",
+        "description": "Inferred fusion-condition region.",
+        "limitations": ["The core is not directly sampled in this fixture."]
+      },
+      {
+        "regionId": "photosphere",
+        "label": "Photosphere",
+        "description": "Visible surface observation region.",
+        "limitations": ["Surface diagnostics are not direct core measurements."]
+      }
+    ],
+    "limitations": [
+      "This is a static educational fixture, not live solar data.",
+      "The inverse premise is staged for reasoning practice."
+    ]
+  },
+  "questions": [
+    {
+      "questionId": "q-inverse",
+      "questionKind": "fusion_conditions",
+      "text": "If sustained fusion is assumed for this stage, what necessary conditions must hold?"
+    },
+    {
+      "questionId": "q-maintenance",
+      "questionKind": "plasma_maintenance",
+      "text": "What maintains the plasma state under the inverse premise?"
+    }
+  ],
+  "artifacts": [
+    {
+      "kind": "openplazma.diagnostic_artifact",
+      "version": "0.1.0",
+      "artifactId": "visible-solar-image",
+      "artifactKind": "image_frame",
+      "targetRegionId": "photosphere",
+      "label": "Visible disk image",
+      "provenanceKind": "synthetic",
+      "instrument": {
+        "instrumentKind": "visible_camera",
+        "label": "Synthetic visible imager",
+        "observables": ["visible_light"],
+        "calibration": {
+          "status": "estimated",
+          "responseKnown": true,
+          "correctionApplied": true,
+          "description": "Synthetic fixture response correction.",
+          "limitations": ["This fixture image is not live solar data."]
+        }
+      },
+      "description": "Synthetic visible disk artifact for inverse-stage context.",
+      "limitations": ["Visible surface imagery does not directly measure core fusion."]
+    },
+    {
+      "kind": "openplazma.diagnostic_artifact",
+      "version": "0.1.0",
+      "artifactId": "helioseismic-trace",
+      "artifactKind": "helioseismic_trace",
+      "targetRegionId": "core",
+      "label": "Helioseismic trace",
+      "provenanceKind": "synthetic",
+      "instrument": {
+        "instrumentKind": "helioseismology_pipeline",
+        "label": "Synthetic helioseismology pipeline",
+        "observables": ["motion", "density"],
+        "calibration": {
+          "status": "estimated",
+          "responseKnown": true,
+          "correctionApplied": true,
+          "description": "Synthetic inversion response for educational use.",
+          "limitations": ["The inversion is a static fixture, not a validated solar model."]
+        }
+      },
+      "frequencyAnalyses": [
+        {
+          "analysisId": "helioseismic-periodogram",
+          "domain": "acoustic_modulation",
+          "method": "periodogram",
+          "sourceQuantity": "surface_velocity",
+          "bands": [
+            {
+              "bandId": "p-mode-band",
+              "domain": "acoustic_modulation",
+              "label": "p-mode oscillation band",
+              "lowerFrequencyHz": 0.001,
+              "upperFrequencyHz": 0.01,
+              "quantity": "surface velocity modulation",
+              "unit": "Hz",
+              "description": "Low-frequency oscillation band used as an inverse diagnostic pointer.",
+              "limitations": ["This band supports condition reasoning but does not prove a specific reaction path by itself."]
+            }
+          ],
+          "peaks": [
+            {
+              "peakId": "p-mode-3mhz",
+              "frequencyHz": 0.003,
+              "interpretation": "Synthetic p-mode peak for inverse reasoning.",
+              "limitations": ["Educational fixture peak only."]
+            }
+          ],
+          "description": "Periodogram-style summary of synthetic helioseismic modulation.",
+          "assumptions": ["The stage begins from a sustained-fusion premise."],
+          "limitations": ["The trace is not a live measurement."]
+        }
+      ],
+      "description": "Synthetic helioseismic artifact used to reason backward toward core conditions.",
+      "limitations": ["Inverse diagnostics remain model-dependent."]
+    },
+    {
+      "kind": "openplazma.diagnostic_artifact",
+      "version": "0.1.0",
+      "artifactId": "neutrino-flux",
+      "artifactKind": "neutrino_flux",
+      "targetRegionId": "core",
+      "label": "Synthetic neutrino flux",
+      "provenanceKind": "synthetic",
+      "instrument": {
+        "instrumentKind": "neutrino_detector",
+        "label": "Synthetic neutrino detector",
+        "observables": ["neutrino_flux"],
+        "calibration": {
+          "status": "estimated",
+          "responseKnown": true,
+          "correctionApplied": false,
+          "description": "Fixture-level detector response placeholder.",
+          "limitations": ["The artifact is not real neutrino data."]
+        }
+      },
+      "quantity": "neutrino_flux",
+      "unit": "a.u.",
+      "description": "Synthetic product-channel artifact for inverse-stage reasoning.",
+      "limitations": ["The fixture cannot validate solar neutrino physics."]
+    }
+  ],
+  "fusionAssessment": {
+    "kind": "openplazma.fusion_condition_assessment",
+    "version": "0.1.0",
+    "assessmentId": "solar-inverse-assessment",
+    "fusionStatus": "plausible",
+    "conditionMode": "inverse_from_fusion_condition",
+    "reactionCandidates": ["proton_proton_chain"],
+    "observedOrInferredConditions": [
+      {
+        "parameter": "gravity",
+        "status": "inferred",
+        "logicalRole": "supporting",
+        "evidenceArtifactIds": ["helioseismic-trace"],
+        "assumptions": ["Self-gravity supplies the stellar confinement context."],
+        "limitations": ["This is an inferred condition, not a direct core measurement."]
+      }
+    ],
+    "requiredConditions": [
+      {
+        "parameter": "gravity",
+        "status": "required",
+        "logicalRole": "necessary",
+        "unit": "m/s^2",
+        "evidenceArtifactIds": ["helioseismic-trace"],
+        "assumptions": ["Self-gravity supplies the confinement context."],
+        "limitations": ["This is an inverse condition requirement, not a direct core measurement."]
+      },
+      {
+        "parameter": "triple_product",
+        "status": "required",
+        "logicalRole": "necessary",
+        "evidenceArtifactIds": ["helioseismic-trace", "neutrino-flux"],
+        "assumptions": ["Sustained fusion is assumed for the inverse stage."],
+        "limitations": ["Required conditions must still be checked against observations."]
+      }
+    ],
+    "unknowns": ["core composition", "central temperature", "central density"],
+    "assumptions": ["The stage begins from a fusion-holds premise and works backward."],
+    "limitations": ["Inverse reasoning does not prove the premise by itself."]
+  },
+  "claims": [
+    {
+      "kind": "openplazma.investigation_claim",
+      "version": "0.1.0",
+      "claimId": "claim-inverse-conditions",
+      "claimType": "fusion_conditions",
+      "statement": "Under a sustained-fusion premise, gravity and triple-product constraints are necessary conditions to track.",
+      "status": "support",
+      "evidenceArtifactIds": ["helioseismic-trace", "neutrino-flux"],
+      "assumptions": ["The premise is staged for inverse reasoning."],
+      "limitations": ["Necessary conditions are not sufficient proof of fusion."]
+    }
+  ],
+  "limitations": ["Educational inverse-reasoning package only.", "No live solar data or control path."]
+}

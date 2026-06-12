@@ -1,9 +1,17 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   fusionConditionAssessmentSchema,
+  investigationFixtureManifestSchema,
   investigationPackageSchema,
+  parseInvestigationFixtureManifest,
   parseInvestigationPackage
 } from "./index";
+
+function readFixtureJson(path: string): unknown {
+  return JSON.parse(readFileSync(join(process.cwd(), path), "utf8")) as unknown;
+}
 
 function willOWispPackage() {
   return {
@@ -681,5 +689,35 @@ describe("InvestigationPackage schema", () => {
     pack.artifacts[1]!.frequencyAnalyses![0]!.bands[0]!.upperFrequencyHz = 1;
 
     expect(() => investigationPackageSchema.parse(pack)).toThrow();
+  });
+
+  it("validates bundled investigation fixtures from the registry", () => {
+    const manifest = parseInvestigationFixtureManifest(
+      readFixtureJson("data/fixtures/static/investigations/manifest.json")
+    );
+
+    expect(manifest.provider).toBe("STATIC_FIXTURE");
+    expect(manifest.datasetId).toBe("static-investigation-v0");
+    expect(manifest.packages.map((entry) => entry.packageId)).toEqual([
+      "will-o-wisp-001",
+      "organism-interior-001",
+      "solar-inverse-001"
+    ]);
+
+    for (const entry of manifest.packages) {
+      const pack = parseInvestigationPackage(readFixtureJson(entry.path));
+      expect(pack.packageId).toBe(entry.packageId);
+      expect(pack.title).toBe(entry.title);
+      expect(pack.limitations.join(" ")).toContain("No");
+    }
+  });
+
+  it("rejects investigation fixture manifests with duplicate package ids", () => {
+    const manifest = readFixtureJson("data/fixtures/static/investigations/manifest.json") as {
+      packages: Array<{ packageId: string }>;
+    };
+    manifest.packages[1]!.packageId = manifest.packages[0]!.packageId;
+
+    expect(() => investigationFixtureManifestSchema.parse(manifest)).toThrow();
   });
 });
