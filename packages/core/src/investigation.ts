@@ -379,6 +379,18 @@ export interface InvestigationPackage {
   limitations: string[];
 }
 
+export interface InvestigationReport {
+  kind: "openplazma.investigation_report";
+  version: "0.1.0";
+  reportId: string;
+  packageId: string;
+  createdAt: string;
+  claims: InvestigationClaim[];
+  assumptions: string[];
+  limitations: string[];
+  nextObservations: string[];
+}
+
 export interface InvestigationFixtureManifest {
   kind: "openplazma.investigation_fixture_manifest";
   version: "0.1.0";

@@ -374,7 +374,9 @@ export {
   fusionConditionAssessmentSchema,
   investigationFixtureManifestSchema,
   investigationPackageSchema,
+  investigationReportSchema,
   parseFusionConditionAssessment,
   parseInvestigationFixtureManifest,
-  parseInvestigationPackage
+  parseInvestigationPackage,
+  parseInvestigationReport
 } from "./investigation.schema";

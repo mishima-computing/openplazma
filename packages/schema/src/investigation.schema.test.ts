@@ -5,8 +5,10 @@ import {
   fusionConditionAssessmentSchema,
   investigationFixtureManifestSchema,
   investigationPackageSchema,
+  investigationReportSchema,
   parseInvestigationFixtureManifest,
-  parseInvestigationPackage
+  parseInvestigationPackage,
+  parseInvestigationReport
 } from "./index";
 
 function readFixtureJson(path: string): unknown {
@@ -719,5 +721,78 @@ describe("InvestigationPackage schema", () => {
     manifest.packages[1]!.packageId = manifest.packages[0]!.packageId;
 
     expect(() => investigationFixtureManifestSchema.parse(manifest)).toThrow();
+  });
+
+  it("validates investigation reports with evidence-linked claims", () => {
+    const report = parseInvestigationReport({
+      kind: "openplazma.investigation_report",
+      version: "0.1.0",
+      reportId: "report-will-o-wisp-001",
+      packageId: "will-o-wisp-001",
+      createdAt: "2026-06-12T00:00:00.000Z",
+      claims: [
+        {
+          kind: "openplazma.investigation_claim",
+          version: "0.1.0",
+          claimId: "claim-visible-light-insufficient",
+          claimType: "fusion_status",
+          statement: "Visible light and flicker do not support a fusion claim.",
+          status: "support",
+          evidenceArtifactIds: ["visible-spectrum", "emission-timeseries"],
+          assumptions: ["The package is complete for this report step."],
+          limitations: ["The report does not prove that no fusion source exists."]
+        }
+      ],
+      assumptions: ["The supplied static fixture is the evidence set under review."],
+      limitations: ["Educational static fixture report."],
+      nextObservations: ["Add calibrated particle or high-energy photon diagnostics."]
+    });
+
+    expect(report.claims[0]?.evidenceArtifactIds).toContain("visible-spectrum");
+    expect(report.nextObservations.join(" ")).toContain("diagnostics");
+  });
+
+  it("rejects investigation reports without claims", () => {
+    expect(() =>
+      investigationReportSchema.parse({
+        kind: "openplazma.investigation_report",
+        version: "0.1.0",
+        reportId: "empty-report",
+        packageId: "will-o-wisp-001",
+        createdAt: "2026-06-12T00:00:00.000Z",
+        claims: [],
+        assumptions: [],
+        limitations: ["A report needs a limitation."],
+        nextObservations: []
+      })
+    ).toThrow();
+  });
+
+  it("rejects investigation reports with invalid timestamps", () => {
+    expect(() =>
+      investigationReportSchema.parse({
+        kind: "openplazma.investigation_report",
+        version: "0.1.0",
+        reportId: "bad-time-report",
+        packageId: "will-o-wisp-001",
+        createdAt: "today",
+        claims: [
+          {
+            kind: "openplazma.investigation_claim",
+            version: "0.1.0",
+            claimId: "claim",
+            claimType: "source_identity",
+            statement: "The source is not identified.",
+            status: "inconclusive",
+            evidenceArtifactIds: [],
+            assumptions: [],
+            limitations: ["No calibrated diagnostic."]
+          }
+        ],
+        assumptions: [],
+        limitations: ["A report needs a limitation."],
+        nextObservations: []
+      })
+    ).toThrow();
   });
 });
