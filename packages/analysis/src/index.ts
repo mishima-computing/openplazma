@@ -1025,6 +1025,9 @@ export function recordInvestigationReport(
   if (report.packageId !== session.package.packageId) {
     throw new Error("Investigation report packageId must match the session package.");
   }
+  for (const claim of report.claims) {
+    assertClaimArtifactRefs(session.package, claim);
+  }
   return {
     ...session,
     updatedAt,

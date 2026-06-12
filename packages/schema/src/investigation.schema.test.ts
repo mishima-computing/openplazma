@@ -841,6 +841,39 @@ describe("InvestigationPackage schema", () => {
     expect(session.reports[0]?.packageId).toBe(session.package.packageId);
   });
 
+  it("accepts collecting-evidence sessions before diagnostic artifacts arrive", () => {
+    const basePackage = willOWispPackage();
+    const draftPackage = {
+      ...basePackage,
+      packageId: "draft-external-session-001",
+      artifacts: [],
+      claims: [],
+      fusionAssessment: {
+        ...basePackage.fusionAssessment,
+        assessmentId: "draft-external-session-001-fusion-assessment",
+        observedOrInferredConditions: [],
+        requiredConditions: [],
+        unknowns: ["source identity", "plasma presence", "fusion products"]
+      }
+    };
+
+    const session = parseInvestigationSession({
+      kind: "openplazma.investigation_session",
+      version: "0.1.0",
+      sessionId: "session-draft-external-001",
+      createdAt: "2026-06-13T00:00:00.000Z",
+      updatedAt: "2026-06-13T00:00:00.000Z",
+      status: "collecting_evidence",
+      package: draftPackage,
+      requiredObservables: ["visible_light", "electric_current", "neutron_flux"],
+      reports: [],
+      limitations: ["Read-only external investigation session."]
+    });
+
+    expect(session.status).toBe("collecting_evidence");
+    expect(session.package.artifacts).toEqual([]);
+  });
+
   it("rejects reported sessions without reports", () => {
     expect(() =>
       investigationSessionSchema.parse({
@@ -897,5 +930,46 @@ describe("InvestigationPackage schema", () => {
     };
 
     expect(() => investigationSessionSchema.parse(session)).toThrow();
+  });
+
+  it("rejects session reports with claims outside the package evidence boundary", () => {
+    const session = {
+      kind: "openplazma.investigation_session",
+      version: "0.1.0",
+      sessionId: "report-evidence-boundary-session",
+      createdAt: "2026-06-13T00:00:00.000Z",
+      updatedAt: "2026-06-13T00:01:00.000Z",
+      status: "reported",
+      package: willOWispPackage(),
+      requiredObservables: [],
+      reports: [
+        {
+          kind: "openplazma.investigation_report",
+          version: "0.1.0",
+          reportId: "report-with-missing-artifact",
+          packageId: "will-o-wisp-001",
+          createdAt: "2026-06-13T00:01:00.000Z",
+          claims: [
+            {
+              kind: "openplazma.investigation_claim",
+              version: "0.1.0",
+              claimId: "claim-missing-report-artifact",
+              claimType: "source_identity",
+              statement: "The report references evidence that is not in the package.",
+              status: "support",
+              evidenceArtifactIds: ["missing-artifact"],
+              assumptions: [],
+              limitations: ["This claim is outside the evidence boundary."]
+            }
+          ],
+          assumptions: [],
+          limitations: ["Report evidence must stay inside the package boundary."],
+          nextObservations: []
+        }
+      ],
+      limitations: ["Read-only external investigation session."]
+    };
+
+    expect(() => investigationSessionSchema.parse(session)).toThrow("unknown diagnostic artifact");
   });
 });
