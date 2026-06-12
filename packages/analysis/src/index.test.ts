@@ -9,11 +9,17 @@ import { describe, expect, it } from "vitest";
 import {
   analyzeElms,
   analyzeTemporalFrequency,
+  addDiagnosticArtifact,
+  addInvestigationClaim,
   assessDiagnosticArtifact,
   assessInvestigationMeasurements,
+  assessInvestigationSession,
   buildElectromagneticCarrierAnalysis,
+  buildInvestigationPackage,
   buildInferenceFromArray,
   crashStats,
+  createInvestigationSession,
+  createInvestigationSessionReport,
   detectElmCrashes,
   detectModeLocking,
   detectPeriodicCrashes,
@@ -22,6 +28,7 @@ import {
   estimatePoloidalModeNumber,
   estimateToroidalModeNumber,
   forwardTearingModeSignals,
+  recordInvestigationReport,
   trackRotationFrequency
 } from "./index";
 
@@ -451,6 +458,137 @@ describe("mixed-signal diagnostic assessment", () => {
     expect(assessment.artifactAssessments).toHaveLength(2);
     expect(assessment.missingObservables).toEqual(["neutron_flux"]);
     expect(assessment.unresolvedArtifactIds).toEqual(["eye-report", "mixed-current"]);
+  });
+
+  it("supports a neutral external investigation session from evidence to report", () => {
+    const pack = buildInvestigationPackage({
+      packageId: "external-session-001",
+      title: "External investigation session",
+      target: {
+        kind: "openplazma.investigation_target",
+        version: "0.1.0",
+        targetId: "external-target",
+        targetKind: "unknown",
+        label: "External target",
+        description: "A target supplied by an external application.",
+        candidateEnergySources: ["unknown", "plasma", "fusion"],
+        limitations: ["External target semantics are supplied outside OpenPlazma."]
+      },
+      questions: [
+        {
+          questionId: "q-source",
+          questionKind: "energy_source_classification",
+          text: "Which source claim is supported by the evidence?"
+        }
+      ]
+    });
+    const session = createInvestigationSession({
+      sessionId: "session-external-001",
+      package: pack,
+      requiredObservables: ["visible_light", "electric_current", "neutron_flux"],
+      createdAt: "2026-06-13T00:00:00.000Z"
+    });
+
+    const withArtifact = addDiagnosticArtifact(session, humanEyeArtifact(), "2026-06-13T00:01:00.000Z");
+    const withClaim = addInvestigationClaim(
+      withArtifact,
+      {
+        kind: "openplazma.investigation_claim",
+        version: "0.1.0",
+        claimId: "claim-visible-only-insufficient",
+        claimType: "fusion_status",
+        statement: "Visible testimony alone does not support a fusion claim.",
+        status: "support",
+        evidenceArtifactIds: ["eye-report"],
+        assumptions: [],
+        limitations: ["No particle product diagnostic is attached."]
+      },
+      "2026-06-13T00:02:00.000Z"
+    );
+    const assessment = assessInvestigationSession(withClaim);
+    const report = createInvestigationSessionReport(withClaim, {
+      createdAt: "2026-06-13T00:03:00.000Z"
+    });
+    const reported = recordInvestigationReport(withClaim, report, "2026-06-13T00:04:00.000Z");
+
+    expect(session.status).toBe("collecting_evidence");
+    expect(withClaim.status).toBe("ready_for_report");
+    expect(assessment.readyForReport).toBe(true);
+    expect(assessment.measurementAssessment.missingObservables).toEqual(["electric_current", "neutron_flux"]);
+    expect(report.packageId).toBe("external-session-001");
+    expect(report.nextObservations.join(" ")).toContain("neutron_flux");
+    expect(reported.status).toBe("reported");
+    expect(reported.reports).toHaveLength(1);
+  });
+
+  it("rejects session claims and reports that reference the wrong evidence boundary", () => {
+    const pack = buildInvestigationPackage({
+      packageId: "boundary-test",
+      title: "Boundary test",
+      target: {
+        kind: "openplazma.investigation_target",
+        version: "0.1.0",
+        targetId: "boundary-target",
+        targetKind: "unknown",
+        label: "Boundary target",
+        description: "Boundary target.",
+        candidateEnergySources: ["unknown"],
+        limitations: ["Boundary fixture."]
+      },
+      questions: [
+        {
+          questionId: "q-source",
+          questionKind: "energy_source_classification",
+          text: "What source is supported?"
+        }
+      ],
+      artifacts: [humanEyeArtifact()]
+    });
+    const session = createInvestigationSession({
+      sessionId: "session-boundary",
+      package: pack,
+      createdAt: "2026-06-13T00:00:00.000Z"
+    });
+
+    expect(() =>
+      addInvestigationClaim(session, {
+        kind: "openplazma.investigation_claim",
+        version: "0.1.0",
+        claimId: "claim-missing-artifact",
+        claimType: "source_identity",
+        statement: "A missing artifact supports this claim.",
+        status: "support",
+        evidenceArtifactIds: ["missing-artifact"],
+        assumptions: [],
+        limitations: []
+      })
+    ).toThrow("unknown diagnostic artifact");
+
+    expect(() =>
+      recordInvestigationReport(session, {
+        kind: "openplazma.investigation_report",
+        version: "0.1.0",
+        reportId: "wrong-report",
+        packageId: "other-package",
+        createdAt: "2026-06-13T00:00:00.000Z",
+        claims: [
+          {
+            kind: "openplazma.investigation_claim",
+            version: "0.1.0",
+            claimId: "claim-eye",
+            claimType: "source_identity",
+            statement: "The eye report is evidence.",
+            status: "inconclusive",
+            evidenceArtifactIds: ["eye-report"],
+            assumptions: [],
+            limitations: []
+          }
+        ],
+        assumptions: [],
+        limitations: ["Wrong package boundary."],
+        nextObservations: []
+      })
+    ).toThrow("packageId");
   });
 });
 

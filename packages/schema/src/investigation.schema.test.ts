@@ -6,9 +6,11 @@ import {
   investigationFixtureManifestSchema,
   investigationPackageSchema,
   investigationReportSchema,
+  investigationSessionSchema,
   parseInvestigationFixtureManifest,
   parseInvestigationPackage,
-  parseInvestigationReport
+  parseInvestigationReport,
+  parseInvestigationSession
 } from "./index";
 
 function readFixtureJson(path: string): unknown {
@@ -794,5 +796,106 @@ describe("InvestigationPackage schema", () => {
         nextObservations: []
       })
     ).toThrow();
+  });
+
+  it("validates investigation sessions around packages and reports", () => {
+    const session = parseInvestigationSession({
+      kind: "openplazma.investigation_session",
+      version: "0.1.0",
+      sessionId: "session-will-o-wisp-001",
+      createdAt: "2026-06-13T00:00:00.000Z",
+      updatedAt: "2026-06-13T00:01:00.000Z",
+      status: "reported",
+      package: willOWispPackage(),
+      requiredObservables: ["visible_light", "electric_current", "neutron_flux"],
+      reports: [
+        {
+          kind: "openplazma.investigation_report",
+          version: "0.1.0",
+          reportId: "report-will-o-wisp-001",
+          packageId: "will-o-wisp-001",
+          createdAt: "2026-06-13T00:01:00.000Z",
+          claims: [
+            {
+              kind: "openplazma.investigation_claim",
+              version: "0.1.0",
+              claimId: "claim-visible-light-insufficient",
+              claimType: "fusion_status",
+              statement: "Visible light and flicker do not support a fusion claim.",
+              status: "support",
+              evidenceArtifactIds: ["visible-spectrum", "emission-timeseries"],
+              assumptions: [],
+              limitations: ["The report does not prove that no fusion source exists."]
+            }
+          ],
+          assumptions: [],
+          limitations: ["Session report."],
+          nextObservations: ["Add calibrated particle diagnostics."]
+        }
+      ],
+      limitations: ["Read-only external investigation session."]
+    });
+
+    expect(session.status).toBe("reported");
+    expect(session.requiredObservables).toContain("neutron_flux");
+    expect(session.reports[0]?.packageId).toBe(session.package.packageId);
+  });
+
+  it("rejects reported sessions without reports", () => {
+    expect(() =>
+      investigationSessionSchema.parse({
+        kind: "openplazma.investigation_session",
+        version: "0.1.0",
+        sessionId: "empty-reported-session",
+        createdAt: "2026-06-13T00:00:00.000Z",
+        updatedAt: "2026-06-13T00:00:00.000Z",
+        status: "reported",
+        package: willOWispPackage(),
+        requiredObservables: [],
+        reports: [],
+        limitations: ["Read-only external investigation session."]
+      })
+    ).toThrow();
+  });
+
+  it("rejects session reports for a different package", () => {
+    const session = {
+      kind: "openplazma.investigation_session",
+      version: "0.1.0",
+      sessionId: "mismatched-session",
+      createdAt: "2026-06-13T00:00:00.000Z",
+      updatedAt: "2026-06-13T00:01:00.000Z",
+      status: "reported",
+      package: willOWispPackage(),
+      requiredObservables: [],
+      reports: [
+        {
+          kind: "openplazma.investigation_report",
+          version: "0.1.0",
+          reportId: "wrong-report",
+          packageId: "other-package",
+          createdAt: "2026-06-13T00:01:00.000Z",
+          claims: [
+            {
+              kind: "openplazma.investigation_claim",
+              version: "0.1.0",
+              claimId: "claim",
+              claimType: "source_identity",
+              statement: "The source is unresolved.",
+              status: "inconclusive",
+              evidenceArtifactIds: [],
+              assumptions: [],
+              limitations: ["No calibrated diagnostic."]
+            }
+          ],
+          assumptions: [],
+          limitations: ["Wrong package boundary."],
+          nextObservations: []
+        }
+      ],
+      limitations: ["Read-only external investigation session."]
+    };
+
+    expect(() => investigationSessionSchema.parse(session)).toThrow();
   });
 });

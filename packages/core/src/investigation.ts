@@ -391,6 +391,21 @@ export interface InvestigationReport {
   nextObservations: string[];
 }
 
+export type InvestigationSessionStatus = "collecting_evidence" | "ready_for_report" | "reported";
+
+export interface InvestigationSession {
+  kind: "openplazma.investigation_session";
+  version: "0.1.0";
+  sessionId: string;
+  createdAt: string;
+  updatedAt: string;
+  status: InvestigationSessionStatus;
+  package: InvestigationPackage;
+  requiredObservables: MeasuredObservable[];
+  reports: InvestigationReport[];
+  limitations: string[];
+}
+
 export interface InvestigationFixtureManifest {
   kind: "openplazma.investigation_fixture_manifest";
   version: "0.1.0";

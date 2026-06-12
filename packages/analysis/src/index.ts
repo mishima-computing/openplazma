@@ -9,8 +9,15 @@ import type {
   FrequencyAnalysis,
   FrequencyAnalysisMethod,
   FrequencyDomain,
-  Inference,
+  FusionConditionAssessment,
+  InvestigationClaim,
   InvestigationPackage,
+  InvestigationQuestion,
+  InvestigationReport,
+  InvestigationSession,
+  InvestigationSessionStatus,
+  InvestigationTarget,
+  Inference,
   MeasuredObservable,
   ModeNumberEstimate,
   PhenomenonEvent,
@@ -812,6 +819,236 @@ export function assessInvestigationMeasurements(
         ? [`Package is missing required observables: ${missingObservables.join(", ")}.`]
         : [])
     ]
+  };
+}
+
+export interface BuildInvestigationPackageInput {
+  packageId: string;
+  title: string;
+  target: InvestigationTarget;
+  questions: InvestigationQuestion[];
+  artifacts?: DiagnosticArtifact[] | undefined;
+  fusionAssessment?: FusionConditionAssessment | undefined;
+  claims?: InvestigationClaim[] | undefined;
+  limitations?: string[] | undefined;
+}
+
+export interface CreateInvestigationSessionInput {
+  sessionId: string;
+  package: InvestigationPackage;
+  requiredObservables?: MeasuredObservable[] | undefined;
+  createdAt?: string | undefined;
+  updatedAt?: string | undefined;
+  status?: InvestigationSessionStatus | undefined;
+  reports?: InvestigationReport[] | undefined;
+  limitations?: string[] | undefined;
+}
+
+export interface CreateInvestigationSessionReportOptions {
+  reportId?: string | undefined;
+  createdAt?: string | undefined;
+  claims?: InvestigationClaim[] | undefined;
+  assumptions?: string[] | undefined;
+  limitations?: string[] | undefined;
+  nextObservations?: string[] | undefined;
+}
+
+export interface InvestigationSessionAssessment {
+  sessionId: string;
+  packageId: string;
+  status: InvestigationSessionStatus;
+  measurementAssessment: InvestigationMeasurementAssessment;
+  readyForReport: boolean;
+  reportCount: number;
+  latestReportId?: string | undefined;
+  summary: string;
+  limitations: string[];
+}
+
+function nowIso(): string {
+  return new Date().toISOString();
+}
+
+function defaultFusionAssessment(packageId: string): FusionConditionAssessment {
+  return {
+    kind: "openplazma.fusion_condition_assessment",
+    version: "0.1.0",
+    assessmentId: `${packageId}-fusion-assessment`,
+    fusionStatus: "unknown",
+    conditionMode: "unknown",
+    reactionCandidates: ["unknown"],
+    observedOrInferredConditions: [],
+    requiredConditions: [],
+    unknowns: ["source identity", "plasma presence", "fusion products", "plasma maintenance"],
+    assumptions: [],
+    limitations: ["No fusion condition assessment has been resolved."]
+  };
+}
+
+function uniqueArtifacts(artifacts: DiagnosticArtifact[]): DiagnosticArtifact[] {
+  const seen = new Set<string>();
+  for (const artifact of artifacts) {
+    if (seen.has(artifact.artifactId)) {
+      throw new Error(`Duplicate diagnostic artifact id '${artifact.artifactId}'.`);
+    }
+    seen.add(artifact.artifactId);
+  }
+  return artifacts;
+}
+
+function assertClaimArtifactRefs(pack: InvestigationPackage, claim: InvestigationClaim): void {
+  const artifactIds = new Set(pack.artifacts.map((artifact) => artifact.artifactId));
+  for (const artifactId of claim.evidenceArtifactIds) {
+    if (!artifactIds.has(artifactId)) {
+      throw new Error(`Investigation claim references unknown diagnostic artifact '${artifactId}'.`);
+    }
+  }
+}
+
+function deriveSessionStatus(pack: InvestigationPackage, reports: InvestigationReport[]): InvestigationSessionStatus {
+  if (reports.length > 0) {
+    return "reported";
+  }
+  if (pack.artifacts.length > 0 && pack.claims.length > 0) {
+    return "ready_for_report";
+  }
+  return "collecting_evidence";
+}
+
+function defaultNextObservations(session: InvestigationSession): string[] {
+  const assessment = assessInvestigationMeasurements(session.package, session.requiredObservables);
+  const observables = assessment.missingObservables.map(
+    (observable) => `Add a calibrated diagnostic for ${observable}.`
+  );
+  const unknowns = session.package.fusionAssessment.unknowns.map((unknown) => `Resolve ${unknown}.`);
+  const next = [...observables, ...unknowns].slice(0, 4);
+  return next.length > 0 ? next : ["Add an independent calibrated diagnostic before strengthening the claim."];
+}
+
+export function buildInvestigationPackage(input: BuildInvestigationPackageInput): InvestigationPackage {
+  return {
+    kind: "openplazma.investigation_package",
+    version: "0.1.0",
+    packageId: input.packageId,
+    title: input.title,
+    target: input.target,
+    questions: input.questions,
+    artifacts: uniqueArtifacts(input.artifacts ?? []),
+    fusionAssessment: input.fusionAssessment ?? defaultFusionAssessment(input.packageId),
+    claims: input.claims ?? [],
+    limitations: input.limitations ?? ["External investigation package; source-specific limitations must be reviewed."]
+  };
+}
+
+export function createInvestigationSession(input: CreateInvestigationSessionInput): InvestigationSession {
+  const reports = input.reports ?? [];
+  const createdAt = input.createdAt ?? nowIso();
+  return {
+    kind: "openplazma.investigation_session",
+    version: "0.1.0",
+    sessionId: input.sessionId,
+    createdAt,
+    updatedAt: input.updatedAt ?? createdAt,
+    status: input.status ?? deriveSessionStatus(input.package, reports),
+    package: input.package,
+    requiredObservables: input.requiredObservables ?? [],
+    reports,
+    limitations: input.limitations ?? ["Read-only investigation session; no facility telemetry or control path."]
+  };
+}
+
+export function addDiagnosticArtifact(
+  session: InvestigationSession,
+  artifact: DiagnosticArtifact,
+  updatedAt: string = nowIso()
+): InvestigationSession {
+  const artifacts = uniqueArtifacts([...session.package.artifacts, artifact]);
+  const nextPackage: InvestigationPackage = {
+    ...session.package,
+    artifacts
+  };
+  return {
+    ...session,
+    updatedAt,
+    status: deriveSessionStatus(nextPackage, session.reports),
+    package: nextPackage
+  };
+}
+
+export function addInvestigationClaim(
+  session: InvestigationSession,
+  claim: InvestigationClaim,
+  updatedAt: string = nowIso()
+): InvestigationSession {
+  assertClaimArtifactRefs(session.package, claim);
+  const nextPackage: InvestigationPackage = {
+    ...session.package,
+    claims: [...session.package.claims, claim]
+  };
+  return {
+    ...session,
+    updatedAt,
+    status: deriveSessionStatus(nextPackage, session.reports),
+    package: nextPackage
+  };
+}
+
+export function createInvestigationSessionReport(
+  session: InvestigationSession,
+  options: CreateInvestigationSessionReportOptions = {}
+): InvestigationReport {
+  const claims = options.claims ?? session.package.claims;
+  if (claims.length === 0) {
+    throw new Error("Investigation report requires at least one claim.");
+  }
+  for (const claim of claims) {
+    assertClaimArtifactRefs(session.package, claim);
+  }
+  return {
+    kind: "openplazma.investigation_report",
+    version: "0.1.0",
+    reportId: options.reportId ?? `report-${session.sessionId}`,
+    packageId: session.package.packageId,
+    createdAt: options.createdAt ?? nowIso(),
+    claims,
+    assumptions: options.assumptions ?? session.package.fusionAssessment.assumptions,
+    limitations: options.limitations ?? [...session.limitations, ...session.package.limitations],
+    nextObservations: options.nextObservations ?? defaultNextObservations(session)
+  };
+}
+
+export function recordInvestigationReport(
+  session: InvestigationSession,
+  report: InvestigationReport,
+  updatedAt: string = nowIso()
+): InvestigationSession {
+  if (report.packageId !== session.package.packageId) {
+    throw new Error("Investigation report packageId must match the session package.");
+  }
+  return {
+    ...session,
+    updatedAt,
+    status: "reported",
+    reports: [...session.reports, report]
+  };
+}
+
+export function assessInvestigationSession(session: InvestigationSession): InvestigationSessionAssessment {
+  const measurementAssessment = assessInvestigationMeasurements(session.package, session.requiredObservables);
+  const readyForReport = session.package.artifacts.length > 0 && session.package.claims.length > 0;
+  const latestReport = session.reports[session.reports.length - 1];
+  return {
+    sessionId: session.sessionId,
+    packageId: session.package.packageId,
+    status: session.status,
+    measurementAssessment,
+    readyForReport,
+    reportCount: session.reports.length,
+    latestReportId: latestReport?.reportId,
+    summary: readyForReport
+      ? "The session has evidence and at least one claim ready for a report."
+      : "The session still needs evidence and a claim before report generation.",
+    limitations: [...session.limitations, ...measurementAssessment.limitations]
   };
 }
 

@@ -3,7 +3,8 @@ import type {
   FusionConditionAssessment,
   InvestigationFixtureManifest,
   InvestigationPackage,
-  InvestigationReport
+  InvestigationReport,
+  InvestigationSession
 } from "@openplazma/core";
 
 const versionSchema = z.literal("0.1.0");
@@ -32,6 +33,29 @@ const candidateEnergySourceSchema = z.enum([
   "radioactive_decay",
   "sensor_artifact",
   "reflection",
+  "unknown"
+]);
+
+const measuredObservableSchema = z.enum([
+  "visible_light",
+  "infrared_light",
+  "ultraviolet_light",
+  "xray",
+  "gamma_ray",
+  "heat",
+  "electric_current",
+  "magnetic_field",
+  "electric_field",
+  "particle_flux",
+  "neutron_flux",
+  "neutrino_flux",
+  "gravity",
+  "pressure",
+  "acoustic_wave",
+  "motion",
+  "composition",
+  "density",
+  "temperature",
   "unknown"
 ]);
 
@@ -103,32 +127,7 @@ const diagnosticInstrumentRefSchema = z.object({
     "unknown"
   ]),
   label: z.string().min(1),
-  observables: z
-    .array(
-      z.enum([
-        "visible_light",
-        "infrared_light",
-        "ultraviolet_light",
-        "xray",
-        "gamma_ray",
-        "heat",
-        "electric_current",
-        "magnetic_field",
-        "electric_field",
-        "particle_flux",
-        "neutron_flux",
-        "neutrino_flux",
-        "gravity",
-        "pressure",
-        "acoustic_wave",
-        "motion",
-        "composition",
-        "density",
-        "temperature",
-        "unknown"
-      ])
-    )
-    .min(1),
+  observables: z.array(measuredObservableSchema).min(1),
   calibration: diagnosticCalibrationSchema
 });
 
@@ -521,6 +520,38 @@ export const investigationReportSchema = z.object({
   nextObservations: z.array(z.string().min(1))
 });
 
+export const investigationSessionSchema = z
+  .object({
+    kind: z.literal("openplazma.investigation_session"),
+    version: versionSchema,
+    sessionId: z.string().min(1),
+    createdAt: isoDateTimeSchema,
+    updatedAt: isoDateTimeSchema,
+    status: z.enum(["collecting_evidence", "ready_for_report", "reported"]),
+    package: investigationPackageSchema,
+    requiredObservables: z.array(measuredObservableSchema),
+    reports: z.array(investigationReportSchema),
+    limitations: z.array(z.string().min(1)).min(1)
+  })
+  .superRefine((session, ctx) => {
+    if (session.status === "reported" && session.reports.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "reported investigation sessions require at least one report",
+        path: ["reports"]
+      });
+    }
+    for (const [index, report] of session.reports.entries()) {
+      if (report.packageId !== session.package.packageId) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "session report packageId must match the session package",
+          path: ["reports", index, "packageId"]
+        });
+      }
+    }
+  });
+
 export function parseFusionConditionAssessment(input: unknown): FusionConditionAssessment {
   return fusionConditionAssessmentSchema.parse(input) as FusionConditionAssessment;
 }
@@ -535,4 +566,8 @@ export function parseInvestigationFixtureManifest(input: unknown): Investigation
 
 export function parseInvestigationReport(input: unknown): InvestigationReport {
   return investigationReportSchema.parse(input) as InvestigationReport;
+}
+
+export function parseInvestigationSession(input: unknown): InvestigationSession {
+  return investigationSessionSchema.parse(input) as InvestigationSession;
 }

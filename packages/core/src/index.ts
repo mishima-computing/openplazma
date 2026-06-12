@@ -236,6 +236,8 @@ export type {
   InvestigationQuestion,
   InvestigationQuestionKind,
   InvestigationReport,
+  InvestigationSession,
+  InvestigationSessionStatus,
   InvestigationTarget,
   InvestigationTargetKind,
   MeasuredObservable,
