@@ -229,6 +229,7 @@ export type {
   InvestigationClaim,
   InvestigationClaimStatus,
   InvestigationClaimType,
+  InvestigationFixtureManifest,
   InvestigationPackage,
   InvestigationQuestion,
   InvestigationQuestionKind,

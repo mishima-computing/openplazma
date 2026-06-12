@@ -378,3 +378,15 @@ export interface InvestigationPackage {
   claims: InvestigationClaim[];
   limitations: string[];
 }
+
+export interface InvestigationFixtureManifest {
+  kind: "openplazma.investigation_fixture_manifest";
+  version: "0.1.0";
+  provider: "STATIC_FIXTURE";
+  datasetId: string;
+  packages: Array<{
+    packageId: string;
+    title: string;
+    path: string;
+  }>;
+}

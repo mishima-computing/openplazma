@@ -1,5 +1,9 @@
 import { z } from "zod";
-import type { FusionConditionAssessment, InvestigationPackage } from "@openplazma/core";
+import type {
+  FusionConditionAssessment,
+  InvestigationFixtureManifest,
+  InvestigationPackage
+} from "@openplazma/core";
 
 const versionSchema = z.literal("0.1.0");
 
@@ -473,10 +477,44 @@ export const investigationPackageSchema = z
     }
   });
 
+export const investigationFixtureManifestSchema = z
+  .object({
+    kind: z.literal("openplazma.investigation_fixture_manifest"),
+    version: versionSchema,
+    provider: z.literal("STATIC_FIXTURE"),
+    datasetId: z.string().min(1),
+    packages: z
+      .array(
+        z.object({
+          packageId: z.string().min(1),
+          title: z.string().min(1),
+          path: z.string().min(1)
+        })
+      )
+      .min(1)
+  })
+  .superRefine((manifest, ctx) => {
+    const seen = new Set<string>();
+    for (const [index, entry] of manifest.packages.entries()) {
+      if (seen.has(entry.packageId)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `duplicate investigation package id '${entry.packageId}'`,
+          path: ["packages", index, "packageId"]
+        });
+      }
+      seen.add(entry.packageId);
+    }
+  });
+
 export function parseFusionConditionAssessment(input: unknown): FusionConditionAssessment {
   return fusionConditionAssessmentSchema.parse(input) as FusionConditionAssessment;
 }
 
 export function parseInvestigationPackage(input: unknown): InvestigationPackage {
   return investigationPackageSchema.parse(input) as InvestigationPackage;
+}
+
+export function parseInvestigationFixtureManifest(input: unknown): InvestigationFixtureManifest {
+  return investigationFixtureManifestSchema.parse(input) as InvestigationFixtureManifest;
 }
