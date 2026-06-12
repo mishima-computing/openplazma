@@ -1,0 +1,12 @@
+{
+  "datasetId": "real-observation-v0",
+  "kind": "openplazma.fixture_manifest",
+  "provider": "NOAA_SWPC",
+  "shots": [
+    {
+      "path": "data/fixtures/real/noaa-swpc-l1-6h-20260612/study-record.json",
+      "shotId": "noaa-swpc-l1-6h-20260612"
+    }
+  ],
+  "version": "0.1.0"
+}

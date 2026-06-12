@@ -1,0 +1,40 @@
+{
+  "bundleSha256": "4310e71e623ce08b50613f1a6e1109bbf6c9cd7609683eb62f628562c198e5e9",
+  "kind": "openplazma.source_provenance",
+  "limitations": [
+    "SWPC real-time endpoints are mutable operational data products.",
+    "OpenPlazma stores this as a frozen local snapshot and does not apply additional calibration."
+  ],
+  "provider": "NOAA_SWPC",
+  "rawFiles": [
+    {
+      "bytes": 17377,
+      "name": "plasma-6-hour.json",
+      "path": "data/fixtures/real/noaa-swpc-l1-6h-20260612/raw/plasma-6-hour.json",
+      "sha256": "6326a9400c3abd8a27b5dd286ac35416b4f74e3d557fbe7e69b5eea428927b00",
+      "url": "https://services.swpc.noaa.gov/products/solar-wind/plasma-6-hour.json"
+    },
+    {
+      "bytes": 26595,
+      "name": "mag-6-hour.json",
+      "path": "data/fixtures/real/noaa-swpc-l1-6h-20260612/raw/mag-6-hour.json",
+      "sha256": "7fc545b5021b11bff159cee7875371b07fb8dd5a522b4eb741cb9a0e11bbea2a",
+      "url": "https://services.swpc.noaa.gov/products/solar-wind/mag-6-hour.json"
+    },
+    {
+      "bytes": 163225,
+      "name": "xrays-6-hour.json",
+      "path": "data/fixtures/real/noaa-swpc-l1-6h-20260612/raw/xrays-6-hour.json",
+      "sha256": "e95409b896e4370f810f2655e53745e5755adaa0c421e65daa6d518f232d8107",
+      "url": "https://services.swpc.noaa.gov/json/goes/primary/xrays-6-hour.json"
+    }
+  ],
+  "retrievedAt": "2026-06-12T18:39:06.969Z",
+  "sourceLabel": "NOAA SWPC RTSW and GOES X-ray 6-hour public JSON snapshot",
+  "sourcePages": [
+    "https://www.swpc.noaa.gov/products/real-time-solar-wind",
+    "https://www.swpc.noaa.gov/products/goes-x-ray-flux",
+    "https://www.swpc.noaa.gov/content/data-access"
+  ],
+  "version": "0.1.0"
+}

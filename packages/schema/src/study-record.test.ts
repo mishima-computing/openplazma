@@ -169,6 +169,55 @@ describe("study record schemas", () => {
     expect(() => fixtureManifestSchema.parse(fixture)).not.toThrow();
   });
 
+  it("validates the bundled NOAA SWPC real observation fixture", () => {
+    const fixturePath = join(
+      process.cwd(),
+      "data",
+      "fixtures",
+      "real",
+      "noaa-swpc-l1-6h-20260612",
+      "study-record.json"
+    );
+    const fixture = JSON.parse(readFileSync(fixturePath, "utf8")) as unknown;
+
+    const parsed = studyRecordSchema.parse(fixture);
+    expect(parsed.source.provider).toBe("NOAA_SWPC");
+    expect(parsed.context.safetyClassification).toBe("public-web-observation");
+    expect(parsed.context.target.type).toBe("public_observation_dataset");
+    expect(parsed.signals.map((signal) => signal.signalId)).toContain("goes-xray-long-flux");
+    expect(parsed.signals.map((signal) => signal.signalId)).toContain("solar-wind-proton-density");
+  });
+
+  it("validates the real observation manifest", () => {
+    const fixturePath = join(process.cwd(), "data", "fixtures", "real", "manifest.json");
+    const fixture = JSON.parse(readFileSync(fixturePath, "utf8")) as unknown;
+
+    const parsed = fixtureManifestSchema.parse(fixture);
+    expect(parsed.provider).toBe("NOAA_SWPC");
+    expect(parsed.shots[0]?.shotId).toBe("noaa-swpc-l1-6h-20260612");
+  });
+
+  it("requires NOAA SWPC source snapshot provenance", () => {
+    const fixturePath = join(
+      process.cwd(),
+      "data",
+      "fixtures",
+      "real",
+      "noaa-swpc-l1-6h-20260612",
+      "study-record.json"
+    );
+    const fixture = JSON.parse(readFileSync(fixturePath, "utf8")) as {
+      source: { sha256?: string };
+      context: { source: { sha256?: string } };
+      shot: { source: { sha256?: string } };
+    };
+    delete fixture.source.sha256;
+    delete fixture.context.source.sha256;
+    delete fixture.shot.source.sha256;
+
+    expect(() => studyRecordSchema.parse(fixture)).toThrow();
+  });
+
   it("rejects signal series with mismatched time and value lengths", () => {
     const result = signalSeriesSchema.safeParse({
       kind: "openplazma.signal_series",

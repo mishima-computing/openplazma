@@ -5,7 +5,7 @@ from typing import Any
 
 from ._validation import require_keys, require_mapping, require_string
 
-SUPPORTED_DATA_PROVIDERS = {"STATIC_FIXTURE", "LOCAL_SIGNAL_FILE"}
+SUPPORTED_DATA_PROVIDERS = {"STATIC_FIXTURE", "LOCAL_SIGNAL_FILE", "NOAA_SWPC"}
 LOCAL_SIGNAL_VALIDATION_STATUS = "schema_validated"
 
 _SHA256_RE = re.compile(r"^[a-f0-9]{64}$")
@@ -14,7 +14,7 @@ _SHA256_RE = re.compile(r"^[a-f0-9]{64}$")
 def validate_data_provider(provider: Any, label: str) -> str:
     require_string(provider, label)
     if provider not in SUPPORTED_DATA_PROVIDERS:
-        raise ValueError(f"{label} must be STATIC_FIXTURE or LOCAL_SIGNAL_FILE.")
+        raise ValueError(f"{label} must be STATIC_FIXTURE, LOCAL_SIGNAL_FILE, or NOAA_SWPC.")
     return provider
 
 
@@ -27,7 +27,7 @@ def validate_source_ref(source: dict[str, Any], label: str) -> dict[str, Any]:
     if source.get("inspiredBy") is not None and source["inspiredBy"] != "FAIR_MAST":
         raise ValueError(f"{label}.inspiredBy must be FAIR_MAST when provided.")
 
-    if provider == "LOCAL_SIGNAL_FILE":
+    if provider in {"LOCAL_SIGNAL_FILE", "NOAA_SWPC"}:
         require_keys(source, ["uri", "sha256", "validationStatus"], label)
         require_string(source["uri"], f"{label}.uri")
         require_string(source["sha256"], f"{label}.sha256")

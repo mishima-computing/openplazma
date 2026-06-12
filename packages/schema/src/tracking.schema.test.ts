@@ -196,6 +196,37 @@ describe("tracking schemas", () => {
     expect(() => runRecordSchema.parse(localRun)).not.toThrow();
   });
 
+  it("accepts NOAA_SWPC run source with public snapshot provenance", () => {
+    const noaaRun = {
+      ...runRecord,
+      source: {
+        provider: "NOAA_SWPC",
+        sourceLabel: "NOAA SWPC RTSW and GOES X-ray snapshot",
+        uri: "data/fixtures/real/noaa-swpc-l1-6h-20260612/source-provenance.json",
+        sha256: "c".repeat(64),
+        validationStatus: "schema_validated"
+      },
+      limitations: [
+        "NOAA SWPC public web observation snapshot only.",
+        "Read-only analysis and decision support."
+      ]
+    };
+
+    expect(() => runRecordSchema.parse(noaaRun)).not.toThrow();
+  });
+
+  it("rejects NOAA_SWPC run source without snapshot provenance", () => {
+    const noaaRun = {
+      ...runRecord,
+      source: {
+        provider: "NOAA_SWPC",
+        sourceLabel: "NOAA SWPC RTSW and GOES X-ray snapshot"
+      }
+    };
+
+    expect(() => runRecordSchema.parse(noaaRun)).toThrow();
+  });
+
   it("rejects artifact path traversal", () => {
     expect(() =>
       artifactRecordSchema.parse({

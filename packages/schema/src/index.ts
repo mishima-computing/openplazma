@@ -10,7 +10,7 @@ import { mhdAnalysisBundleSchema } from "./mhd.schema";
 
 const isoDateTimeSchema = z.string().datetime({ offset: true });
 const versionSchema = z.literal("0.1.0");
-const providerSchema = z.enum(["STATIC_FIXTURE", "LOCAL_SIGNAL_FILE"]);
+const providerSchema = z.enum(["STATIC_FIXTURE", "LOCAL_SIGNAL_FILE", "NOAA_SWPC"]);
 const inspiredBySchema = z.literal("FAIR_MAST");
 const validationStatusSchema = z.literal("schema_validated");
 const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/);
@@ -25,13 +25,13 @@ const baseSourceRefSchema = z.object({
   validationStatus: validationStatusSchema.optional()
 });
 
-function requireLocalSourceProvenance(source: z.infer<typeof baseSourceRefSchema>, ctx: z.RefinementCtx): void {
-  if (source.provider === "LOCAL_SIGNAL_FILE") {
+function requireSourceSnapshotProvenance(source: z.infer<typeof baseSourceRefSchema>, ctx: z.RefinementCtx): void {
+  if (source.provider === "LOCAL_SIGNAL_FILE" || source.provider === "NOAA_SWPC") {
     for (const field of ["uri", "sha256", "validationStatus"] as const) {
       if (source[field] === undefined) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "LOCAL_SIGNAL_FILE source requires uri, sha256, and validationStatus",
+          message: `${source.provider} source requires uri, sha256, and validationStatus`,
           path: [field]
         });
       }
@@ -39,12 +39,12 @@ function requireLocalSourceProvenance(source: z.infer<typeof baseSourceRefSchema
   }
 }
 
-const sourceRefSchema = baseSourceRefSchema.superRefine(requireLocalSourceProvenance);
+const sourceRefSchema = baseSourceRefSchema.superRefine(requireSourceSnapshotProvenance);
 const studyRecordSourceSchema = baseSourceRefSchema
   .extend({
     shotId: z.string().min(1)
   })
-  .superRefine(requireLocalSourceProvenance);
+  .superRefine(requireSourceSnapshotProvenance);
 
 const capabilitiesSchema = z.object({
   readData: z.literal(true),
@@ -76,10 +76,10 @@ export const experimentContextSchema = z.object({
   datasetId: z.string().min(1),
   campaign: z.string().min(1).optional(),
   description: z.string().min(1),
-  safetyClassification: z.enum(["public-educational-fixture", "read-only-local-signal"]),
+  safetyClassification: z.enum(["public-educational-fixture", "read-only-local-signal", "public-web-observation"]),
   createdAt: isoDateTimeSchema,
   target: z.object({
-    type: z.enum(["static_fixture", "local_run_store"]),
+    type: z.enum(["static_fixture", "local_run_store", "public_observation_dataset"]),
     id: z.string().min(1),
     label: z.string().min(1)
   }),
@@ -140,6 +140,23 @@ export const experimentContextSchema = z.object({
       });
     }
   }
+
+  if (context.source.provider === "NOAA_SWPC") {
+    if (context.safetyClassification !== "public-web-observation") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "NOAA_SWPC contexts must use public-web-observation safety classification",
+        path: ["safetyClassification"]
+      });
+    }
+    if (context.target.type !== "public_observation_dataset") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "NOAA_SWPC contexts must target public_observation_dataset",
+        path: ["target", "type"]
+      });
+    }
+  }
 });
 
 export const shotMetadataSchema = z
@@ -166,12 +183,12 @@ export const shotMetadataSchema = z
     notes: z.string().min(1).optional()
   })
   .superRefine((shot, ctx) => {
-    if (shot.source.provider === "LOCAL_SIGNAL_FILE") {
+    if (shot.source.provider === "LOCAL_SIGNAL_FILE" || shot.source.provider === "NOAA_SWPC") {
       for (const field of ["sha256", "validationStatus"] as const) {
         if (shot.source[field] === undefined) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: "LOCAL_SIGNAL_FILE shot source requires sha256 and validationStatus",
+            message: `${shot.source.provider} shot source requires sha256 and validationStatus`,
             path: ["source", field]
           });
         }
@@ -314,7 +331,7 @@ export const studyRecordSchema = z
 export const fixtureManifestSchema = z.object({
   kind: z.literal("openplazma.fixture_manifest"),
   version: versionSchema,
-  provider: z.literal("STATIC_FIXTURE"),
+  provider: providerSchema,
   inspiredBy: inspiredBySchema.optional(),
   datasetId: z.string().min(1),
   shots: z
