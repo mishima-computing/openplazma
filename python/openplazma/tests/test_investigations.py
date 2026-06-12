@@ -33,6 +33,42 @@ def test_all_static_investigation_packages_validate():
         assert summary["candidateEnergySources"]
 
 
+def test_draft_investigation_package_allows_empty_artifacts():
+    package = copy.deepcopy(op.load_static_investigation_package(REPO_ROOT, "will-o-wisp-001"))
+    package["packageId"] = "draft-empty-artifacts"
+    package["artifacts"] = []
+    package["claims"] = []
+    package["fusionAssessment"]["assessmentId"] = "draft-empty-artifacts-fusion-assessment"
+    package["fusionAssessment"]["observedOrInferredConditions"] = []
+    package["fusionAssessment"]["requiredConditions"] = []
+
+    validated = op.validate_investigation_package(package)
+
+    assert op.summarize_investigation_package(validated)["artifactCount"] == 0
+
+
+def test_static_investigation_manifest_package_id_must_match_loaded_package(tmp_path):
+    package = copy.deepcopy(op.load_static_investigation_package(REPO_ROOT, "will-o-wisp-001"))
+    package["packageId"] = "file-package-id"
+    package_path = tmp_path / "data" / "fixtures" / "static" / "investigations" / "mismatch" / "investigation-package.json"
+    package_path.parent.mkdir(parents=True)
+    package_path.write_text(json.dumps(package), encoding="utf-8")
+
+    manifest = copy.deepcopy(op.load_investigation_fixture_manifest(MANIFEST))
+    manifest["packages"] = [
+        {
+            "packageId": "manifest-package-id",
+            "title": "Manifest package ID",
+            "path": "data/fixtures/static/investigations/mismatch/investigation-package.json",
+        }
+    ]
+    manifest_path = tmp_path / "data" / "fixtures" / "static" / "investigations" / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="manifest packageId"):
+        op.load_static_investigation_package(tmp_path, "manifest-package-id")
+
+
 def test_will_o_wisp_package_exposes_frequency_and_measurement_gaps():
     package = op.load_static_investigation_package(REPO_ROOT, "will-o-wisp-001")
 

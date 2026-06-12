@@ -665,6 +665,17 @@ describe("InvestigationPackage schema", () => {
     expect(() => investigationPackageSchema.parse(pack)).toThrow();
   });
 
+  it("rejects duplicate diagnostic artifact ids", () => {
+    const pack = willOWispPackage();
+    pack.artifacts.push({
+      ...pack.artifacts[0]!,
+      artifactId: pack.artifacts[1]!.artifactId,
+      label: "Duplicate artifact"
+    });
+
+    expect(() => investigationPackageSchema.parse(pack)).toThrow("duplicate diagnostic artifact id");
+  });
+
   it("rejects diagnostic artifacts that reference missing target regions", () => {
     const pack = organismInteriorPackage();
     pack.artifacts[0]!.targetRegionId = "missing-region";

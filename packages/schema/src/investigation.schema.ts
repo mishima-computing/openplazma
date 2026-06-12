@@ -437,7 +437,7 @@ export const investigationPackageSchema = z
     limitations: z.array(z.string().min(1)).min(1)
   })
   .superRefine((pack, ctx) => {
-    const artifactIds = new Set(pack.artifacts.map((artifact) => artifact.artifactId));
+    const artifactIds = new Set<string>();
     const regionIds = new Set((pack.target.regions ?? []).map((region) => region.regionId));
     for (const [index, region] of (pack.target.regions ?? []).entries()) {
       if (region.parentRegionId !== undefined && !regionIds.has(region.parentRegionId)) {
@@ -449,6 +449,14 @@ export const investigationPackageSchema = z
       }
     }
     for (const [index, artifact] of pack.artifacts.entries()) {
+      if (artifactIds.has(artifact.artifactId)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `duplicate diagnostic artifact id '${artifact.artifactId}'`,
+          path: ["artifacts", index, "artifactId"]
+        });
+      }
+      artifactIds.add(artifact.artifactId);
       if (artifact.targetRegionId !== undefined && !regionIds.has(artifact.targetRegionId)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,

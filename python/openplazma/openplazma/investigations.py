@@ -541,7 +541,7 @@ def validate_investigation_package(package: dict[str, Any]) -> dict[str, Any]:
     for index, question_ref in enumerate(_require_nonempty_list(package["questions"], "InvestigationPackage.questions")):
         _validate_question(require_mapping(question_ref, f"InvestigationPackage.questions[{index}]"), f"InvestigationPackage.questions[{index}]")
 
-    artifacts = _require_nonempty_list(package["artifacts"], "InvestigationPackage.artifacts")
+    artifacts = require_list(package["artifacts"], "InvestigationPackage.artifacts")
     artifact_ids: set[str] = set()
     for index, artifact_ref in enumerate(artifacts):
         artifact = require_mapping(artifact_ref, f"InvestigationPackage.artifacts[{index}]")
@@ -631,7 +631,13 @@ def list_static_investigation_packages(repo_root: str | Path) -> list[dict[str, 
 def load_static_investigation_package(repo_root: str | Path, package_id: str) -> dict[str, Any]:
     for entry in list_static_investigation_packages(repo_root):
         if entry["packageId"] == package_id:
-            return load_investigation_package(Path(repo_root) / entry["path"])
+            package = load_investigation_package(Path(repo_root) / entry["path"])
+            if package["packageId"] != entry["packageId"]:
+                raise ValueError(
+                    f"Investigation fixture manifest packageId '{entry['packageId']}' "
+                    f"does not match package file packageId '{package['packageId']}'."
+                )
+            return package
     raise ValueError(f"Investigation package '{package_id}' was not found in STATIC_FIXTURE data.")
 
 
