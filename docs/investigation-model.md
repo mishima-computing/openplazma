@@ -311,3 +311,15 @@ buildElectromagneticCarrierAnalysis(...)
 
 These helpers identify bands and candidate peaks. They do not identify plasma,
 fusion, or source identity without additional evidence.
+
+The same package exposes mixed-signal assessment helpers:
+
+```text
+assessDiagnosticArtifact(artifact, requiredObservables)
+assessInvestigationMeasurements(package, requiredObservables)
+```
+
+These helpers summarize measured observables, missing observables, calibration
+state, unresolved contributions, and noise/contaminant contributions. The
+result is deliberately conservative: a mixed or uncalibrated artifact cannot
+identify an energy source by itself.

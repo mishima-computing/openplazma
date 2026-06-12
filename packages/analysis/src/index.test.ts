@@ -1,8 +1,16 @@
-import type { DiagnosticArray, RotationTrackPoint, SignalSeries } from "@openplazma/core";
+import type {
+  DiagnosticArtifact,
+  DiagnosticArray,
+  InvestigationPackage,
+  RotationTrackPoint,
+  SignalSeries
+} from "@openplazma/core";
 import { describe, expect, it } from "vitest";
 import {
   analyzeElms,
   analyzeTemporalFrequency,
+  assessDiagnosticArtifact,
+  assessInvestigationMeasurements,
   buildElectromagneticCarrierAnalysis,
   buildInferenceFromArray,
   crashStats,
@@ -287,6 +295,162 @@ describe("investigation frequency analysis", () => {
         description: "Invalid wavelength."
       })
     ).toThrow("wavelengthMeters");
+  });
+});
+
+describe("mixed-signal diagnostic assessment", () => {
+  function humanEyeArtifact(): DiagnosticArtifact {
+    return {
+      kind: "openplazma.diagnostic_artifact",
+      version: "0.1.0",
+      artifactId: "eye-report",
+      artifactKind: "event_log",
+      label: "Human visual report",
+      provenanceKind: "testimony",
+      instrument: {
+        instrumentKind: "human_eye",
+        label: "Unaided human eye",
+        observables: ["visible_light"],
+        calibration: {
+          status: "uncalibrated",
+          responseKnown: false,
+          correctionApplied: false,
+          description: "No calibrated visual response.",
+          limitations: ["Human vision does not separate plasma light and thermal glow unaided."]
+        }
+      },
+      contributions: [
+        {
+          contributionKind: "plasma_emission",
+          role: "candidate",
+          status: "unresolved",
+          description: "Could be plasma emission.",
+          limitations: ["No line-resolved diagnostic."]
+        },
+        {
+          contributionKind: "background",
+          role: "contaminant",
+          status: "modeled",
+          description: "Background light is present.",
+          limitations: ["Background model is rough."]
+        }
+      ],
+      description: "Witness report.",
+      limitations: ["Testimony is not a calibrated diagnostic."]
+    };
+  }
+
+  function mixedCurrentArtifact(): DiagnosticArtifact {
+    return {
+      kind: "openplazma.diagnostic_artifact",
+      version: "0.1.0",
+      artifactId: "mixed-current",
+      artifactKind: "signal_series",
+      label: "Mixed current",
+      provenanceKind: "measured",
+      instrument: {
+        instrumentKind: "current_probe",
+        label: "Current probe",
+        observables: ["electric_current"],
+        calibration: {
+          status: "estimated",
+          responseKnown: false,
+          correctionApplied: false,
+          description: "Estimated response.",
+          limitations: ["Thermal, optical, and gravity-like coupling are not separated."]
+        }
+      },
+      contributions: [
+        {
+          contributionKind: "thermal_coupling",
+          role: "candidate",
+          status: "unresolved",
+          description: "Heat may induce current.",
+          limitations: ["Thermal coupling is uncalibrated."]
+        },
+        {
+          contributionKind: "instrument_noise",
+          role: "noise",
+          status: "unresolved",
+          description: "Electronics noise may contribute.",
+          limitations: ["Noise floor is estimated."]
+        }
+      ],
+      signalIds: ["current"],
+      quantity: "electric_current",
+      unit: "A",
+      description: "Mixed current trace.",
+      limitations: ["Current trace is mixed-source until decomposed."]
+    };
+  }
+
+  it("marks an unaided human-eye artifact as unable to identify a source", () => {
+    const assessment = assessDiagnosticArtifact(humanEyeArtifact(), ["visible_light", "neutron_flux"]);
+
+    expect(assessment.calibrationStatus).toBe("uncalibrated");
+    expect(assessment.identifiability).toBe("source_identity_not_supported");
+    expect(assessment.missingObservables).toContain("neutron_flux");
+    expect(assessment.unresolvedContributions).toContain("plasma_emission:unresolved");
+    expect(assessment.noiseContributions).toContain("background:modeled");
+  });
+
+  it("preserves unresolved coupling and noise in a mixed current artifact", () => {
+    const assessment = assessDiagnosticArtifact(mixedCurrentArtifact(), ["electric_current"]);
+
+    expect(assessment.identifiability).toBe("source_identity_candidate_only");
+    expect(assessment.measuredObservables).toEqual(["electric_current"]);
+    expect(assessment.unresolvedContributions).toContain("thermal_coupling:unresolved");
+    expect(assessment.noiseContributions).toContain("instrument_noise:unresolved");
+    expect(assessment.summary).toContain("cannot identify");
+  });
+
+  it("summarizes missing observables across an investigation package", () => {
+    const pack: InvestigationPackage = {
+      kind: "openplazma.investigation_package",
+      version: "0.1.0",
+      packageId: "mixed-test",
+      title: "Mixed signal test",
+      target: {
+        kind: "openplazma.investigation_target",
+        version: "0.1.0",
+        targetId: "target",
+        targetKind: "unknown",
+        label: "Target",
+        description: "Target under test.",
+        candidateEnergySources: ["unknown"],
+        limitations: ["Fixture target."]
+      },
+      questions: [
+        {
+          questionId: "q-source",
+          questionKind: "energy_source_classification",
+          text: "What source is supported?"
+        }
+      ],
+      artifacts: [humanEyeArtifact(), mixedCurrentArtifact()],
+      fusionAssessment: {
+        kind: "openplazma.fusion_condition_assessment",
+        version: "0.1.0",
+        assessmentId: "assessment",
+        fusionStatus: "unknown",
+        conditionMode: "unknown",
+        reactionCandidates: ["unknown"],
+        observedOrInferredConditions: [],
+        requiredConditions: [],
+        unknowns: ["particle products"],
+        assumptions: [],
+        limitations: ["No fusion claim is resolved."]
+      },
+      claims: [],
+      limitations: ["Package-level fixture."]
+    };
+
+    const assessment = assessInvestigationMeasurements(pack, ["visible_light", "electric_current", "neutron_flux"]);
+
+    expect(assessment.packageId).toBe("mixed-test");
+    expect(assessment.artifactAssessments).toHaveLength(2);
+    expect(assessment.missingObservables).toEqual(["neutron_flux"]);
+    expect(assessment.unresolvedArtifactIds).toEqual(["eye-report", "mixed-current"]);
   });
 });
 
