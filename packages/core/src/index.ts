@@ -235,6 +235,7 @@ export type {
   InvestigationPackageMetadata,
   InvestigationQuestion,
   InvestigationQuestionKind,
+  InvestigationReport,
   InvestigationTarget,
   InvestigationTargetKind,
   MeasuredObservable,

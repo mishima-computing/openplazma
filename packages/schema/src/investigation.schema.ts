@@ -2,10 +2,12 @@ import { z } from "zod";
 import type {
   FusionConditionAssessment,
   InvestigationFixtureManifest,
-  InvestigationPackage
+  InvestigationPackage,
+  InvestigationReport
 } from "@openplazma/core";
 
 const versionSchema = z.literal("0.1.0");
+const isoDateTimeSchema = z.string().datetime({ offset: true });
 
 const targetKindSchema = z.enum([
   "lab_plasma",
@@ -507,6 +509,18 @@ export const investigationFixtureManifestSchema = z
     }
   });
 
+export const investigationReportSchema = z.object({
+  kind: z.literal("openplazma.investigation_report"),
+  version: versionSchema,
+  reportId: z.string().min(1),
+  packageId: z.string().min(1),
+  createdAt: isoDateTimeSchema,
+  claims: z.array(investigationClaimSchema).min(1),
+  assumptions: z.array(z.string().min(1)),
+  limitations: z.array(z.string().min(1)).min(1),
+  nextObservations: z.array(z.string().min(1))
+});
+
 export function parseFusionConditionAssessment(input: unknown): FusionConditionAssessment {
   return fusionConditionAssessmentSchema.parse(input) as FusionConditionAssessment;
 }
@@ -517,4 +531,8 @@ export function parseInvestigationPackage(input: unknown): InvestigationPackage 
 
 export function parseInvestigationFixtureManifest(input: unknown): InvestigationFixtureManifest {
   return investigationFixtureManifestSchema.parse(input) as InvestigationFixtureManifest;
+}
+
+export function parseInvestigationReport(input: unknown): InvestigationReport {
+  return investigationReportSchema.parse(input) as InvestigationReport;
 }

@@ -17,6 +17,7 @@ body {
 
 button,
 input,
+select,
 textarea {
   font: inherit;
 }
@@ -250,7 +251,8 @@ label {
 }
 
 textarea,
-input {
+input,
+select {
   width: 100%;
   border: 1px solid #bfccd2;
   border-radius: 6px;
@@ -285,6 +287,12 @@ textarea {
   border-color: #17202a;
   background: #17202a;
   color: #ffffff;
+}
+
+.primary-action:disabled {
+  cursor: not-allowed;
+  border-color: #94a3b8;
+  background: #94a3b8;
 }
 
 pre {
@@ -635,11 +643,63 @@ pre {
   color: #b91c1c;
 }
 
+.report-builder {
+  display: grid;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid #e0e7ea;
+}
+
+.report-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.evidence-fieldset {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid #d8e1e5;
+  border-radius: 6px;
+}
+
+.evidence-fieldset legend {
+  padding: 0 6px;
+  color: #0f766e;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.evidence-checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.evidence-checkbox {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #f7fafb;
+  color: #26323a;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.evidence-checkbox input {
+  width: auto;
+}
+
 @media (max-width: 920px) {
   .investigation-summary,
   .investigation-meta-grid,
   .measurement-strip,
-  .claim-row {
+  .claim-row,
+  .report-form-grid {
     grid-template-columns: 1fr;
   }
 
