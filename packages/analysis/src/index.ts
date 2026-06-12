@@ -5,6 +5,9 @@ import type {
   ElmClassification,
   ElmCrash,
   EvidenceLink,
+  FrequencyAnalysis,
+  FrequencyAnalysisMethod,
+  FrequencyDomain,
   Inference,
   ModeNumberEstimate,
   PhenomenonEvent,
@@ -511,6 +514,170 @@ function stddev(values: number[]): number {
   const m = mean(values);
   const variance = values.reduce((sum, v) => sum + (v - m) * (v - m), 0) / values.length;
   return Math.sqrt(variance);
+}
+
+// ---------------------------------------------------------------------------
+// Investigation frequency analysis
+// ---------------------------------------------------------------------------
+
+const SPEED_OF_LIGHT_M_PER_S = 299_792_458;
+
+export interface TemporalFrequencyAnalysisOptions {
+  analysisId?: string;
+  domain: FrequencyDomain;
+  method?: Extract<FrequencyAnalysisMethod, "fft" | "stft" | "periodogram" | "lomb_scargle" | "unknown">;
+  sourceQuantity?: string;
+  bandId?: string;
+  bandLabel?: string;
+  peakId?: string;
+  lowerFrequencyHz?: number;
+  upperFrequencyHz?: number;
+  maxFrequencyHz?: number;
+  description?: string;
+  assumptions?: string[];
+  limitations?: string[];
+}
+
+function centered(values: number[]): number[] {
+  const baseline = mean(values);
+  return values.map((value) => value - baseline);
+}
+
+function residualStddev(values: number[], dt: number, freqHz: number, amplitude: number, phase: number): number {
+  if (values.length === 0 || dt <= 0 || freqHz <= 0) {
+    return 0;
+  }
+  const residuals = values.map((value, index) => {
+    const fitted = amplitude * Math.cos(TWO_PI * freqHz * index * dt + phase);
+    return value - fitted;
+  });
+  return stddev(residuals);
+}
+
+export function analyzeTemporalFrequency(
+  series: SignalSeries,
+  options: TemporalFrequencyAnalysisOptions
+): FrequencyAnalysis {
+  const dt = inferDt(series.time);
+  const sampleRateHz = dt > 0 ? 1 / dt : undefined;
+  const durationSeconds =
+    series.time.length > 1
+      ? (series.time[series.time.length - 1] ?? 0) - (series.time[0] ?? 0)
+      : undefined;
+  const frequencyResolutionHz = durationSeconds && durationSeconds > 0 ? 1 / durationSeconds : undefined;
+  const values = centered(series.values);
+  const nyquistHz = sampleRateHz !== undefined ? sampleRateHz / 2 : undefined;
+  const upperFrequencyHz = Math.min(
+    options.upperFrequencyHz ?? options.maxFrequencyHz ?? nyquistHz ?? Number.POSITIVE_INFINITY,
+    nyquistHz ?? Number.POSITIVE_INFINITY
+  );
+  const peakFrequencyHz = dominantFrequency(values, dt, Number.isFinite(upperFrequencyHz) ? upperFrequencyHz : undefined);
+  const { amplitude, phase } = goertzelPhaseAmplitude(values, dt, peakFrequencyHz);
+  const noise = residualStddev(values, dt, peakFrequencyHz, amplitude, phase);
+  const signalToNoiseRatio = noise > 0 ? amplitude / noise : undefined;
+
+  return {
+    analysisId: options.analysisId ?? `${series.signalId}-frequency`,
+    domain: options.domain,
+    method: options.method ?? "fft",
+    sourceQuantity: options.sourceQuantity ?? series.quantity,
+    sampleRateHz,
+    windowSeconds: durationSeconds,
+    frequencyResolutionHz,
+    bands: [
+      {
+        bandId: options.bandId ?? `${series.signalId}-analysis-band`,
+        domain: options.domain,
+        label: options.bandLabel ?? `${series.label} analysis band`,
+        lowerFrequencyHz: options.lowerFrequencyHz ?? frequencyResolutionHz,
+        upperFrequencyHz: Number.isFinite(upperFrequencyHz) ? upperFrequencyHz : undefined,
+        quantity: `${series.quantity} modulation`,
+        unit: series.unit,
+        description: "Temporal frequency band examined for this signal.",
+        limitations: ["The band constrains modulation, not source identity."]
+      }
+    ],
+    peaks:
+      peakFrequencyHz > 0
+        ? [
+            {
+              peakId: options.peakId ?? `${series.signalId}-dominant-peak`,
+              frequencyHz: peakFrequencyHz,
+              amplitude,
+              phaseRadians: phase,
+              signalToNoiseRatio,
+              interpretation: "Dominant temporal modulation candidate.",
+              limitations: ["A frequency peak can be source behavior, coupling, motion, aliasing, or instrument response."]
+            }
+          ]
+        : [],
+    description: options.description ?? `Frequency decomposition of ${series.label}.`,
+    assumptions: options.assumptions ?? ["Samples are treated as evenly spaced."],
+    limitations: options.limitations ?? ["Frequency analysis does not prove plasma, fusion, or source identity by itself."]
+  };
+}
+
+export function wavelengthMetersToFrequencyHz(wavelengthMeters: number): number {
+  if (wavelengthMeters <= 0 || !Number.isFinite(wavelengthMeters)) {
+    throw new Error("wavelengthMeters must be a positive finite number");
+  }
+  return SPEED_OF_LIGHT_M_PER_S / wavelengthMeters;
+}
+
+export interface ElectromagneticCarrierAnalysisOptions {
+  analysisId: string;
+  sourceQuantity: string;
+  lowerWavelengthMeters: number;
+  upperWavelengthMeters: number;
+  bandId: string;
+  label: string;
+  peakWavelengthMeters?: number;
+  description: string;
+  assumptions?: string[];
+  limitations?: string[];
+}
+
+export function buildElectromagneticCarrierAnalysis(
+  options: ElectromagneticCarrierAnalysisOptions
+): FrequencyAnalysis {
+  const f1 = wavelengthMetersToFrequencyHz(options.lowerWavelengthMeters);
+  const f2 = wavelengthMetersToFrequencyHz(options.upperWavelengthMeters);
+  const lowerFrequencyHz = Math.min(f1, f2);
+  const upperFrequencyHz = Math.max(f1, f2);
+
+  return {
+    analysisId: options.analysisId,
+    domain: "electromagnetic_carrier",
+    method: "spectral_line_fit",
+    sourceQuantity: options.sourceQuantity,
+    bands: [
+      {
+        bandId: options.bandId,
+        domain: "electromagnetic_carrier",
+        label: options.label,
+        lowerFrequencyHz,
+        upperFrequencyHz,
+        quantity: "electromagnetic carrier frequency",
+        unit: "Hz",
+        description: options.description,
+        limitations: options.limitations ?? ["Carrier frequency constrains the observed band, not source identity."]
+      }
+    ],
+    peaks:
+      options.peakWavelengthMeters !== undefined
+        ? [
+            {
+              peakId: `${options.bandId}-peak`,
+              frequencyHz: wavelengthMetersToFrequencyHz(options.peakWavelengthMeters),
+              interpretation: "Candidate carrier-frequency feature.",
+              limitations: ["A carrier peak is spectral evidence, not a fusion-product claim by itself."]
+            }
+          ]
+        : [],
+    description: options.description,
+    assumptions: options.assumptions ?? ["Wavelength-to-frequency conversion uses vacuum light speed."],
+    limitations: options.limitations ?? ["Carrier analysis must be combined with calibrated diagnostics before claims."]
+  };
 }
 
 export interface CrashDetectOptions {
