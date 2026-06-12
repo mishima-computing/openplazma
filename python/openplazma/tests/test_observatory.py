@@ -88,11 +88,12 @@ def add_manifest_artifact(run_store: Path, run_id: str, name: str, artifact_type
     relative_path = artifact_path.relative_to(run_dir).as_posix()
     manifest_path = run_dir / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    artifact_count = len(manifest["artifacts"]) + 1
     manifest["artifacts"].append(
         {
             "kind": "openplazma.artifact",
             "version": "0.1.0",
-            "artifactId": f"OPA-{name}",
+            "artifactId": f"OPA-20260524-{artifact_count:06d}",
             "runId": run_id,
             "name": name,
             "type": artifact_type,

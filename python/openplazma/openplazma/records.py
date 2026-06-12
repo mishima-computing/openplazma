@@ -5,8 +5,8 @@ from pathlib import Path
 from typing import Any
 
 from ._json import load_json, save_json
-from ._validation import require_keys, require_list, require_mapping, require_string
-from .context import validate_experiment_context
+from ._validation import require_iso_datetime, require_keys, require_list, require_mapping, require_string
+from .context import _validate_observation, _validate_signal_ref, validate_experiment_context
 from .mhd import validate_mhd_analysis_bundle
 from .signals import validate_signal_series
 from .sources import validate_data_provider, validate_source_ref
@@ -65,7 +65,7 @@ def _validate_ts_context(context: dict[str, Any]) -> None:
     require_string(context["projectId"], "StudyRecord.context.projectId")
     require_string(context["datasetId"], "StudyRecord.context.datasetId")
     require_string(context["description"], "StudyRecord.context.description")
-    require_string(context["createdAt"], "StudyRecord.context.createdAt")
+    require_iso_datetime(context["createdAt"], "StudyRecord.context.createdAt")
     if context["safetyClassification"] not in {"public-educational-fixture", "read-only-local-signal"}:
         raise ValueError("StudyRecord.context.safetyClassification must be public-educational-fixture or read-only-local-signal.")
 
@@ -96,8 +96,14 @@ def _validate_ts_context(context: dict[str, Any]) -> None:
     for field in ["runSimulation", "submitComputeJob", "readFacilityTelemetry", "controlFacility"]:
         if capabilities[field] is not False:
             raise ValueError(f"StudyRecord.context.capabilities.{field} must be false.")
-    require_list(context["observations"], "StudyRecord.context.observations")
-    require_list(context["limitations"], "StudyRecord.context.limitations")
+    for index, observation_ref in enumerate(require_list(context["observations"], "StudyRecord.context.observations")):
+        observation = require_mapping(observation_ref, f"StudyRecord.context.observations[{index}]")
+        _validate_observation(observation, f"StudyRecord.context.observations[{index}]")
+    limitations = require_list(context["limitations"], "StudyRecord.context.limitations")
+    if len(limitations) == 0:
+        raise ValueError("StudyRecord.context.limitations must include at least one limitation.")
+    for index, limitation in enumerate(limitations):
+        require_string(limitation, f"StudyRecord.context.limitations[{index}]")
 
 
 def _validate_ts_shot(shot: dict[str, Any]) -> None:
@@ -113,12 +119,14 @@ def _validate_ts_shot(shot: dict[str, Any]) -> None:
     require_string(shot["shotId"], "StudyRecord.shot.shotId")
     require_string(shot["displayName"], "StudyRecord.shot.displayName")
     require_string(shot["sourceLabel"], "StudyRecord.shot.sourceLabel")
-    require_string(shot["recordedAt"], "StudyRecord.shot.recordedAt")
+    require_iso_datetime(shot["recordedAt"], "StudyRecord.shot.recordedAt")
 
     source = require_mapping(shot["source"], "StudyRecord.shot.source")
     require_keys(source, ["kind", "provider", "sourceLabel", "uri", "license"], "StudyRecord.shot.source")
     validate_source_ref(source, "StudyRecord.shot.source")
     require_string(source["kind"], "StudyRecord.shot.source.kind")
+    if source["kind"] not in {"fixture", "measured", "derived", "synthetic"}:
+        raise ValueError("StudyRecord.shot.source.kind must be fixture, measured, derived, or synthetic.")
     require_string(source["sourceLabel"], "StudyRecord.shot.source.sourceLabel")
     require_string(source["uri"], "StudyRecord.shot.source.uri")
     require_string(source["license"], "StudyRecord.shot.source.license")
@@ -128,7 +136,8 @@ def _validate_ts_shot(shot: dict[str, Any]) -> None:
         raise ValueError("StudyRecord.shot.signalIds must include at least one signal id.")
     for signal_id in signal_ids:
         require_string(signal_id, "StudyRecord.shot.signalIds[]")
-    require_list(shot["tags"], "StudyRecord.shot.tags")
+    for index, tag in enumerate(require_list(shot["tags"], "StudyRecord.shot.tags")):
+        require_string(tag, f"StudyRecord.shot.tags[{index}]")
 
 
 def _validate_notebook_record(record: dict[str, Any]) -> dict[str, Any]:
@@ -142,7 +151,7 @@ def _validate_notebook_record(record: dict[str, Any]) -> dict[str, Any]:
     if record["version"] != "0.1.0":
         raise ValueError("StudyRecord.version must be 0.1.0.")
     require_string(record["studyId"], "StudyRecord.studyId")
-    require_string(record["createdAt"], "StudyRecord.createdAt")
+    require_iso_datetime(record["createdAt"], "StudyRecord.createdAt")
 
     source = require_mapping(record["source"], "StudyRecord.source")
     require_keys(source, ["provider", "sourceLabel", "shotId"], "StudyRecord.source")
@@ -155,14 +164,12 @@ def _validate_notebook_record(record: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("StudyRecord.signalsViewed must include at least one signal.")
     for index, signal_ref in enumerate(signals_viewed):
         signal = require_mapping(signal_ref, f"StudyRecord.signalsViewed[{index}]")
-        require_keys(signal, ["signalId"], f"StudyRecord.signalsViewed[{index}]")
-        require_string(signal["signalId"], f"StudyRecord.signalsViewed[{index}].signalId")
+        _validate_signal_ref(signal, f"StudyRecord.signalsViewed[{index}]")
 
     observations = require_list(record["observations"], "StudyRecord.observations")
     for index, observation_ref in enumerate(observations):
         observation = require_mapping(observation_ref, f"StudyRecord.observations[{index}]")
-        require_keys(observation, ["text"], f"StudyRecord.observations[{index}]")
-        require_string(observation["text"], f"StudyRecord.observations[{index}].text")
+        _validate_observation(observation, f"StudyRecord.observations[{index}]")
 
     limitations = require_list(record["limitations"], "StudyRecord.limitations")
     if len(limitations) == 0:
@@ -189,8 +196,11 @@ def validate_study_record(record: dict[str, Any]) -> dict[str, Any]:
     shot_ref = require_mapping(record["shotRef"], "StudyRecord.shotRef")
     require_keys(shot_ref, ["provider", "shotId"], "StudyRecord.shotRef")
     validate_data_provider(shot_ref["provider"], "StudyRecord.shotRef.provider")
-    if shot_ref["provider"] != record["source"]["provider"]:
-        raise ValueError("StudyRecord.shotRef.provider must match StudyRecord.source.provider.")
+    require_string(shot_ref["shotId"], "StudyRecord.shotRef.shotId")
+    if shot_ref["provider"] != shot["source"]["provider"] or shot_ref["shotId"] != shot["shotId"]:
+        raise ValueError("StudyRecord.shotRef must match StudyRecord.shot metadata.")
+    if shot_ref["provider"] != record["source"]["provider"] or shot_ref["shotId"] != record["source"]["shotId"]:
+        raise ValueError("StudyRecord.shotRef must match StudyRecord.source.")
     signal_ids = set(shot["signalIds"])
     actual_signal_ids: set[str] = set()
     for index, signal in enumerate(signals):
@@ -198,6 +208,12 @@ def validate_study_record(record: dict[str, Any]) -> dict[str, Any]:
         actual_signal_ids.add(validated_signal["signalId"])
         if validated_signal["signalId"] not in signal_ids:
             raise ValueError("StudyRecord.signals contains a signal not listed in shot.signalIds.")
+    for signal_id in signal_ids:
+        if signal_id not in actual_signal_ids:
+            raise ValueError(f"StudyRecord.shot.signalIds references missing signal '{signal_id}'.")
+    for signal_ref in record["signalsViewed"]:
+        if signal_ref["signalId"] not in actual_signal_ids:
+            raise ValueError(f"StudyRecord.signalsViewed references missing signal '{signal_ref['signalId']}'.")
 
     if "mhd" in record and record["mhd"] is not None:
         validate_mhd_analysis_bundle(require_mapping(record["mhd"], "StudyRecord.mhd"), actual_signal_ids)

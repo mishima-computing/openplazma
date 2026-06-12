@@ -69,6 +69,23 @@ def test_static_investigation_manifest_package_id_must_match_loaded_package(tmp_
         op.load_static_investigation_package(tmp_path, "manifest-package-id")
 
 
+def test_static_investigation_manifest_paths_must_stay_under_repo_root(tmp_path):
+    manifest = copy.deepcopy(op.load_investigation_fixture_manifest(MANIFEST))
+    manifest["packages"] = [
+        {
+            "packageId": "will-o-wisp-001",
+            "title": "Will-o-wisp plasma first-pass investigation",
+            "path": str(REPO_ROOT / "data" / "fixtures" / "static" / "investigations" / "will-o-wisp-001" / "investigation-package.json"),
+        }
+    ]
+    manifest_path = tmp_path / "data" / "fixtures" / "static" / "investigations" / "manifest.json"
+    manifest_path.parent.mkdir(parents=True)
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="manifest path"):
+        op.load_static_investigation_package(tmp_path, "will-o-wisp-001")
+
+
 def test_will_o_wisp_package_exposes_frequency_and_measurement_gaps():
     package = op.load_static_investigation_package(REPO_ROOT, "will-o-wisp-001")
 

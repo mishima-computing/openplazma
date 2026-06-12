@@ -187,3 +187,40 @@ def test_path_traversal_artifact_name_is_rejected(tmp_path: Path):
 
     with pytest.raises(ValueError, match="ArtifactRecord.name"):
         run.log_artifact("../signal_series", "signal_series", sample_signal())
+
+
+def test_load_run_rejects_tampered_run_record_boundary(tmp_path: Path):
+    run = op.start_run(
+        project="openplazma-demo",
+        campaign="read-the-signal",
+        run_type="notebook_analysis",
+        context=sample_context(),
+        run_store=run_store_path(tmp_path),
+    )
+    run_id = run.run_id
+    run_path = run_store_path(tmp_path) / "runs" / run_id / "run.json"
+    record = json.loads(run_path.read_text(encoding="utf-8"))
+    record["runId"] = "bad-run-id"
+    record["createdAt"] = "today"
+    run_path.write_text(json.dumps(record), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="RunRecord.runId"):
+        op.load_run(run_id, run_store=run_store_path(tmp_path))
+
+
+def test_load_manifest_rejects_tampered_artifact_paths(tmp_path: Path):
+    run = op.start_run(
+        project="openplazma-demo",
+        campaign="read-the-signal",
+        run_type="notebook_analysis",
+        context=sample_context(),
+        run_store=run_store_path(tmp_path),
+    )
+    run.log_artifact("signal_series", "signal_series", sample_signal())
+    manifest_path = run_store_path(tmp_path) / "runs" / run.run_id / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["artifacts"][0]["path"] = "https://example.com/leak.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="ArtifactRecord.path"):
+        op.load_manifest(run.run_id, run_store=run_store_path(tmp_path))

@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from ._json import load_json, save_json
-from ._validation import require_keys, require_mapping, require_string
+from ._validation import require_iso_datetime, require_keys, require_list, require_mapping, require_string
 from .context import validate_experiment_context
 from .records import validate_study_record
 from .signals import validate_signal_series
@@ -33,6 +33,9 @@ DEFAULT_LIMITATIONS = [
 ]
 
 _SAFE_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
+_RUN_ID_RE = re.compile(r"^OPR-\d{8}-\d{6}$")
+_ARTIFACT_ID_RE = re.compile(r"^OPA-\d{8}-\d{6}$")
+_SHA256_RE = re.compile(r"^[a-f0-9]{64}$")
 
 
 def _now() -> str:
@@ -99,7 +102,7 @@ def _next_run_id(run_store: str | Path) -> str:
 
 
 def _run_dir(run_id: str, run_store: str | Path) -> Path:
-    if not re.fullmatch(r"OPR-\d{8}-\d{6}", run_id):
+    if not _RUN_ID_RE.fullmatch(run_id):
         raise ValueError("run_id must look like OPR-YYYYMMDD-000001.")
     return _runs_root(run_store) / run_id
 
@@ -148,6 +151,37 @@ def _ensure_inside(parent: Path, child: Path) -> None:
         raise ValueError("Artifact path must remain inside the run directory.")
 
 
+def _require_int(value: Any, name: str, *, nonnegative: bool = False) -> int:
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise ValueError(f"{name} must be an integer.")
+    if nonnegative and value < 0:
+        raise ValueError(f"{name} must be nonnegative.")
+    return value
+
+
+def _require_string_list(value: Any, name: str, *, min_items: int = 0) -> list[Any]:
+    items = require_list(value, name)
+    if len(items) < min_items:
+        raise ValueError(f"{name} must include at least {min_items} item(s).")
+    for index, item in enumerate(items):
+        require_string(item, f"{name}[{index}]")
+    return items
+
+
+def _validate_artifact_path(value: Any, name: str) -> str:
+    artifact_path = require_string(value, name)
+    parts = Path(artifact_path).parts
+    if (
+        Path(artifact_path).is_absolute()
+        or not artifact_path.startswith("artifacts/")
+        or "\\" in artifact_path
+        or ".." in parts
+        or any(":" in part for part in parts)
+    ):
+        raise ValueError(f"Artifact path must remain under artifacts/ ({name}).")
+    return artifact_path
+
+
 def _validate_metric_value(value: Any) -> Any:
     if isinstance(value, float) and not math.isfinite(value):
         raise ValueError("MetricRecord.value must be finite when it is a number.")
@@ -160,7 +194,17 @@ def _validate_metric_value(value: Any) -> Any:
     return value
 
 
-def _validate_run_record(record: dict[str, Any]) -> dict[str, Any]:
+def _validate_context_ref(value: Any) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    context_ref = require_mapping(value, "RunRecord.contextRef")
+    require_keys(context_ref, ["artifactName", "artifactType"], "RunRecord.contextRef")
+    require_string(context_ref["artifactName"], "RunRecord.contextRef.artifactName")
+    require_string(context_ref["artifactType"], "RunRecord.contextRef.artifactType")
+    return context_ref
+
+
+def _validate_run_record(record: dict[str, Any], *, expected_run_id: str | None = None) -> dict[str, Any]:
     require_keys(
         record,
         [
@@ -187,19 +231,119 @@ def _validate_run_record(record: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("RunRecord.kind must be openplazma.run.")
     if record["version"] != "0.1.0":
         raise ValueError("RunRecord.version must be 0.1.0.")
+    run_id = require_string(record["runId"], "RunRecord.runId")
+    if not _RUN_ID_RE.fullmatch(run_id):
+        raise ValueError("RunRecord.runId must look like OPR-YYYYMMDD-000001.")
+    if expected_run_id is not None and run_id != expected_run_id:
+        raise ValueError("RunRecord.runId must match the requested run_id.")
     if record["status"] not in {"running", "finished", "failed"}:
         raise ValueError("RunRecord.status must be running, finished, or failed.")
-    require_string(record["runId"], "RunRecord.runId")
     require_string(record["project"], "RunRecord.project")
     require_string(record["campaign"], "RunRecord.campaign")
     require_string(record["runType"], "RunRecord.runType")
+    require_iso_datetime(record["createdAt"], "RunRecord.createdAt")
+    require_iso_datetime(record["updatedAt"], "RunRecord.updatedAt")
+    if record.get("finishedAt") is not None:
+        require_iso_datetime(record["finishedAt"], "RunRecord.finishedAt")
     target = require_mapping(record["target"], "RunRecord.target")
     require_keys(target, ["type", "id", "label"], "RunRecord.target")
     if target["type"] != "local_run_store":
         raise ValueError("RunRecord.target.type must be local_run_store.")
+    require_string(target["id"], "RunRecord.target.id")
+    require_string(target["label"], "RunRecord.target.label")
     _require_readonly_source(require_mapping(record["source"], "RunRecord.source"))
     _safe_capabilities(require_mapping(record["capabilities"], "RunRecord.capabilities"))
+    _validate_context_ref(record["contextRef"])
+    _require_int(record["artifactCount"], "RunRecord.artifactCount", nonnegative=True)
+    _require_int(record["metricCount"], "RunRecord.metricCount", nonnegative=True)
+    _require_string_list(record["limitations"], "RunRecord.limitations", min_items=1)
     return record
+
+
+def _validate_metric_record(record: dict[str, Any], *, expected_run_id: str | None = None) -> dict[str, Any]:
+    require_keys(record, ["kind", "version", "runId", "name", "value", "createdAt"], "MetricRecord")
+    if record["kind"] != "openplazma.metric":
+        raise ValueError("MetricRecord.kind must be openplazma.metric.")
+    if record["version"] != "0.1.0":
+        raise ValueError("MetricRecord.version must be 0.1.0.")
+    run_id = require_string(record["runId"], "MetricRecord.runId")
+    if not _RUN_ID_RE.fullmatch(run_id):
+        raise ValueError("MetricRecord.runId must look like OPR-YYYYMMDD-000001.")
+    if expected_run_id is not None and run_id != expected_run_id:
+        raise ValueError("MetricRecord.runId must match the requested run_id.")
+    require_string(record["name"], "MetricRecord.name")
+    _validate_metric_value(record["value"])
+    if record.get("step") is not None:
+        _require_int(record["step"], "MetricRecord.step", nonnegative=True)
+    require_iso_datetime(record["createdAt"], "MetricRecord.createdAt")
+    return record
+
+
+def _validate_artifact_record(record: dict[str, Any], *, expected_run_id: str | None = None) -> dict[str, Any]:
+    require_keys(
+        record,
+        ["kind", "version", "artifactId", "runId", "name", "type", "path", "sha256", "createdAt", "metadata"],
+        "ArtifactRecord",
+    )
+    if record["kind"] != "openplazma.artifact":
+        raise ValueError("ArtifactRecord.kind must be openplazma.artifact.")
+    if record["version"] != "0.1.0":
+        raise ValueError("ArtifactRecord.version must be 0.1.0.")
+    artifact_id = require_string(record["artifactId"], "ArtifactRecord.artifactId")
+    if not _ARTIFACT_ID_RE.fullmatch(artifact_id):
+        raise ValueError("ArtifactRecord.artifactId must look like OPA-YYYYMMDD-000001.")
+    run_id = require_string(record["runId"], "ArtifactRecord.runId")
+    if not _RUN_ID_RE.fullmatch(run_id):
+        raise ValueError("ArtifactRecord.runId must look like OPR-YYYYMMDD-000001.")
+    if expected_run_id is not None and run_id != expected_run_id:
+        raise ValueError("ArtifactRecord.runId must match the requested run_id.")
+    require_string(record["name"], "ArtifactRecord.name")
+    require_string(record["type"], "ArtifactRecord.type")
+    _validate_artifact_path(record["path"], "ArtifactRecord.path")
+    digest = require_string(record["sha256"], "ArtifactRecord.sha256")
+    if not _SHA256_RE.fullmatch(digest):
+        raise ValueError("ArtifactRecord.sha256 must be a lowercase SHA-256 hex digest.")
+    require_iso_datetime(record["createdAt"], "ArtifactRecord.createdAt")
+    require_mapping(record["metadata"], "ArtifactRecord.metadata")
+    return record
+
+
+def _validate_event_record(record: dict[str, Any], *, expected_run_id: str | None = None) -> dict[str, Any]:
+    require_keys(record, ["kind", "version", "runId", "eventType", "createdAt", "message", "metadata"], "EventRecord")
+    if record["kind"] != "openplazma.event":
+        raise ValueError("EventRecord.kind must be openplazma.event.")
+    if record["version"] != "0.1.0":
+        raise ValueError("EventRecord.version must be 0.1.0.")
+    run_id = require_string(record["runId"], "EventRecord.runId")
+    if not _RUN_ID_RE.fullmatch(run_id):
+        raise ValueError("EventRecord.runId must look like OPR-YYYYMMDD-000001.")
+    if expected_run_id is not None and run_id != expected_run_id:
+        raise ValueError("EventRecord.runId must match the requested run_id.")
+    if record["eventType"] not in {"run_started", "metric_logged", "artifact_logged", "run_finished", "run_failed"}:
+        raise ValueError("EventRecord.eventType is not supported.")
+    require_iso_datetime(record["createdAt"], "EventRecord.createdAt")
+    require_string(record["message"], "EventRecord.message")
+    require_mapping(record["metadata"], "EventRecord.metadata")
+    return record
+
+
+def _validate_run_manifest(manifest: dict[str, Any], *, expected_run_id: str | None = None) -> dict[str, Any]:
+    require_keys(manifest, ["kind", "version", "runId", "createdAt", "updatedAt", "artifacts"], "RunManifest")
+    if manifest["kind"] != "openplazma.run_manifest":
+        raise ValueError("RunManifest.kind must be openplazma.run_manifest.")
+    if manifest["version"] != "0.1.0":
+        raise ValueError("RunManifest.version must be 0.1.0.")
+    run_id = require_string(manifest["runId"], "RunManifest.runId")
+    if not _RUN_ID_RE.fullmatch(run_id):
+        raise ValueError("RunManifest.runId must look like OPR-YYYYMMDD-000001.")
+    if expected_run_id is not None and run_id != expected_run_id:
+        raise ValueError("RunManifest.runId must match the requested run_id.")
+    require_iso_datetime(manifest["createdAt"], "RunManifest.createdAt")
+    require_iso_datetime(manifest["updatedAt"], "RunManifest.updatedAt")
+    for index, artifact_ref in enumerate(require_list(manifest["artifacts"], "RunManifest.artifacts")):
+        artifact = require_mapping(artifact_ref, f"RunManifest.artifacts[{index}]")
+        _validate_artifact_record(artifact, expected_run_id=run_id)
+    return manifest
 
 
 class Run:
@@ -232,10 +376,10 @@ class Run:
         save_json(_validate_run_record(record), self.run_json_path)
 
     def _manifest(self) -> dict[str, Any]:
-        return load_json(self.manifest_path)
+        return _validate_run_manifest(load_json(self.manifest_path), expected_run_id=self.run_id)
 
     def _save_manifest(self, manifest: dict[str, Any]) -> None:
-        save_json(manifest, self.manifest_path)
+        save_json(_validate_run_manifest(manifest, expected_run_id=self.run_id), self.manifest_path)
 
     def _event(self, event_type: str, message: str, metadata: dict[str, Any] | None = None) -> None:
         record = {
@@ -247,6 +391,7 @@ class Run:
             "message": message,
             "metadata": metadata or {},
         }
+        _validate_event_record(record, expected_run_id=self.run_id)
         _write_jsonl(self.events_path, record)
 
     def log_metric(self, name: str, value: Any, step: int | None = None) -> dict[str, Any]:
@@ -262,6 +407,7 @@ class Run:
             "step": step,
             "createdAt": _now(),
         }
+        _validate_metric_record(record, expected_run_id=self.run_id)
         _write_jsonl(self.metrics_path, record)
 
         run_record = self.run_record
@@ -312,6 +458,7 @@ class Run:
             "createdAt": created_at,
             "metadata": metadata or {},
         }
+        _validate_artifact_record(record, expected_run_id=self.run_id)
         manifest["artifacts"].append(record)
         manifest["updatedAt"] = created_at
         self._save_manifest(manifest)
@@ -405,14 +552,17 @@ def start_run(
     save_json(_validate_run_record(run_record), run_dir / "run.json")
     save_json(config or {}, run_dir / "config.json")
     save_json(
-        {
-            "kind": "openplazma.run_manifest",
-            "version": "0.1.0",
-            "runId": run_id,
-            "createdAt": created_at,
-            "updatedAt": created_at,
-            "artifacts": [],
-        },
+        _validate_run_manifest(
+            {
+                "kind": "openplazma.run_manifest",
+                "version": "0.1.0",
+                "runId": run_id,
+                "createdAt": created_at,
+                "updatedAt": created_at,
+                "artifacts": [],
+            },
+            expected_run_id=run_id,
+        ),
         run_dir / "manifest.json",
     )
 
@@ -433,15 +583,18 @@ def list_runs(run_store: str | Path = ".openplazma") -> list[dict[str, Any]]:
 
 
 def load_run(run_id: str, run_store: str | Path = ".openplazma") -> dict[str, Any]:
-    return _validate_run_record(load_json(_run_dir(run_id, run_store) / "run.json"))
+    return _validate_run_record(load_json(_run_dir(run_id, run_store) / "run.json"), expected_run_id=run_id)
 
 
 def load_metrics(run_id: str, run_store: str | Path = ".openplazma") -> list[dict[str, Any]]:
-    return _read_jsonl(_run_dir(run_id, run_store) / "metrics.jsonl")
+    return [
+        _validate_metric_record(record, expected_run_id=run_id)
+        for record in _read_jsonl(_run_dir(run_id, run_store) / "metrics.jsonl")
+    ]
 
 
 def load_manifest(run_id: str, run_store: str | Path = ".openplazma") -> dict[str, Any]:
-    return load_json(_run_dir(run_id, run_store) / "manifest.json")
+    return _validate_run_manifest(load_json(_run_dir(run_id, run_store) / "manifest.json"), expected_run_id=run_id)
 
 
 def log_context_signal_and_study_record(

@@ -214,3 +214,12 @@ def test_bundle_rejects_dangling_claim():
     }
     with pytest.raises(ValueError):
         validate_mhd_analysis_bundle(bundle)
+
+
+def test_mhd_geometry_rejects_nonpositive_major_radius():
+    record = load_study_record(MHD_FIXTURE)
+    bundle = record["mhd"]
+    bundle["arrays"][0]["channels"][0]["geometry"]["majorRadiusM"] = -1
+
+    with pytest.raises(ValueError, match="majorRadiusM"):
+        validate_mhd_analysis_bundle(bundle)
