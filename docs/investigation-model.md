@@ -231,8 +231,8 @@ checks, and calibration story.
 
 ## Organism Interiors
 
-Large-organism or "kaiju" investigations are not a joke path in the core model.
-They stress-test the same rule that applies to fusion devices and stars:
+Large-organism and anomalous-organism investigations are neutral core-model
+stress tests. They use the same rule that applies to fusion devices and stars:
 
 ```text
 heat + light + motion does not identify an energy source
@@ -271,8 +271,8 @@ necessary fusion diagnostics are missing
   plausible, supported, or still unknown, plus condition reasoning
 - `InvestigationClaim`: claim statements and their evidence artifact links
 
-These contracts are core infrastructure. They do not implement gameplay,
-narrative progression, Steam features, facility telemetry, or control.
+These contracts are core infrastructure. They do not implement product-specific
+progression, hosted service features, facility telemetry, or control.
 
 ## Static Investigation Fixtures
 
