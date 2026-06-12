@@ -67,4 +67,68 @@ describe("StaticFixtureDataSource", () => {
 
     await expect(dataSource.getStudyRecord("missing-shot")).resolves.toBeNull();
   });
+
+  it("loads the bundled investigation fixture registry", async () => {
+    const dataSource = new StaticFixtureDataSource();
+
+    await expect(dataSource.listInvestigationPackages()).resolves.toEqual([
+      {
+        packageId: "will-o-wisp-001",
+        title: "Will-o'-the-wisp first anomaly",
+        path: "data/fixtures/static/investigations/will-o-wisp-001/investigation-package.json"
+      },
+      {
+        packageId: "organism-interior-001",
+        title: "Large organism interior energy survey",
+        path: "data/fixtures/static/investigations/organism-interior-001/investigation-package.json"
+      },
+      {
+        packageId: "solar-inverse-001",
+        title: "Solar inverse fusion-condition seed",
+        path: "data/fixtures/static/investigations/solar-inverse-001/investigation-package.json"
+      }
+    ]);
+    expect(dataSource.investigationManifest.datasetId).toBe("static-investigation-v0");
+  });
+
+  it("loads investigation packages by id", async () => {
+    const dataSource = new StaticFixtureDataSource();
+
+    const willOWisp = await dataSource.getInvestigationPackage("will-o-wisp-001");
+    expect(willOWisp?.target.targetKind).toBe("atmospheric_light");
+    expect(willOWisp?.artifacts.map((artifact) => artifact.artifactId)).toContain("visible-spectrum");
+
+    const organism = await dataSource.getInvestigationPackage("organism-interior-001");
+    expect(organism?.target.regions?.map((region) => region.regionId)).toContain("luminous-organ");
+    expect(organism?.artifacts.map((artifact) => artifact.artifactId)).toContain("mixed-current-trace");
+
+    const solar = await dataSource.getInvestigationPackage("solar-inverse-001");
+    expect(solar?.fusionAssessment.conditionMode).toBe("inverse_from_fusion_condition");
+    expect(solar?.fusionAssessment.requiredConditions.map((condition) => condition.parameter)).toContain("gravity");
+  });
+
+  it("returns null for an unknown investigation package", async () => {
+    const dataSource = new StaticFixtureDataSource();
+
+    await expect(dataSource.getInvestigationPackage("missing-investigation")).resolves.toBeNull();
+  });
+
+  it("fails fast when the investigation manifest references a missing package", () => {
+    expect(
+      () =>
+        new StaticFixtureDataSource([], undefined, [], {
+          kind: "openplazma.investigation_fixture_manifest",
+          version: "0.1.0",
+          provider: "STATIC_FIXTURE",
+          datasetId: "broken",
+          packages: [
+            {
+              packageId: "missing-investigation",
+              title: "Missing investigation",
+              path: "data/fixtures/static/investigations/missing/investigation-package.json"
+            }
+          ]
+        })
+    ).toThrow("missing-investigation");
+  });
 });
