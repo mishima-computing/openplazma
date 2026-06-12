@@ -1,5 +1,6 @@
 import type {
   DiagnosticArray,
+  DiagnosticArtifact,
   DiagnosticChannel,
   ElmAnalysis,
   ElmClassification,
@@ -9,6 +10,8 @@ import type {
   FrequencyAnalysisMethod,
   FrequencyDomain,
   Inference,
+  InvestigationPackage,
+  MeasuredObservable,
   ModeNumberEstimate,
   PhenomenonEvent,
   RotationTrackPoint,
@@ -677,6 +680,138 @@ export function buildElectromagneticCarrierAnalysis(
     description: options.description,
     assumptions: options.assumptions ?? ["Wavelength-to-frequency conversion uses vacuum light speed."],
     limitations: options.limitations ?? ["Carrier analysis must be combined with calibrated diagnostics before claims."]
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Mixed-signal diagnostic assessment
+// ---------------------------------------------------------------------------
+
+export type DiagnosticIdentifiability =
+  | "source_identity_not_supported"
+  | "source_identity_constrained"
+  | "source_identity_candidate_only";
+
+export interface DiagnosticArtifactAssessment {
+  artifactId: string;
+  instrumentLabel?: string | undefined;
+  measuredObservables: MeasuredObservable[];
+  calibrationStatus: "calibrated" | "estimated" | "uncalibrated" | "unknown" | "missing";
+  unresolvedContributions: string[];
+  noiseContributions: string[];
+  missingObservables: MeasuredObservable[];
+  identifiability: DiagnosticIdentifiability;
+  summary: string;
+  limitations: string[];
+}
+
+export interface InvestigationMeasurementAssessment {
+  packageId: string;
+  artifactAssessments: DiagnosticArtifactAssessment[];
+  missingObservables: MeasuredObservable[];
+  unresolvedArtifactIds: string[];
+  summary: string;
+  limitations: string[];
+}
+
+const noiseContributionKinds = new Set([
+  "background",
+  "instrument_noise",
+  "aliasing_artifact",
+  "motion_artifact",
+  "reconstruction_artifact"
+]);
+
+function contributionLabel(contribution: NonNullable<DiagnosticArtifact["contributions"]>[number]): string {
+  return `${contribution.contributionKind}:${contribution.status}`;
+}
+
+export function assessDiagnosticArtifact(
+  artifact: DiagnosticArtifact,
+  requiredObservables: MeasuredObservable[] = []
+): DiagnosticArtifactAssessment {
+  const measuredObservables = artifact.instrument?.observables ?? [];
+  const calibration = artifact.instrument?.calibration;
+  const calibrationStatus = calibration?.status ?? "missing";
+  const contributions = artifact.contributions ?? [];
+  const unresolvedContributions = contributions
+    .filter((contribution) => contribution.status === "unresolved" || contribution.role === "candidate")
+    .map(contributionLabel);
+  const noiseContributions = contributions
+    .filter(
+      (contribution) =>
+        contribution.role === "noise" ||
+        contribution.role === "contaminant" ||
+        noiseContributionKinds.has(contribution.contributionKind)
+    )
+    .map(contributionLabel);
+  const missingObservables = requiredObservables.filter((observable) => !measuredObservables.includes(observable));
+  const hasCalibrationGap =
+    calibration === undefined ||
+    calibration.status !== "calibrated" ||
+    !calibration.responseKnown ||
+    !calibration.correctionApplied;
+  const identifiability: DiagnosticIdentifiability =
+    missingObservables.length > 0 || calibration === undefined
+      ? "source_identity_not_supported"
+      : hasCalibrationGap || unresolvedContributions.length > 0 || noiseContributions.length > 0
+        ? "source_identity_candidate_only"
+        : "source_identity_constrained";
+
+  return {
+    artifactId: artifact.artifactId,
+    instrumentLabel: artifact.instrument?.label,
+    measuredObservables,
+    calibrationStatus,
+    unresolvedContributions,
+    noiseContributions,
+    missingObservables,
+    identifiability,
+    summary:
+      identifiability === "source_identity_constrained"
+        ? "The artifact can constrain a source claim but still needs cross-evidence."
+        : "The artifact cannot identify the source by itself.",
+    limitations: [
+      ...artifact.limitations,
+      ...(calibration?.limitations ?? ["No instrument calibration metadata is attached."]),
+      ...(missingObservables.length > 0
+        ? [`Missing required observables: ${missingObservables.join(", ")}.`]
+        : []),
+      ...(unresolvedContributions.length > 0
+        ? [`Unresolved contributions remain: ${unresolvedContributions.join(", ")}.`]
+        : [])
+    ]
+  };
+}
+
+export function assessInvestigationMeasurements(
+  pack: InvestigationPackage,
+  requiredObservables: MeasuredObservable[] = []
+): InvestigationMeasurementAssessment {
+  const artifactAssessments = pack.artifacts.map((artifact) =>
+    assessDiagnosticArtifact(artifact, requiredObservables)
+  );
+  const observed = new Set(artifactAssessments.flatMap((assessment) => assessment.measuredObservables));
+  const missingObservables = requiredObservables.filter((observable) => !observed.has(observable));
+  const unresolvedArtifactIds = artifactAssessments
+    .filter((assessment) => assessment.identifiability !== "source_identity_constrained")
+    .map((assessment) => assessment.artifactId);
+
+  return {
+    packageId: pack.packageId,
+    artifactAssessments,
+    missingObservables,
+    unresolvedArtifactIds,
+    summary:
+      unresolvedArtifactIds.length === 0
+        ? "All supplied artifacts can constrain source claims, subject to package limitations."
+        : "Some supplied artifacts cannot identify source claims without more diagnostics or calibration.",
+    limitations: [
+      ...pack.limitations,
+      ...(missingObservables.length > 0
+        ? [`Package is missing required observables: ${missingObservables.join(", ")}.`]
+        : [])
+    ]
   };
 }
 
