@@ -1,10 +1,10 @@
 import type { MhdAnalysisBundle } from "./mhd";
 
 export type DataProvenanceKind = "fixture" | "measured" | "derived" | "synthetic";
-export type DataProvider = "STATIC_FIXTURE" | "LOCAL_SIGNAL_FILE";
+export type DataProvider = "STATIC_FIXTURE" | "LOCAL_SIGNAL_FILE" | "NOAA_SWPC";
 export type InspiredBySource = "FAIR_MAST";
 export type SourceValidationStatus = "schema_validated";
-export type TargetType = "static_fixture" | "local_run_store";
+export type TargetType = "static_fixture" | "local_run_store" | "public_observation_dataset";
 
 export interface TargetRef {
   type: TargetType;
@@ -51,7 +51,7 @@ export interface ExperimentContext {
   datasetId: string;
   campaign?: string | undefined;
   description: string;
-  safetyClassification: "public-educational-fixture" | "read-only-local-signal";
+  safetyClassification: "public-educational-fixture" | "read-only-local-signal" | "public-web-observation";
   createdAt: string;
   target: TargetRef;
   source: SourceRef;
@@ -129,7 +129,7 @@ export interface StudyRecord {
 export interface FixtureManifest {
   kind: "openplazma.fixture_manifest";
   version: "0.1.0";
-  provider: "STATIC_FIXTURE";
+  provider: DataProvider;
   inspiredBy?: InspiredBySource | undefined;
   datasetId: string;
   shots: Array<{

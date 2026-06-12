@@ -66,13 +66,19 @@ def _validate_ts_context(context: dict[str, Any]) -> None:
     require_string(context["datasetId"], "StudyRecord.context.datasetId")
     require_string(context["description"], "StudyRecord.context.description")
     require_iso_datetime(context["createdAt"], "StudyRecord.context.createdAt")
-    if context["safetyClassification"] not in {"public-educational-fixture", "read-only-local-signal"}:
-        raise ValueError("StudyRecord.context.safetyClassification must be public-educational-fixture or read-only-local-signal.")
+    if context["safetyClassification"] not in {
+        "public-educational-fixture",
+        "read-only-local-signal",
+        "public-web-observation",
+    }:
+        raise ValueError(
+            "StudyRecord.context.safetyClassification must be public-educational-fixture, read-only-local-signal, or public-web-observation."
+        )
 
     target = require_mapping(context["target"], "StudyRecord.context.target")
     require_keys(target, ["type", "id", "label"], "StudyRecord.context.target")
-    if target["type"] not in {"static_fixture", "local_run_store"}:
-        raise ValueError("StudyRecord.context.target.type must be static_fixture or local_run_store.")
+    if target["type"] not in {"static_fixture", "local_run_store", "public_observation_dataset"}:
+        raise ValueError("StudyRecord.context.target.type must be static_fixture, local_run_store, or public_observation_dataset.")
 
     source = require_mapping(context["source"], "StudyRecord.context.source")
     validate_source_ref(source, "StudyRecord.context.source")

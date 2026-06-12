@@ -76,8 +76,8 @@ def validate_experiment_context(context: dict[str, Any]) -> dict[str, Any]:
 
     target = require_mapping(context["target"], "ExperimentContext.target")
     require_keys(target, ["type", "id", "label"], "ExperimentContext.target")
-    if target["type"] not in {"static_fixture", "local_run_store"}:
-        raise ValueError("ExperimentContext.target.type must be static_fixture or local_run_store.")
+    if target["type"] not in {"static_fixture", "local_run_store", "public_observation_dataset"}:
+        raise ValueError("ExperimentContext.target.type must be static_fixture, local_run_store, or public_observation_dataset.")
     require_string(target["id"], "ExperimentContext.target.id")
     require_string(target["label"], "ExperimentContext.target.label")
 
@@ -89,11 +89,16 @@ def validate_experiment_context(context: dict[str, Any]) -> dict[str, Any]:
             raise ValueError("ExperimentContext.safetyClassification must be public-educational-fixture for STATIC_FIXTURE.")
         if target["type"] != "static_fixture":
             raise ValueError("ExperimentContext.target.type must be static_fixture for STATIC_FIXTURE.")
-    else:
+    elif source["provider"] == "LOCAL_SIGNAL_FILE":
         if context["safetyClassification"] != "read-only-local-signal":
             raise ValueError("ExperimentContext.safetyClassification must be read-only-local-signal for LOCAL_SIGNAL_FILE.")
         if target["type"] != "local_run_store":
             raise ValueError("ExperimentContext.target.type must be local_run_store for LOCAL_SIGNAL_FILE.")
+    else:
+        if context["safetyClassification"] != "public-web-observation":
+            raise ValueError("ExperimentContext.safetyClassification must be public-web-observation for NOAA_SWPC.")
+        if target["type"] != "public_observation_dataset":
+            raise ValueError("ExperimentContext.target.type must be public_observation_dataset for NOAA_SWPC.")
 
     capabilities = require_mapping(context["capabilities"], "ExperimentContext.capabilities")
     require_keys(
