@@ -123,6 +123,10 @@ def _runs_root(run_store: str | Path) -> Path:
     return _run_store_root(run_store) / "runs"
 
 
+def _blobs_root(run_store: str | Path) -> Path:
+    return _run_store_root(run_store) / "blobs"
+
+
 def _runstore_metadata_path(run_store: str | Path) -> Path:
     return _run_store_root(run_store) / "runstore.json"
 
@@ -316,6 +320,118 @@ def _allocate_run_dir(run_store: str | Path, *, machine_id: str | None = None) -
         except FileExistsError as error:
             last_error = error
     raise RuntimeError("Could not allocate a unique run id.") from last_error
+
+
+def _blob_relative_path(digest: str) -> str:
+    if not _SHA256_RE.fullmatch(digest):
+        raise ValueError("Blob digest must be a lowercase SHA-256 hex digest.")
+    return f"blobs/sha256/{digest[:2]}/{digest}"
+
+
+def _blob_file_path(run_store: str | Path, blob_ref: dict[str, Any]) -> Path:
+    digest = require_string(blob_ref["digest"], "ArtifactBlobRef.digest")
+    expected_path = _blob_relative_path(digest)
+    if blob_ref["path"] != expected_path:
+        raise ValueError("ArtifactBlobRef.path must match the SHA-256 digest path.")
+    blob_path = _run_store_root(run_store) / expected_path
+    _ensure_inside(_blobs_root(run_store), blob_path)
+    return blob_path
+
+
+def _validate_blob_ref(value: Any, name: str = "ArtifactRecord.blobRef") -> dict[str, Any]:
+    blob_ref = require_mapping(value, name)
+    require_keys(blob_ref, ["kind", "version", "algorithm", "digest", "path", "byteSize"], name)
+    if blob_ref["kind"] != "openplazma.artifact_blob_ref":
+        raise ValueError(f"{name}.kind must be openplazma.artifact_blob_ref.")
+    if blob_ref["version"] != "0.1.0":
+        raise ValueError(f"{name}.version must be 0.1.0.")
+    if blob_ref["algorithm"] != "sha256":
+        raise ValueError(f"{name}.algorithm must be sha256.")
+    digest = require_string(blob_ref["digest"], f"{name}.digest")
+    if not _SHA256_RE.fullmatch(digest):
+        raise ValueError(f"{name}.digest must be a lowercase SHA-256 hex digest.")
+    if blob_ref["path"] != _blob_relative_path(digest):
+        raise ValueError(f"{name}.path must match the SHA-256 digest path.")
+    _require_int(blob_ref["byteSize"], f"{name}.byteSize", nonnegative=True)
+    if blob_ref.get("mediaType") is not None:
+        require_string(blob_ref["mediaType"], f"{name}.mediaType")
+    return blob_ref
+
+
+def _sha256_bytes(content: bytes) -> str:
+    return hashlib.sha256(content).hexdigest()
+
+
+def _json_bytes(value: dict[str, Any], name: str) -> bytes:
+    try:
+        text = json.dumps(_validate_json_object(value, name), indent=2, allow_nan=False)
+    except TypeError as error:
+        raise ValueError("JSON value must be serializable.") from error
+    except ValueError as error:
+        raise ValueError("JSON value must not contain NaN or Infinity.") from error
+    return f"{text}\n".encode("utf-8")
+
+
+def _blob_ref(digest: str, byte_size: int, media_type: str | None = None) -> dict[str, Any]:
+    blob_ref = {
+        "kind": "openplazma.artifact_blob_ref",
+        "version": "0.1.0",
+        "algorithm": "sha256",
+        "digest": digest,
+        "path": _blob_relative_path(digest),
+        "byteSize": byte_size,
+    }
+    if media_type is not None:
+        blob_ref["mediaType"] = require_string(media_type, "ArtifactBlobRef.mediaType")
+    return _validate_blob_ref(blob_ref)
+
+
+def _write_blob_bytes(
+    run_store: str | Path,
+    content: bytes,
+    *,
+    media_type: str | None = None,
+) -> tuple[dict[str, Any], Path, bool]:
+    digest = _sha256_bytes(content)
+    blob_ref = _blob_ref(digest, len(content), media_type)
+    blob_path = _blob_file_path(run_store, blob_ref)
+    if blob_path.exists():
+        _validate_blob_file(run_store, blob_ref)
+        return blob_ref, blob_path, False
+
+    blob_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path = blob_path.with_name(f".{blob_path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        temporary_path.write_bytes(content)
+        os.replace(temporary_path, blob_path)
+    finally:
+        if temporary_path.exists():
+            temporary_path.unlink()
+    return blob_ref, blob_path, True
+
+
+def _write_blob_file(
+    run_store: str | Path,
+    source_path: Path,
+    *,
+    media_type: str | None = None,
+) -> tuple[dict[str, Any], Path, bool]:
+    digest = _sha256(source_path)
+    blob_ref = _blob_ref(digest, source_path.stat().st_size, media_type)
+    blob_path = _blob_file_path(run_store, blob_ref)
+    if blob_path.exists():
+        _validate_blob_file(run_store, blob_ref)
+        return blob_ref, blob_path, False
+
+    blob_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path = blob_path.with_name(f".{blob_path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        shutil.copyfile(source_path, temporary_path)
+        os.replace(temporary_path, blob_path)
+    finally:
+        if temporary_path.exists():
+            temporary_path.unlink()
+    return blob_ref, blob_path, True
 
 
 def _write_jsonl(path: Path, value: dict[str, Any]) -> None:
@@ -576,6 +692,8 @@ def _validate_artifact_record(record: dict[str, Any], *, expected_run_id: str | 
     _validate_artifact_path(record["path"], "ArtifactRecord.path")
     if record.get("byteSize") is not None:
         _require_int(record["byteSize"], "ArtifactRecord.byteSize", nonnegative=True)
+    if record.get("blobRef") is not None:
+        _validate_blob_ref(record["blobRef"])
     digest = require_string(record["sha256"], "ArtifactRecord.sha256")
     if not _SHA256_RE.fullmatch(digest):
         raise ValueError("ArtifactRecord.sha256 must be a lowercase SHA-256 hex digest.")
@@ -643,7 +761,20 @@ def _artifact_file_path(run_dir: Path, artifact: dict[str, Any]) -> Path:
     return artifact_path
 
 
+def _validate_blob_file(run_store: str | Path, blob_ref: dict[str, Any]) -> Path:
+    validated_ref = _validate_blob_ref(blob_ref)
+    blob_path = _blob_file_path(run_store, validated_ref)
+    if not blob_path.is_file():
+        raise ValueError(f"ArtifactBlobRef file is missing: {validated_ref['path']}.")
+    if blob_path.stat().st_size != validated_ref["byteSize"]:
+        raise ValueError("ArtifactBlobRef.byteSize must match the blob file size.")
+    if _sha256(blob_path) != validated_ref["digest"]:
+        raise ValueError("ArtifactBlobRef.digest must match the blob file digest.")
+    return blob_path
+
+
 def _validate_run_manifest_artifact_files(manifest: dict[str, Any], run_dir: Path) -> dict[str, Any]:
+    run_store = run_dir.parent.parent
     for artifact in manifest["artifacts"]:
         artifact_path = _artifact_file_path(run_dir, artifact)
         if not artifact_path.is_file():
@@ -652,6 +783,8 @@ def _validate_run_manifest_artifact_files(manifest: dict[str, Any], run_dir: Pat
             raise ValueError("ArtifactRecord.byteSize must match the artifact file size.")
         if _sha256(artifact_path) != artifact["sha256"]:
             raise ValueError("ArtifactRecord.sha256 must match the artifact file digest.")
+        if artifact.get("blobRef") is not None:
+            _validate_blob_file(run_store, artifact["blobRef"])
     return manifest
 
 
@@ -826,9 +959,19 @@ class Run:
         artifact_type: str,
         data: dict[str, Any] | str | Path,
         metadata: dict[str, Any] | None = None,
+        *,
+        content_addressed: bool = False,
+        media_type: str | None = None,
     ) -> dict[str, Any]:
         with _run_store_write_lock(self.run_dir.parent.parent):
-            return self._log_artifact_unlocked(name, artifact_type, data, metadata)
+            return self._log_artifact_unlocked(
+                name,
+                artifact_type,
+                data,
+                metadata,
+                content_addressed=content_addressed,
+                media_type=media_type,
+            )
 
     def _log_artifact_unlocked(
         self,
@@ -836,6 +979,9 @@ class Run:
         artifact_type: str,
         data: dict[str, Any] | str | Path,
         metadata: dict[str, Any] | None = None,
+        *,
+        content_addressed: bool = False,
+        media_type: str | None = None,
     ) -> dict[str, Any]:
         require_string(artifact_type, "ArtifactRecord.type")
         metadata_value = _validate_json_object(metadata or {}, "ArtifactRecord.metadata")
@@ -851,8 +997,49 @@ class Run:
 
         snapshot = _snapshot_files([artifact_path, self.manifest_path, self.run_json_path, self.events_path])
         self.artifacts_dir.mkdir(parents=True, exist_ok=True)
+        created_blob_path: Path | None = None
         try:
-            if isinstance(data, dict):
+            blob_ref: dict[str, Any] | None = None
+            if content_addressed and isinstance(data, dict):
+                blob_ref, blob_path, created_blob = _write_blob_bytes(
+                    self.run_dir.parent.parent,
+                    _json_bytes(data, "ArtifactRecord.data"),
+                    media_type=media_type or "application/json",
+                )
+                created_blob_path = blob_path if created_blob else None
+                save_json(
+                    {
+                        "kind": "openplazma.artifact_pointer",
+                        "version": "0.1.0",
+                        "artifactName": name,
+                        "artifactType": artifact_type,
+                        "blobRef": blob_ref,
+                        "metadata": metadata_value,
+                    },
+                    artifact_path,
+                )
+            elif content_addressed and isinstance(data, (str, Path)):
+                source_path = Path(data)
+                if not source_path.is_file():
+                    raise ValueError("Artifact source path must be an existing file.")
+                blob_ref, blob_path, created_blob = _write_blob_file(
+                    self.run_dir.parent.parent,
+                    source_path,
+                    media_type=media_type,
+                )
+                created_blob_path = blob_path if created_blob else None
+                save_json(
+                    {
+                        "kind": "openplazma.artifact_pointer",
+                        "version": "0.1.0",
+                        "artifactName": name,
+                        "artifactType": artifact_type,
+                        "blobRef": blob_ref,
+                        "metadata": metadata_value,
+                    },
+                    artifact_path,
+                )
+            elif isinstance(data, dict):
                 save_json(_validate_json_object(data, "ArtifactRecord.data"), artifact_path)
             elif isinstance(data, (str, Path)):
                 source_path = Path(data)
@@ -878,6 +1065,8 @@ class Run:
                 "createdAt": created_at,
                 "metadata": metadata_value,
             }
+            if blob_ref is not None:
+                record["blobRef"] = blob_ref
             _validate_artifact_record(record, expected_run_id=self.run_id)
             manifest["artifacts"].append(record)
             manifest["updatedAt"] = created_at
@@ -894,6 +1083,11 @@ class Run:
             self._event("artifact_logged", f"Logged artifact {name}", {"artifactId": artifact_id})
         except Exception:
             _restore_files(snapshot)
+            if created_blob_path is not None:
+                try:
+                    created_blob_path.unlink()
+                except FileNotFoundError:
+                    pass
             raise
         return record
 
@@ -1179,6 +1373,22 @@ def load_manifest(run_id: str, run_store: str | Path = ".openplazma") -> dict[st
         run_dir = _run_dir(run_id, run_store)
         manifest = _validate_run_manifest(load_json(run_dir / "manifest.json"), expected_run_id=run_id)
         return _validate_run_manifest_artifact_files(manifest, run_dir)
+
+
+def load_artifact_blob(artifact: dict[str, Any], run_store: str | Path = ".openplazma") -> Path:
+    record = _validate_artifact_record(artifact)
+    with _run_store_write_lock(run_store):
+        if record.get("blobRef") is not None:
+            return _validate_blob_file(run_store, record["blobRef"])
+        run_dir = _run_dir(record["runId"], run_store)
+        artifact_path = _artifact_file_path(run_dir, record)
+        if not artifact_path.is_file():
+            raise ValueError(f"Artifact file is missing: {record['path']}.")
+        if record.get("byteSize") is not None and artifact_path.stat().st_size != record["byteSize"]:
+            raise ValueError("ArtifactRecord.byteSize must match the artifact file size.")
+        if _sha256(artifact_path) != record["sha256"]:
+            raise ValueError("ArtifactRecord.sha256 must match the artifact file digest.")
+        return artifact_path
 
 
 def log_context_signal_and_study_record(

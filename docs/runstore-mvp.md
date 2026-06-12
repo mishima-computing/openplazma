@@ -46,6 +46,7 @@ OpenPlazma no longer treats fixed metric-count, artifact-count, or artifact-byte
 - `iter_runs` scans runs without forcing a full-store materialization.
 - `list_runs_page` returns stable cursor pages.
 - `list_run_group` and `summarize_run_group` group machine or partition runs for one logical campaign.
+- content-addressed artifact blobs store large payload bytes once under `.openplazma/blobs/sha256/...`, while Run manifests keep small artifact records and pointer files.
 
 JSON files are written through atomic replace. Multi-file Run mutations such as `log_metric`, `log_artifact`, `finish`, and `fail` snapshot the affected files and roll back if a later write step fails. JSONL files must end with a newline, malformed or truncated JSONL records are rejected with an explicit validation error, and artifact byte size plus SHA-256 metadata is validated on read.
 
@@ -56,6 +57,10 @@ Each Run is written as inspectable files:
 ```text
 .openplazma/
   runstore.json
+  blobs/
+    sha256/
+      ab/
+        abcdef...
   runs/
     OPR-YYYYMMDD-000001/
       run.json
@@ -73,8 +78,11 @@ Each Run is written as inspectable files:
       metrics.jsonl
       events.jsonl
       artifacts/
+        large-signal.json
       manifest.json
 ```
+
+For ordinary small JSON artifacts, `artifacts/<name>.json` remains the artifact body. For content-addressed artifacts, `artifacts/<name>.json` is a small `openplazma.artifact_pointer` JSON file whose `blobRef` points to the immutable blob under `.openplazma/blobs/sha256/...`.
 
 ## Python API Example
 
@@ -120,6 +128,15 @@ for metric in op.iter_metrics(runs[0]["runId"]):
 
 page = op.list_runs_page(page_size=100)
 group_summary = op.summarize_run_group("will-o-wisp-campaign")
+
+artifact = run.log_artifact(
+    "large_signal",
+    "signal_blob",
+    "large-signal.bin",
+    content_addressed=True,
+    media_type="application/octet-stream",
+)
+blob_path = op.load_artifact_blob(artifact)
 ```
 
 See [Notebook tracking integration](notebook-tracking-integration.md) for the full local notebook workflow. See [Observatory UI MVP](observatory-mvp.md) for read-only local HTML inspection and [Observatory Compare MVP](observatory-compare-mvp.md) for comparing two local Runs.
@@ -185,6 +202,7 @@ OpenPlazma is read-only analysis and decision support. It can preserve evidence,
 - File-based lock, not a database transaction log.
 - Multi-machine identity and collision-resistant IDs are recorded, but the default local filesystem backend is not a distributed workflow engine.
 - No fixed default metric, artifact, or byte-size cap; operational resource ceilings must be explicit backend or operator policy.
+- Content-addressed blobs deduplicate and validate large artifact bytes, but the local filesystem backend is still not an object-store ledger or repair engine.
 - Read-only local Observatory export and two-Run compare page only.
 - No automatic repair of corrupted RunStore records.
 - No public data ingestion.

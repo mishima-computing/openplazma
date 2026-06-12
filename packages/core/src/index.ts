@@ -145,6 +145,7 @@ export interface FusionDataSource {
 
 export type {
   ArtifactRecord,
+  ArtifactBlobRef,
   ContextArtifactRef,
   EventRecord,
   EventType,

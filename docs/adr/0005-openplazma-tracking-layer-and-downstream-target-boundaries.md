@@ -142,6 +142,10 @@ The RunStore starts as an inspectable local directory:
 ```text
 .openplazma/
   runstore.json
+  blobs/
+    sha256/
+      ab/
+        abcdef...
   runs/
     OPR-YYYYMMDD-000001/
       run.json
@@ -171,6 +175,7 @@ RunStore direction:
 - Collision-resistant Run IDs for machine-scoped writers.
 - Optional `runGroupId`, `machineId`, and `partitionId` metadata for logical campaigns split across machines or partitions.
 - Streaming and paged read APIs for metrics, events, and run listing.
+- Content-addressed artifact blobs for large payload bytes, referenced from small Run-local pointer artifacts and manifest records.
 - No fixed default metric, artifact, or artifact-byte caps as correctness boundaries. Resource ceilings must be explicit backend or operator policy.
 - No binary-first run format in the local backend.
 - No cloud dependency in the local backend.
@@ -178,6 +183,8 @@ RunStore direction:
 - Future sync and export adapters may be discussed later, but are out of scope for ADR-0005 implementation.
 
 The local filesystem backend is not a distributed scheduler or a facility integration layer. It can preserve identity, provenance, and read-only derived artifacts from multiple machine-scoped writers, but it does not submit compute jobs, read live facility telemetry, or control devices.
+
+Large artifact content is not required to live inside `manifest.json` or one Run-local JSON body. A Run may write a small pointer artifact whose `blobRef` identifies immutable bytes in `.openplazma/blobs/sha256/...`; validators must check the pointer file, blob size, and blob digest before trusting the artifact.
 
 ## Notebook Relationship
 
