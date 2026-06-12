@@ -24,10 +24,25 @@ export interface RunRecord {
   };
   source: SourceRef;
   capabilities: CapabilitySet;
+  storeId?: string | undefined;
+  machineId?: string | undefined;
+  runGroupId?: string | null | undefined;
+  partitionId?: string | null | undefined;
   contextRef: ContextArtifactRef | null;
   artifactCount: number;
   metricCount: number;
   limitations: string[];
+}
+
+export interface RunStoreMetadata {
+  kind: "openplazma.run_store";
+  version: "0.1.0";
+  layoutVersion: string;
+  storeId: string;
+  backendKind: "local_filesystem" | string;
+  createdAt: string;
+  machineId?: string | undefined;
+  limitations?: string[] | undefined;
 }
 
 export type JsonValue = string | number | boolean | null | JsonObject | JsonValue[];
@@ -55,6 +70,7 @@ export interface ArtifactRecord {
   type: string;
   path: string;
   sha256: string;
+  byteSize?: number | undefined;
   createdAt: string;
   metadata: JsonObject;
 }
@@ -66,6 +82,7 @@ export interface EventRecord {
   version: "0.1.0";
   runId: string;
   eventType: EventType;
+  machineId?: string | undefined;
   createdAt: string;
   message: string;
   metadata: JsonObject;

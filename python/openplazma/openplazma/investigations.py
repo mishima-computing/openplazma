@@ -110,6 +110,14 @@ OBSERVABLES = {
     "unknown",
 }
 CALIBRATION_STATUSES = {"calibrated", "estimated", "uncalibrated", "unknown"}
+ARTIFACT_SOURCE_KINDS = {
+    "local_fixture",
+    "public_snapshot",
+    "derived_artifact",
+    "human_report",
+    "synthetic_fixture",
+    "unknown",
+}
 CONTRIBUTION_KINDS = {
     "thermal_emission",
     "plasma_emission",
@@ -205,6 +213,22 @@ CONDITION_STATUSES = {"measured", "inferred", "required", "bounded", "unknown", 
 CONDITION_ROLES = {"necessary", "supporting", "contradicting", "unknown"}
 CLAIM_TYPES = {"plasma_presence", "fusion_status", "fusion_conditions", "plasma_maintenance", "source_identity"}
 CLAIM_STATUSES = {"support", "contradict", "inconclusive", "untested"}
+READOUT_KINDS = {
+    "raw_sample",
+    "summary_statistic",
+    "frequency_band",
+    "frequency_peak",
+    "spectral_feature",
+    "image_feature",
+    "thermal_feature",
+    "field_feature",
+    "particle_count",
+    "absence_statement",
+    "human_report",
+    "model_readout",
+    "unknown",
+}
+READOUT_STATUSES = {"detected", "not_detected", "candidate", "inconclusive", "unknown"}
 
 
 def _now() -> str:
@@ -346,6 +370,23 @@ def _validate_instrument(instrument: dict[str, Any], name: str) -> None:
     _validate_calibration(require_mapping(instrument["calibration"], f"{name}.calibration"), f"{name}.calibration")
 
 
+def _validate_artifact_source(source: dict[str, Any], name: str) -> None:
+    require_keys(source, ["sourceKind", "label", "limitations"], name)
+    _require_enum(source["sourceKind"], ARTIFACT_SOURCE_KINDS, f"{name}.sourceKind")
+    require_string(source["label"], f"{name}.label")
+    if source.get("uri") is not None:
+        require_string(source["uri"], f"{name}.uri")
+    if source.get("artifactIds") is not None:
+        _require_string_list(source["artifactIds"], f"{name}.artifactIds")
+    if source.get("signalIds") is not None:
+        _require_string_list(source["signalIds"], f"{name}.signalIds")
+    if source.get("sha256") is not None:
+        sha256 = require_string(source["sha256"], f"{name}.sha256")
+        if len(sha256) != 64 or any(char not in "0123456789abcdef" for char in sha256):
+            raise ValueError(f"{name}.sha256 must be a lowercase sha256 hex digest.")
+    _require_string_list(source["limitations"], f"{name}.limitations", min_items=1)
+
+
 def _validate_contribution(contribution: dict[str, Any], name: str) -> None:
     require_keys(contribution, ["contributionKind", "role", "status", "description", "limitations"], name)
     _require_enum(contribution["contributionKind"], CONTRIBUTION_KINDS, f"{name}.contributionKind")
@@ -443,6 +484,8 @@ def _validate_artifact(artifact: dict[str, Any], name: str, region_ids: set[str]
             require_mapping(analysis_ref, f"{name}.frequencyAnalyses[{index}]"),
             f"{name}.frequencyAnalyses[{index}]",
         )
+    if artifact.get("source") is not None:
+        _validate_artifact_source(require_mapping(artifact["source"], f"{name}.source"), f"{name}.source")
     if artifact.get("sourceUri") is not None:
         require_string(artifact["sourceUri"], f"{name}.sourceUri")
     if artifact.get("signalIds") is not None:
@@ -453,6 +496,53 @@ def _validate_artifact(artifact: dict[str, Any], name: str, region_ids: set[str]
         require_string(artifact["unit"], f"{name}.unit")
     require_string(artifact["description"], f"{name}.description")
     _require_string_list(artifact["limitations"], f"{name}.limitations", min_items=1)
+
+
+def _validate_observation_statement(readout: dict[str, Any], name: str) -> None:
+    _require_kind_version(readout, "openplazma.observation_statement", name)
+    require_keys(
+        readout,
+        [
+            "readoutId",
+            "artifactId",
+            "observable",
+            "readoutKind",
+            "method",
+            "status",
+            "assumptions",
+            "limitations",
+            "alternatives",
+        ],
+        name,
+    )
+    require_string(readout["readoutId"], f"{name}.readoutId")
+    require_string(readout["artifactId"], f"{name}.artifactId")
+    if readout.get("signalId") is not None:
+        require_string(readout["signalId"], f"{name}.signalId")
+    if readout.get("targetRegionId") is not None:
+        require_string(readout["targetRegionId"], f"{name}.targetRegionId")
+    _require_enum(readout["observable"], OBSERVABLES, f"{name}.observable")
+    _require_enum(readout["readoutKind"], READOUT_KINDS, f"{name}.readoutKind")
+    require_string(readout["method"], f"{name}.method")
+    if readout.get("selector") is not None:
+        require_string(readout["selector"], f"{name}.selector")
+    if readout.get("timeRange") is not None:
+        pair = require_list(readout["timeRange"], f"{name}.timeRange")
+        if len(pair) != 2:
+            raise ValueError(f"{name}.timeRange must be a [start, end] pair.")
+        _require_number(pair[0], f"{name}.timeRange[0]")
+        _require_number(pair[1], f"{name}.timeRange[1]")
+    _require_optional_number(readout.get("value"), f"{name}.value")
+    if readout.get("textValue") is not None:
+        require_string(readout["textValue"], f"{name}.textValue")
+    if readout.get("unit") is not None:
+        require_string(readout["unit"], f"{name}.unit")
+    _require_enum(readout["status"], READOUT_STATUSES, f"{name}.status")
+    if readout.get("uncertainty") is not None:
+        require_string(readout["uncertainty"], f"{name}.uncertainty")
+    _require_string_list(readout["assumptions"], f"{name}.assumptions")
+    _require_string_list(readout["limitations"], f"{name}.limitations", min_items=1)
+    _require_string_list(readout["alternatives"], f"{name}.alternatives")
 
 
 def _validate_condition_estimate(estimate: dict[str, Any], name: str) -> None:
@@ -467,8 +557,12 @@ def _validate_condition_estimate(estimate: dict[str, Any], name: str) -> None:
     if estimate.get("method") is not None:
         require_string(estimate["method"], f"{name}.method")
     _require_string_list(estimate["evidenceArtifactIds"], f"{name}.evidenceArtifactIds")
+    if estimate.get("evidenceReadoutIds") is not None:
+        _require_string_list(estimate["evidenceReadoutIds"], f"{name}.evidenceReadoutIds")
     _require_string_list(estimate["assumptions"], f"{name}.assumptions")
     _require_string_list(estimate["limitations"], f"{name}.limitations")
+    if estimate.get("alternatives") is not None:
+        _require_string_list(estimate["alternatives"], f"{name}.alternatives")
 
 
 def _validate_fusion_assessment(assessment: dict[str, Any]) -> None:
@@ -522,14 +616,50 @@ def _validate_claim(claim: dict[str, Any], name: str) -> None:
     require_string(claim["statement"], f"{name}.statement")
     _require_enum(claim["status"], CLAIM_STATUSES, f"{name}.status")
     _require_string_list(claim["evidenceArtifactIds"], f"{name}.evidenceArtifactIds")
+    if claim.get("evidenceReadoutIds") is not None:
+        _require_string_list(claim["evidenceReadoutIds"], f"{name}.evidenceReadoutIds")
+    if claim.get("method") is not None:
+        require_string(claim["method"], f"{name}.method")
     _require_string_list(claim["assumptions"], f"{name}.assumptions")
     _require_string_list(claim["limitations"], f"{name}.limitations")
+    if claim.get("alternatives") is not None:
+        _require_string_list(claim["alternatives"], f"{name}.alternatives")
 
 
 def _check_artifact_refs(artifact_ids: set[str], ids: list[str], name: str) -> None:
     for artifact_id in ids:
         if artifact_id not in artifact_ids:
             raise ValueError(f"{name} references unknown diagnostic artifact '{artifact_id}'.")
+
+
+def _check_readout_refs(readout_ids: set[str], ids: list[str] | None, name: str) -> None:
+    for readout_id in ids or []:
+        if readout_id not in readout_ids:
+            raise ValueError(f"{name} references unknown mediated readout '{readout_id}'.")
+
+
+def _reads_as_positive_identity_claim(claim: dict[str, Any]) -> bool:
+    if claim["status"] != "support":
+        return False
+    statement = " ".join(claim["statement"].lower().split())
+    negative_markers = [
+        "does not support",
+        "unsupported",
+        "untested",
+        "not proof",
+        "not prove",
+        "cannot identify",
+        "cannot prove",
+        "insufficient",
+        "remains untested",
+    ]
+    if any(marker in statement for marker in negative_markers):
+        return False
+    if "prove" in statement or "proof" in statement:
+        return True
+    if " is plasma" in statement or " is fusion" in statement or "fusion is occurring" in statement:
+        return True
+    return claim["claimType"] in {"plasma_presence", "source_identity"}
 
 
 def validate_investigation_package(package: dict[str, Any]) -> dict[str, Any]:
@@ -552,12 +682,35 @@ def validate_investigation_package(package: dict[str, Any]) -> dict[str, Any]:
 
     artifacts = require_list(package["artifacts"], "InvestigationPackage.artifacts")
     artifact_ids: set[str] = set()
+    artifacts_by_id: dict[str, dict[str, Any]] = {}
     for index, artifact_ref in enumerate(artifacts):
         artifact = require_mapping(artifact_ref, f"InvestigationPackage.artifacts[{index}]")
         _validate_artifact(artifact, f"InvestigationPackage.artifacts[{index}]", region_ids)
         if artifact["artifactId"] in artifact_ids:
             raise ValueError(f"duplicate diagnostic artifact id '{artifact['artifactId']}'.")
         artifact_ids.add(artifact["artifactId"])
+        artifacts_by_id[artifact["artifactId"]] = artifact
+
+    readouts = require_list(package["observations"], "InvestigationPackage.observations") if package.get("observations") is not None else []
+    readout_ids: set[str] = set()
+    readouts_by_id: dict[str, dict[str, Any]] = {}
+    for index, readout_ref in enumerate(readouts):
+        readout = require_mapping(readout_ref, f"InvestigationPackage.observations[{index}]")
+        _validate_observation_statement(readout, f"InvestigationPackage.observations[{index}]")
+        if readout["readoutId"] in readout_ids:
+            raise ValueError(f"duplicate mediated readout id '{readout['readoutId']}'.")
+        readout_ids.add(readout["readoutId"])
+        readouts_by_id[readout["readoutId"]] = readout
+        artifact_id = readout["artifactId"]
+        if artifact_id not in artifact_ids:
+            raise ValueError(f"mediated readout '{readout['readoutId']}' references unknown diagnostic artifact '{artifact_id}'.")
+        target_region_id = readout.get("targetRegionId")
+        if target_region_id is not None and target_region_id not in region_ids:
+            raise ValueError(f"mediated readout '{readout['readoutId']}' references unknown target region '{target_region_id}'.")
+        signal_id = readout.get("signalId")
+        artifact_signals = artifacts_by_id[artifact_id].get("signalIds")
+        if signal_id is not None and artifact_signals is not None and signal_id not in artifact_signals:
+            raise ValueError(f"mediated readout '{readout['readoutId']}' references signal '{signal_id}' outside artifact '{artifact_id}'.")
 
     assessment = require_mapping(package["fusionAssessment"], "InvestigationPackage.fusionAssessment")
     _validate_fusion_assessment(assessment)
@@ -567,17 +720,74 @@ def validate_investigation_package(package: dict[str, Any]) -> dict[str, Any]:
             estimate["evidenceArtifactIds"],
             f"fusionAssessment.observedOrInferredConditions[{index}].evidenceArtifactIds",
         )
+        _check_readout_refs(
+            readout_ids,
+            estimate.get("evidenceReadoutIds"),
+            f"fusionAssessment.observedOrInferredConditions[{index}].evidenceReadoutIds",
+        )
+        if estimate["status"] in {"measured", "inferred", "bounded", "contradicted"}:
+            if len(estimate.get("evidenceReadoutIds") or []) == 0:
+                raise ValueError("observed or inferred fusion conditions require mediated readout evidence.")
+            if estimate.get("method") is None:
+                raise ValueError("observed or inferred fusion conditions require a method.")
+            if estimate.get("alternatives") is None:
+                raise ValueError("observed or inferred fusion conditions require alternatives.")
     for index, estimate in enumerate(assessment["requiredConditions"]):
         _check_artifact_refs(
             artifact_ids,
             estimate["evidenceArtifactIds"],
             f"fusionAssessment.requiredConditions[{index}].evidenceArtifactIds",
         )
+        _check_readout_refs(
+            readout_ids,
+            estimate.get("evidenceReadoutIds"),
+            f"fusionAssessment.requiredConditions[{index}].evidenceReadoutIds",
+        )
 
     for index, claim_ref in enumerate(require_list(package["claims"], "InvestigationPackage.claims")):
         claim = require_mapping(claim_ref, f"InvestigationPackage.claims[{index}]")
         _validate_claim(claim, f"InvestigationPackage.claims[{index}]")
         _check_artifact_refs(artifact_ids, claim["evidenceArtifactIds"], f"claims[{index}].evidenceArtifactIds")
+        _check_readout_refs(readout_ids, claim.get("evidenceReadoutIds"), f"claims[{index}].evidenceReadoutIds")
+        if claim["status"] in {"support", "contradict"}:
+            if len(claim.get("evidenceReadoutIds") or []) == 0:
+                raise ValueError(f"claim '{claim['claimId']}' requires mediated readout evidence.")
+            if claim.get("method") is None:
+                raise ValueError(f"claim '{claim['claimId']}' requires an interpretation method.")
+            if claim.get("alternatives") is None:
+                raise ValueError(f"claim '{claim['claimId']}' requires alternatives.")
+
+        statement = " ".join(claim["statement"].lower().split())
+        if (
+            ((" no " in f" {statement} " or " not " in f" {statement} ") and ("observed" in statement or "detected" in statement) and ("therefore" in statement or " so " in f" {statement} ") and ("absent" in statement or "no fusion" in statement or "not fusion" in statement))
+            or ("no " in statement and ("observed" in statement or "detected" in statement) and "therefore" in statement)
+        ):
+            raise ValueError("absence-only reasoning cannot establish absence without diagnostic adequacy.")
+
+        if _reads_as_positive_identity_claim(claim):
+            readout_refs = [readouts_by_id[readout_id] for readout_id in claim.get("evidenceReadoutIds", []) if readout_id in readouts_by_id]
+            evidence_artifact_ids = set(claim["evidenceArtifactIds"])
+            for readout in readout_refs:
+                evidence_artifact_ids.add(readout["artifactId"])
+            evidence_artifacts = [artifacts_by_id[artifact_id] for artifact_id in evidence_artifact_ids if artifact_id in artifacts_by_id]
+            all_human_eye = bool(evidence_artifacts) and all(
+                artifact.get("instrument", {}).get("instrumentKind") == "human_eye" for artifact in evidence_artifacts
+            )
+            all_visible = bool(readout_refs) and all(readout["observable"] == "visible_light" for readout in readout_refs) and all(
+                all(observable == "visible_light" for observable in artifact.get("instrument", {}).get("observables", ["visible_light"]))
+                for artifact in evidence_artifacts
+            )
+            all_synthetic = bool(evidence_artifacts) and all(
+                artifact.get("provenanceKind") == "synthetic"
+                or artifact.get("instrument", {}).get("instrumentKind") == "simulation_diagnostic"
+                for artifact in evidence_artifacts
+            )
+            if all_human_eye:
+                raise ValueError("human-eye evidence alone cannot support a positive plasma, fusion, or source-identity claim.")
+            if all_synthetic or "simulation observed" in statement:
+                raise ValueError("simulation output cannot be treated as direct observation of a physical phenomenon.")
+            if all_visible:
+                raise ValueError("visible light alone cannot support a positive plasma, fusion, or source-identity claim.")
 
     _require_string_list(package["limitations"], "InvestigationPackage.limitations", min_items=1)
     return package
@@ -626,8 +836,10 @@ def validate_investigation_report(report: dict[str, Any], *, package: dict[str, 
         if report["packageId"] != validated_package["packageId"]:
             raise ValueError("InvestigationReport.packageId must match the referenced InvestigationPackage.")
         artifact_ids = {artifact["artifactId"] for artifact in validated_package["artifacts"]}
+        readout_ids = {readout["readoutId"] for readout in validated_package.get("observations", [])}
         for index, claim in enumerate(report["claims"]):
             _check_artifact_refs(artifact_ids, claim["evidenceArtifactIds"], f"claims[{index}].evidenceArtifactIds")
+            _check_readout_refs(readout_ids, claim.get("evidenceReadoutIds"), f"claims[{index}].evidenceReadoutIds")
     return report
 
 

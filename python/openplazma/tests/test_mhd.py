@@ -216,6 +216,133 @@ def test_bundle_rejects_dangling_claim():
         validate_mhd_analysis_bundle(bundle)
 
 
+def test_mhd_rejects_unmediated_events_inferences_and_claim_evidence():
+    bundle = {
+        "kind": "openplazma.mhd_analysis_bundle",
+        "version": "0.1.0",
+        "provenanceKind": "synthetic",
+        "arrays": [
+            {
+                "kind": "openplazma.diagnostic_array",
+                "version": "0.1.0",
+                "arrayId": "mirnov",
+                "label": "Mirnov array",
+                "arrayKind": "mirnov_toroidal",
+                "channels": [
+                    {
+                        "kind": "openplazma.diagnostic_channel",
+                        "version": "0.1.0",
+                        "channelId": "m1",
+                        "label": "M1",
+                        "signalId": "m1",
+                        "diagnosticKind": "magnetic_probe",
+                        "geometry": {"poloidalAngleRad": 0, "toroidalAngleRad": 0, "majorRadiusM": 1.5},
+                    }
+                ],
+            }
+        ],
+        "events": [
+            {
+                "kind": "openplazma.phenomenon_event",
+                "version": "0.1.0",
+                "eventId": "lock",
+                "phenomenon": "mode_locking",
+                "label": "Mode lock",
+                "timeRange": [0.3, 0.35],
+            }
+        ],
+        "observationModels": [],
+        "inferences": [
+            {
+                "kind": "openplazma.inference",
+                "version": "0.1.0",
+                "inferenceId": "inf-lock",
+                "label": "Locking inference",
+                "method": "magnetic_mode_phase_fit",
+                "sourceArrayId": "mirnov",
+                "evidenceReadoutIds": [],
+                "modeEstimate": {"toroidalModeNumber": 1, "confidence": 0.9, "method": "phase_fit_toroidal"},
+                "rotationTrack": [{"time": 0.1, "rotationFreqHz": 1000, "amplitude": 1}],
+                "lockingDetected": True,
+                "assumptions": [],
+                "limitations": ["Synthetic fixture."],
+                "alternatives": ["aliasing"],
+            }
+        ],
+        "readouts": [],
+        "claims": [
+            {
+                "kind": "openplazma.claim",
+                "version": "0.1.0",
+                "claimId": "c1",
+                "statement": "The event label alone proves locking.",
+                "eventIds": ["lock"],
+                "evidence": [],
+            }
+        ],
+    }
+
+    with pytest.raises(ValueError, match="mediated readout"):
+        validate_mhd_analysis_bundle(bundle)
+
+    bundle["readouts"] = [
+        {
+            "kind": "openplazma.mhd_observation_statement",
+            "version": "0.1.0",
+            "readoutId": "lock-readout",
+            "readoutKind": "event_detection",
+            "observable": "magnetic_field",
+            "arrayId": "mirnov",
+            "method": "rotation_track_threshold",
+            "status": "detected",
+            "timeRange": [0.3, 0.35],
+            "assumptions": ["coherent signal"],
+            "limitations": ["Synthetic fixture."],
+            "alternatives": ["transient dropout"],
+        }
+    ]
+    bundle["inferences"][0]["evidenceReadoutIds"] = ["lock-readout"]
+    with pytest.raises(ValueError, match="phenomenon event"):
+        validate_mhd_analysis_bundle(bundle)
+
+    bundle["events"][0]["producedByInferenceId"] = "inf-lock"
+    bundle["events"][0]["evidenceReadoutIds"] = ["lock-readout"]
+    bundle["claims"][0]["evidence"] = [
+        {
+            "kind": "openplazma.evidence_link",
+            "version": "0.1.0",
+            "verdict": "support",
+            "eventId": "lock",
+            "method": "event_label_shortcut",
+            "timeRange": [0.3, 0.35],
+            "rationale": "The event label says locking.",
+            "assumptions": ["Event label is proof."],
+            "limitations": ["No readout or inference is cited."],
+            "alternatives": [],
+        }
+    ]
+    with pytest.raises(ValueError, match="bare event"):
+        validate_mhd_analysis_bundle(bundle)
+
+    bundle["claims"][0]["evidence"] = [
+        {
+            "kind": "openplazma.evidence_link",
+            "version": "0.1.0",
+            "verdict": "support",
+            "signalId": "m1",
+            "arrayId": "mirnov",
+            "method": "raw_signal_shortcut",
+            "timeRange": [0.3, 0.35],
+            "rationale": "The raw signal is treated as the claim.",
+            "assumptions": ["Raw signal equals phenomenon identity."],
+            "limitations": ["No mediated readout or inference is cited."],
+            "alternatives": ["instrument response"],
+        }
+    ]
+    with pytest.raises(ValueError, match="mediated readout or inference"):
+        validate_mhd_analysis_bundle(bundle)
+
+
 def test_mhd_geometry_rejects_nonpositive_major_radius():
     record = load_study_record(MHD_FIXTURE)
     bundle = record["mhd"]

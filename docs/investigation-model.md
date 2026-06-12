@@ -14,7 +14,7 @@ fusion.
 
 OpenPlazma investigations have two separate questions:
 
-1. What is the observed energy phenomenon?
+1. What mediated evidence suggests an energy or luminous phenomenon?
 2. If fusion is possible or assumed for a stage, what conditions would make that
    fusion or plasma maintenance possible?
 
@@ -140,7 +140,7 @@ to a non-existent target region.
 
 ## Diagnostic Artifact Families
 
-The first diagnostic artifact families cover direct signals, derived maps, and
+The first diagnostic artifact families cover sampled signals, derived maps, and
 remote observation products:
 
 - signal series
@@ -167,11 +167,15 @@ target region
   -> instrument response and calibration
   -> artifact
   -> contribution decomposition
+  -> mediated readout
   -> claim
 ```
 
 The model therefore records optional `instrument`, `contributions`, and
-`frequencyAnalyses` fields on `DiagnosticArtifact`.
+`frequencyAnalyses` fields on `DiagnosticArtifact`, and `observations[]`
+as `ObservationStatement` readouts. Claims and condition estimates cite
+readouts with `evidenceReadoutIds`; artifact IDs alone are provenance, not
+support for an identity claim.
 
 Examples of observables include visible light, heat, electric current, magnetic
 field, gravity, particle flux, pressure, acoustic waves, composition, density,
@@ -266,10 +270,14 @@ necessary fusion diagnostics are missing
   image frames, thermal maps, field maps, particle flux, gravity traces, event
   logs, motion tracks, instrument metadata, mixed-signal contributions, and
   frequency analyses
+- `ObservationStatement`: a mediated readout extracted from an artifact, with
+  method, assumptions, limitations, alternatives, and optional region/signal
+  references
 - `InvestigationQuestion`: what the user must decide
 - `FusionConditionAssessment`: whether fusion is unsupported, contradicted,
   plausible, supported, or still unknown, plus condition reasoning
-- `InvestigationClaim`: claim statements and their evidence artifact links
+- `InvestigationClaim`: claim statements tied to artifact provenance and
+  mediated readout evidence
 
 These contracts are core infrastructure. They do not implement product-specific
 progression, hosted service features, facility telemetry, or control.

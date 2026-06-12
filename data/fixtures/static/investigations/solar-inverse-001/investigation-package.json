@@ -10,19 +10,27 @@
     "targetKind": "stellar_object",
     "label": "The Sun",
     "description": "A stellar object used as an inverse reasoning seed for fusion-condition literacy.",
-    "candidateEnergySources": ["fusion", "plasma", "unknown"],
+    "candidateEnergySources": [
+      "fusion",
+      "plasma",
+      "unknown"
+    ],
     "regions": [
       {
         "regionId": "core",
         "label": "Core",
         "description": "Inferred fusion-condition region.",
-        "limitations": ["The core is not directly sampled in this fixture."]
+        "limitations": [
+          "The core is not directly sampled in this fixture."
+        ]
       },
       {
         "regionId": "photosphere",
         "label": "Photosphere",
         "description": "Visible surface observation region.",
-        "limitations": ["Surface diagnostics are not direct core measurements."]
+        "limitations": [
+          "Surface diagnostics are not direct core measurements."
+        ]
       }
     ],
     "limitations": [
@@ -54,17 +62,30 @@
       "instrument": {
         "instrumentKind": "visible_camera",
         "label": "Synthetic visible imager",
-        "observables": ["visible_light"],
+        "observables": [
+          "visible_light"
+        ],
         "calibration": {
           "status": "estimated",
           "responseKnown": true,
           "correctionApplied": true,
           "description": "Synthetic fixture response correction.",
-          "limitations": ["This fixture image is not live solar data."]
+          "limitations": [
+            "This fixture image is not live solar data."
+          ]
         }
       },
       "description": "Synthetic visible disk artifact for inverse-stage context.",
-      "limitations": ["Visible surface imagery does not directly measure core fusion."]
+      "limitations": [
+        "Visible surface imagery does not directly measure core fusion."
+      ],
+      "source": {
+        "sourceKind": "synthetic_fixture",
+        "label": "Visible disk image source record",
+        "limitations": [
+          "Static investigation fixture metadata; not live telemetry."
+        ]
+      }
     },
     {
       "kind": "openplazma.diagnostic_artifact",
@@ -77,13 +98,18 @@
       "instrument": {
         "instrumentKind": "helioseismology_pipeline",
         "label": "Synthetic helioseismology pipeline",
-        "observables": ["motion", "density"],
+        "observables": [
+          "motion",
+          "density"
+        ],
         "calibration": {
           "status": "estimated",
           "responseKnown": true,
           "correctionApplied": true,
           "description": "Synthetic inversion response for educational use.",
-          "limitations": ["The inversion is a static fixture, not a validated solar model."]
+          "limitations": [
+            "The inversion is a static fixture, not a validated solar model."
+          ]
         }
       },
       "frequencyAnalyses": [
@@ -102,7 +128,9 @@
               "quantity": "surface velocity modulation",
               "unit": "Hz",
               "description": "Low-frequency oscillation band used as an inverse diagnostic pointer.",
-              "limitations": ["This band supports condition reasoning but does not prove a specific reaction path by itself."]
+              "limitations": [
+                "This band supports condition reasoning but does not prove a specific reaction path by itself."
+              ]
             }
           ],
           "peaks": [
@@ -110,16 +138,31 @@
               "peakId": "p-mode-3mhz",
               "frequencyHz": 0.003,
               "interpretation": "Synthetic p-mode peak for inverse reasoning.",
-              "limitations": ["Educational fixture peak only."]
+              "limitations": [
+                "Educational fixture peak only."
+              ]
             }
           ],
           "description": "Periodogram-style summary of synthetic helioseismic modulation.",
-          "assumptions": ["The stage begins from a sustained-fusion premise."],
-          "limitations": ["The trace is not a live measurement."]
+          "assumptions": [
+            "The stage begins from a sustained-fusion premise."
+          ],
+          "limitations": [
+            "The trace is not a live measurement."
+          ]
         }
       ],
       "description": "Synthetic helioseismic artifact used to reason backward toward core conditions.",
-      "limitations": ["Inverse diagnostics remain model-dependent."]
+      "limitations": [
+        "Inverse diagnostics remain model-dependent."
+      ],
+      "source": {
+        "sourceKind": "synthetic_fixture",
+        "label": "Helioseismic trace source record",
+        "limitations": [
+          "Static investigation fixture metadata; not live telemetry."
+        ]
+      }
     },
     {
       "kind": "openplazma.diagnostic_artifact",
@@ -132,19 +175,32 @@
       "instrument": {
         "instrumentKind": "neutrino_detector",
         "label": "Synthetic neutrino detector",
-        "observables": ["neutrino_flux"],
+        "observables": [
+          "neutrino_flux"
+        ],
         "calibration": {
           "status": "estimated",
           "responseKnown": true,
           "correctionApplied": false,
           "description": "Fixture-level detector response placeholder.",
-          "limitations": ["The artifact is not real neutrino data."]
+          "limitations": [
+            "The artifact is not real neutrino data."
+          ]
         }
       },
       "quantity": "neutrino_flux",
       "unit": "a.u.",
       "description": "Synthetic product-channel artifact for inverse-stage reasoning.",
-      "limitations": ["The fixture cannot validate solar neutrino physics."]
+      "limitations": [
+        "The fixture cannot validate solar neutrino physics."
+      ],
+      "source": {
+        "sourceKind": "synthetic_fixture",
+        "label": "Synthetic neutrino flux source record",
+        "limitations": [
+          "Static investigation fixture metadata; not live telemetry."
+        ]
+      }
     }
   ],
   "fusionAssessment": {
@@ -153,15 +209,32 @@
     "assessmentId": "solar-inverse-assessment",
     "fusionStatus": "plausible",
     "conditionMode": "inverse_from_fusion_condition",
-    "reactionCandidates": ["proton_proton_chain"],
+    "reactionCandidates": [
+      "proton_proton_chain"
+    ],
     "observedOrInferredConditions": [
       {
         "parameter": "gravity",
         "status": "inferred",
         "logicalRole": "supporting",
-        "evidenceArtifactIds": ["helioseismic-trace"],
-        "assumptions": ["Self-gravity supplies the stellar confinement context."],
-        "limitations": ["This is an inferred condition, not a direct core measurement."]
+        "evidenceArtifactIds": [
+          "helioseismic-trace"
+        ],
+        "assumptions": [
+          "Self-gravity supplies the stellar confinement context."
+        ],
+        "limitations": [
+          "This is an inferred condition, not a direct core measurement."
+        ],
+        "evidenceReadoutIds": [
+          "helioseismic-trace-readout"
+        ],
+        "method": "mediated_artifact_review",
+        "alternatives": [
+          "unresolved coupling",
+          "missing diagnostic",
+          "background contribution"
+        ]
       }
     ],
     "requiredConditions": [
@@ -170,22 +243,50 @@
         "status": "required",
         "logicalRole": "necessary",
         "unit": "m/s^2",
-        "evidenceArtifactIds": ["helioseismic-trace"],
-        "assumptions": ["Self-gravity supplies the confinement context."],
-        "limitations": ["This is an inverse condition requirement, not a direct core measurement."]
+        "evidenceArtifactIds": [
+          "helioseismic-trace"
+        ],
+        "assumptions": [
+          "Self-gravity supplies the confinement context."
+        ],
+        "limitations": [
+          "This is an inverse condition requirement, not a direct core measurement."
+        ],
+        "evidenceReadoutIds": [
+          "helioseismic-trace-readout"
+        ]
       },
       {
         "parameter": "triple_product",
         "status": "required",
         "logicalRole": "necessary",
-        "evidenceArtifactIds": ["helioseismic-trace", "neutrino-flux"],
-        "assumptions": ["Sustained fusion is assumed for the inverse stage."],
-        "limitations": ["Required conditions must still be checked against observations."]
+        "evidenceArtifactIds": [
+          "helioseismic-trace",
+          "neutrino-flux"
+        ],
+        "assumptions": [
+          "Sustained fusion is assumed for the inverse stage."
+        ],
+        "limitations": [
+          "Required conditions must still be checked against observations."
+        ],
+        "evidenceReadoutIds": [
+          "helioseismic-trace-readout",
+          "neutrino-flux-readout"
+        ]
       }
     ],
-    "unknowns": ["core composition", "central temperature", "central density"],
-    "assumptions": ["The stage begins from a fusion-holds premise and works backward."],
-    "limitations": ["Inverse reasoning does not prove the premise by itself."]
+    "unknowns": [
+      "core composition",
+      "central temperature",
+      "central density"
+    ],
+    "assumptions": [
+      "The stage begins from a fusion-holds premise and works backward."
+    ],
+    "limitations": [
+      "Inverse reasoning does not prove the premise by itself."
+    ]
   },
   "claims": [
     {
@@ -195,10 +296,97 @@
       "claimType": "fusion_conditions",
       "statement": "Under a sustained-fusion premise, gravity and triple-product constraints are necessary conditions to track.",
       "status": "support",
-      "evidenceArtifactIds": ["helioseismic-trace", "neutrino-flux"],
-      "assumptions": ["The premise is staged for inverse reasoning."],
-      "limitations": ["Necessary conditions are not sufficient proof of fusion."]
+      "evidenceArtifactIds": [
+        "helioseismic-trace",
+        "neutrino-flux"
+      ],
+      "assumptions": [
+        "The premise is staged for inverse reasoning."
+      ],
+      "limitations": [
+        "Necessary conditions are not sufficient proof of fusion."
+      ],
+      "evidenceReadoutIds": [
+        "helioseismic-trace-readout",
+        "neutrino-flux-readout"
+      ],
+      "method": "mediated_evidence_review",
+      "alternatives": [
+        "unresolved source contribution",
+        "missing diagnostic",
+        "instrument response"
+      ]
     }
   ],
-  "limitations": ["Educational inverse-reasoning package only.", "No live solar data or control path."]
+  "limitations": [
+    "Educational inverse-reasoning package only.",
+    "No live solar data or control path."
+  ],
+  "observations": [
+    {
+      "kind": "openplazma.observation_statement",
+      "version": "0.1.0",
+      "readoutId": "visible-solar-image-readout",
+      "artifactId": "visible-solar-image",
+      "targetRegionId": "photosphere",
+      "observable": "visible_light",
+      "readoutKind": "image_feature",
+      "method": "artifact_readout_review",
+      "status": "candidate",
+      "assumptions": [],
+      "limitations": [
+        "Visible surface imagery does not directly measure core fusion."
+      ],
+      "alternatives": [
+        "instrument response",
+        "coupling",
+        "background"
+      ]
+    },
+    {
+      "kind": "openplazma.observation_statement",
+      "version": "0.1.0",
+      "readoutId": "helioseismic-trace-readout",
+      "artifactId": "helioseismic-trace",
+      "targetRegionId": "core",
+      "observable": "motion",
+      "readoutKind": "frequency_peak",
+      "method": "periodogram",
+      "selector": "frequencyAnalyses[helioseismic-periodogram].peaks[p-mode-3mhz]",
+      "value": 0.003,
+      "unit": "Hz",
+      "status": "candidate",
+      "assumptions": [
+        "The stage begins from a sustained-fusion premise."
+      ],
+      "limitations": [
+        "Inverse diagnostics remain model-dependent."
+      ],
+      "alternatives": [
+        "instrument response",
+        "coupling",
+        "background"
+      ]
+    },
+    {
+      "kind": "openplazma.observation_statement",
+      "version": "0.1.0",
+      "readoutId": "neutrino-flux-readout",
+      "artifactId": "neutrino-flux",
+      "targetRegionId": "core",
+      "observable": "neutrino_flux",
+      "readoutKind": "particle_count",
+      "method": "artifact_readout_review",
+      "status": "candidate",
+      "assumptions": [],
+      "limitations": [
+        "The fixture cannot validate solar neutrino physics."
+      ],
+      "alternatives": [
+        "instrument response",
+        "coupling",
+        "background"
+      ]
+    }
+  ]
 }

@@ -37,6 +37,7 @@ def test_draft_investigation_package_allows_empty_artifacts():
     package = copy.deepcopy(op.load_static_investigation_package(REPO_ROOT, "will-o-wisp-001"))
     package["packageId"] = "draft-empty-artifacts"
     package["artifacts"] = []
+    package["observations"] = []
     package["claims"] = []
     package["fusionAssessment"]["assessmentId"] = "draft-empty-artifacts-fusion-assessment"
     package["fusionAssessment"]["observedOrInferredConditions"] = []
@@ -102,6 +103,119 @@ def test_unknown_artifact_refs_are_rejected():
     package["claims"][0]["evidenceArtifactIds"] = ["missing-artifact"]
 
     with pytest.raises(ValueError, match="unknown diagnostic artifact"):
+        op.validate_investigation_package(package)
+
+
+def test_mediated_observation_readouts_are_required_for_support_claims():
+    package = copy.deepcopy(op.load_static_investigation_package(REPO_ROOT, "will-o-wisp-001"))
+    package["claims"][0]["evidenceReadoutIds"] = []
+
+    with pytest.raises(ValueError, match="mediated readout"):
+        op.validate_investigation_package(package)
+
+
+def test_human_eye_visible_light_absence_and_simulation_shortcuts_are_rejected():
+    package = copy.deepcopy(op.load_static_investigation_package(REPO_ROOT, "will-o-wisp-001"))
+    package["observations"] = [
+        {
+            "kind": "openplazma.observation_statement",
+            "version": "0.1.0",
+            "readoutId": "eye-visible-readout",
+            "artifactId": "witness-eye-report",
+            "observable": "visible_light",
+            "readoutKind": "human_report",
+            "method": "unaided_visual_report",
+            "status": "detected",
+            "assumptions": ["The witness report is sincere."],
+            "limitations": ["Human vision is uncalibrated."],
+            "alternatives": ["combustion", "reflection"],
+        }
+    ]
+    package["fusionAssessment"]["observedOrInferredConditions"] = []
+    package["claims"] = [
+        {
+            "kind": "openplazma.investigation_claim",
+            "version": "0.1.0",
+            "claimId": "claim-eye-proves-plasma",
+            "claimType": "plasma_presence",
+            "statement": "The unaided eye report proves the phenomenon is plasma.",
+            "status": "support",
+            "evidenceArtifactIds": ["witness-eye-report"],
+            "evidenceReadoutIds": ["eye-visible-readout"],
+            "method": "visual_identity_shortcut",
+            "assumptions": ["Visible glow is plasma."],
+            "limitations": ["No calibrated diagnostic."],
+            "alternatives": [],
+        }
+    ]
+
+    with pytest.raises(ValueError, match="human-eye"):
+        op.validate_investigation_package(package)
+
+    package = copy.deepcopy(op.load_static_investigation_package(REPO_ROOT, "will-o-wisp-001"))
+    package["observations"] = [
+        {
+            "kind": "openplazma.observation_statement",
+            "version": "0.1.0",
+            "readoutId": "visible-spectrum-readout",
+            "artifactId": "visible-spectrum",
+            "observable": "visible_light",
+            "readoutKind": "spectral_feature",
+            "method": "spectral_line_fit",
+            "status": "candidate",
+            "assumptions": ["The feature is stable."],
+            "limitations": ["Visible light alone does not identify plasma or fusion."],
+            "alternatives": ["chemical emission"],
+        }
+    ]
+    package["fusionAssessment"]["observedOrInferredConditions"] = []
+    package["claims"] = [
+        {
+            "kind": "openplazma.investigation_claim",
+            "version": "0.1.0",
+            "claimId": "claim-visible-proves-fusion",
+            "claimType": "fusion_status",
+            "statement": "Visible light proves fusion is occurring.",
+            "status": "support",
+            "evidenceArtifactIds": ["visible-spectrum"],
+            "evidenceReadoutIds": ["visible-spectrum-readout"],
+            "method": "visible_light_shortcut",
+            "assumptions": ["Visible light is a fusion signature."],
+            "limitations": ["No product diagnostics."],
+            "alternatives": [],
+        }
+    ]
+
+    with pytest.raises(ValueError, match="visible light"):
+        op.validate_investigation_package(package)
+
+    package["claims"][0]["statement"] = "No neutron flux was observed therefore fusion is absent."
+    package["claims"][0]["method"] = "absence_shortcut"
+    with pytest.raises(ValueError, match="absence"):
+        op.validate_investigation_package(package)
+
+    package["artifacts"][1]["provenanceKind"] = "synthetic"
+    package["artifacts"][1]["instrument"] = {
+        "instrumentKind": "simulation_diagnostic",
+        "label": "Synthetic diagnostic",
+        "observables": ["visible_light"],
+        "calibration": {
+            "status": "unknown",
+            "responseKnown": False,
+            "correctionApplied": False,
+            "description": "Synthetic output has no physical instrument response.",
+            "limitations": ["Simulation output is not physical observation."],
+        },
+    }
+    package["observations"][0]["artifactId"] = "emission-timeseries"
+    package["observations"][0]["readoutId"] = "synthetic-visible-readout"
+    package["observations"][0]["readoutKind"] = "model_readout"
+    package["claims"][0]["claimType"] = "plasma_presence"
+    package["claims"][0]["statement"] = "The simulation observed the phenomenon is plasma."
+    package["claims"][0]["evidenceArtifactIds"] = ["emission-timeseries"]
+    package["claims"][0]["evidenceReadoutIds"] = ["synthetic-visible-readout"]
+    package["claims"][0]["method"] = "simulation_observation_shortcut"
+    with pytest.raises(ValueError, match="simulation"):
         op.validate_investigation_package(package)
 
 

@@ -154,6 +154,7 @@ export type {
   MetricValue,
   RunManifest,
   RunRecord,
+  RunStoreMetadata,
   RunStatus,
   RunType
 } from "./tracking";
@@ -190,6 +191,10 @@ export type {
   EvidenceVerdict,
   Inference,
   InferenceMethod,
+  MhdObservable,
+  MhdObservationStatement,
+  MhdReadoutKind,
+  MhdReadoutStatus,
   MhdAnalysisBundle,
   ModeEstimateMethod,
   ModeNumberEstimate,
@@ -212,6 +217,8 @@ export type {
   CalibrationStatus,
   DiagnosticArtifact,
   DiagnosticArtifactKind,
+  DiagnosticArtifactSource,
+  DiagnosticArtifactSourceKind,
   DiagnosticCalibration,
   DiagnosticContribution,
   DiagnosticContributionKind,
@@ -243,5 +250,8 @@ export type {
   InvestigationTarget,
   InvestigationTargetKind,
   MeasuredObservable,
-  ObservationRegion
+  ObservationReadoutKind,
+  ObservationRegion,
+  ObservationStatement,
+  ObservationStatementStatus
 } from "./investigation";

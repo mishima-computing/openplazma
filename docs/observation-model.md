@@ -59,6 +59,22 @@ The data closest to the diagnostic output, such as voltage, current, counts, pix
 DerivedSignal:
 A signal produced from raw data by calibration, processing, fitting, inversion, or transformation. A derived signal must keep links to source artifacts, calibration metadata, assumptions, and validation status.
 
+SignalSeries:
+A sampled carrier stored by OpenPlazma. It may contain voltage, counts,
+brightness, current, field, or another quantity, but it is not the physical
+phenomenon itself.
+
+DiagnosticArtifact:
+A packageable evidence object such as a signal series, spectrum, image,
+thermal map, field map, log, or derived product. It preserves provenance and
+instrument context; it is not by itself a plasma, fusion, or source-identity
+observation.
+
+ObservationStatement:
+A mediated readout extracted from an artifact. It records method,
+assumptions, limitations, alternatives, and optional signal/region references.
+Claims should cite these readouts instead of relying on bare artifact IDs.
+
 ObservationModel:
 A model that describes how a theory-side state should appear in one or more diagnostic channels. It may be analytical, empirical, synthetic, simulator-backed, or approximate.
 

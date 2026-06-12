@@ -11,6 +11,7 @@ investigation contract:
 external target or event
   -> InvestigationTarget
   -> DiagnosticArtifact[]
+  -> ObservationStatement[]
   -> InvestigationClaim[]
   -> InvestigationSession
   -> InvestigationMeasurementAssessment + InvestigationReport
@@ -26,6 +27,7 @@ and returns neutral evidence state.
 import {
   addDiagnosticArtifact,
   addInvestigationClaim,
+  addObservationStatement,
   assessInvestigationSession,
   buildInvestigationPackage,
   createInvestigationSession,
@@ -48,6 +50,7 @@ let session = createInvestigationSession({
 });
 
 session = addDiagnosticArtifact(session, artifact);
+session = addObservationStatement(session, readout);
 session = addInvestigationClaim(session, claim);
 
 const assessment = assessInvestigationSession(session);
@@ -64,8 +67,11 @@ session = recordInvestigationReport(session, report);
   reports, limitations, and session status.
 - `addDiagnosticArtifact(session, artifact)` appends one measured, derived,
   synthetic, testimony, or unknown-provenance artifact.
+- `addObservationStatement(session, readout)` appends one mediated readout that
+  cites an existing diagnostic artifact.
 - `addInvestigationClaim(session, claim)` appends a claim after checking that all
-  evidence artifact IDs exist in the package.
+  evidence artifact IDs exist in the package. Support and contradiction claims
+  should also cite mediated readouts with `evidenceReadoutIds`.
 - `assessInvestigationSession(session)` returns measurement gaps and whether the
   session is ready for report generation.
 - `createInvestigationSessionReport(session, options)` creates an
@@ -92,10 +98,11 @@ belongs to the same `packageId` as the session package.
 ## Boundary Rules
 
 - The external application converts its own objects into `InvestigationTarget`,
-  `DiagnosticArtifact`, and `InvestigationClaim`.
+  `DiagnosticArtifact`, `ObservationStatement`, and `InvestigationClaim`.
 - OpenPlazma does not infer source identity from a single artifact.
 - Missing observables remain gaps, not proof of absence.
-- Claims must keep evidence artifact IDs explicit.
+- Claims must keep evidence artifact IDs explicit for provenance and mediated
+  readout IDs explicit for evidential support.
 - Reports remain JSON artifacts that an external application can store, display,
   or use for its own progression logic.
 

@@ -325,6 +325,26 @@ export const studyRecordSchema = z
           });
         }
       }
+      for (const readout of record.mhd.readouts ?? []) {
+        if (readout.signalId !== undefined && !actualSignalIds.has(readout.signalId)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `mediated MHD readout '${readout.readoutId}' references missing signal '${readout.signalId}'`,
+            path: ["mhd", "readouts"]
+          });
+        }
+      }
+      for (const claim of record.mhd.claims) {
+        for (const link of claim.evidence) {
+          if (link.signalId !== undefined && !actualSignalIds.has(link.signalId)) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `claim '${claim.claimId}' evidence references missing signal '${link.signalId}'`,
+              path: ["mhd", "claims"]
+            });
+          }
+        }
+      }
     }
   });
 
@@ -365,8 +385,10 @@ export {
   parseMetricRecord,
   parseRunManifest,
   parseRunRecord,
+  parseRunStoreMetadata,
   runManifestSchema,
-  runRecordSchema
+  runRecordSchema,
+  runStoreMetadataSchema
 } from "./tracking.schema";
 
 export {

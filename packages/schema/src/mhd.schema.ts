@@ -51,6 +51,8 @@ const phenomenonEventSchema = z.object({
   label: z.string().min(1),
   timeRange: timeRangeSchema,
   signalId: z.string().min(1).optional(),
+  producedByInferenceId: z.string().min(1).optional(),
+  evidenceReadoutIds: z.array(z.string().min(1)).optional(),
   notes: z.string().min(1).optional()
 });
 
@@ -90,6 +92,46 @@ const rotationTrackPointSchema = z.object({
   amplitude: z.number().finite()
 });
 
+const mhdObservationStatementSchema = z.object({
+  kind: z.literal("openplazma.mhd_observation_statement"),
+  version: versionSchema,
+  readoutId: z.string().min(1),
+  readoutKind: z.enum([
+    "phase_fit",
+    "frequency_track",
+    "threshold_crossing",
+    "event_detection",
+    "elm_detection",
+    "model_readout",
+    "manual_annotation",
+    "unknown"
+  ]),
+  observable: z.enum([
+    "magnetic_field",
+    "electric_current",
+    "loop_voltage",
+    "radiation",
+    "light_intensity",
+    "stored_energy",
+    "density",
+    "motion",
+    "unknown"
+  ]),
+  signalId: z.string().min(1).optional(),
+  arrayId: z.string().min(1).optional(),
+  observationModelId: z.string().min(1).optional(),
+  inferenceId: z.string().min(1).optional(),
+  eventId: z.string().min(1).optional(),
+  method: z.string().min(1),
+  status: z.enum(["detected", "not_detected", "candidate", "inconclusive", "unknown"]),
+  timeRange: timeRangeSchema.optional(),
+  value: z.number().finite().optional(),
+  unit: z.string().min(1).optional(),
+  assumptions: z.array(z.string().min(1)),
+  limitations: z.array(z.string().min(1)).min(1),
+  alternatives: z.array(z.string().min(1))
+});
+
 const inferenceSchema = z.object({
   kind: z.literal("openplazma.inference"),
   version: versionSchema,
@@ -97,12 +139,14 @@ const inferenceSchema = z.object({
   label: z.string().min(1),
   method: z.literal("magnetic_mode_phase_fit"),
   sourceArrayId: z.string().min(1),
+  evidenceReadoutIds: z.array(z.string().min(1)),
   modeEstimate: modeNumberEstimateSchema,
   rotationTrack: z.array(rotationTrackPointSchema),
   lockingDetected: z.boolean(),
   lockTimeRange: timeRangeSchema.optional(),
   assumptions: z.array(z.string().min(1)),
-  limitations: z.array(z.string().min(1))
+  limitations: z.array(z.string().min(1)),
+  alternatives: z.array(z.string().min(1))
 });
 
 const evidenceLinkSchema = z.object({
@@ -111,8 +155,15 @@ const evidenceLinkSchema = z.object({
   verdict: z.enum(["support", "contradict", "inconclusive"]),
   signalId: z.string().min(1).optional(),
   arrayId: z.string().min(1).optional(),
+  readoutId: z.string().min(1).optional(),
+  inferenceId: z.string().min(1).optional(),
+  eventId: z.string().min(1).optional(),
+  method: z.string().min(1),
   timeRange: timeRangeSchema,
-  rationale: z.string().min(1)
+  rationale: z.string().min(1),
+  assumptions: z.array(z.string().min(1)),
+  limitations: z.array(z.string().min(1)).min(1),
+  alternatives: z.array(z.string().min(1))
 });
 
 const claimSchema = z.object({
@@ -154,6 +205,7 @@ export const mhdAnalysisBundleSchema = z
     events: z.array(phenomenonEventSchema),
     observationModels: z.array(observationModelSchema),
     inferences: z.array(inferenceSchema),
+    readouts: z.array(mhdObservationStatementSchema).optional(),
     claims: z.array(claimSchema),
     provenanceKind: provenanceKindSchema,
     elmAnalyses: z.array(elmAnalysisSchema).optional()
@@ -164,6 +216,7 @@ export const mhdAnalysisBundleSchema = z
     const inferenceIds = new Set(bundle.inferences.map((inference) => inference.inferenceId));
     const elmIds = new Set((bundle.elmAnalyses ?? []).map((elm) => elm.analysisId));
     const eventIds = new Set(bundle.events.map((event) => event.eventId));
+    const readoutIds = new Set<string>();
 
     const isEmpty =
       bundle.arrays.length === 0 &&
@@ -171,6 +224,7 @@ export const mhdAnalysisBundleSchema = z
       bundle.inferences.length === 0 &&
       bundle.events.length === 0 &&
       bundle.claims.length === 0 &&
+      (bundle.readouts ?? []).length === 0 &&
       (bundle.elmAnalyses ?? []).length === 0;
     if (isEmpty) {
       ctx.addIssue({
@@ -190,12 +244,93 @@ export const mhdAnalysisBundleSchema = z
       }
     }
 
+    for (const [index, readout] of (bundle.readouts ?? []).entries()) {
+      if (readoutIds.has(readout.readoutId)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `duplicate mediated MHD readout id '${readout.readoutId}'`,
+          path: ["readouts", index, "readoutId"]
+        });
+      }
+      readoutIds.add(readout.readoutId);
+      if (readout.arrayId !== undefined && !arrayIds.has(readout.arrayId)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `mediated MHD readout '${readout.readoutId}' references unknown array '${readout.arrayId}'`,
+          path: ["readouts", index, "arrayId"]
+        });
+      }
+      if (readout.observationModelId !== undefined && !modelIds.has(readout.observationModelId)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `mediated MHD readout '${readout.readoutId}' references unknown observation model '${readout.observationModelId}'`,
+          path: ["readouts", index, "observationModelId"]
+        });
+      }
+      if (readout.inferenceId !== undefined && !inferenceIds.has(readout.inferenceId)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `mediated MHD readout '${readout.readoutId}' references unknown inference '${readout.inferenceId}'`,
+          path: ["readouts", index, "inferenceId"]
+        });
+      }
+      if (readout.eventId !== undefined && !eventIds.has(readout.eventId)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `mediated MHD readout '${readout.readoutId}' references unknown event '${readout.eventId}'`,
+          path: ["readouts", index, "eventId"]
+        });
+      }
+    }
+
     for (const inference of bundle.inferences) {
       if (!arrayIds.has(inference.sourceArrayId)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: `inference '${inference.inferenceId}' references unknown array '${inference.sourceArrayId}'`,
           path: ["inferences"]
+        });
+      }
+      if (inference.evidenceReadoutIds.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `inference '${inference.inferenceId}' requires mediated readout evidence`,
+          path: ["inferences"]
+        });
+      }
+      for (const readoutId of inference.evidenceReadoutIds) {
+        if (!readoutIds.has(readoutId)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `inference '${inference.inferenceId}' references unknown mediated readout '${readoutId}'`,
+            path: ["inferences"]
+          });
+        }
+      }
+    }
+
+    for (const event of bundle.events) {
+      if (event.producedByInferenceId !== undefined && !inferenceIds.has(event.producedByInferenceId)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `phenomenon event '${event.eventId}' references unknown inference '${event.producedByInferenceId}'`,
+          path: ["events"]
+        });
+      }
+      for (const readoutId of event.evidenceReadoutIds ?? []) {
+        if (!readoutIds.has(readoutId)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `phenomenon event '${event.eventId}' references unknown mediated readout '${readoutId}'`,
+            path: ["events"]
+          });
+        }
+      }
+      if (event.producedByInferenceId === undefined && (event.evidenceReadoutIds ?? []).length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `phenomenon event '${event.eventId}' must be produced by inference or cite mediated readout evidence`,
+          path: ["events"]
         });
       }
     }
@@ -210,6 +345,13 @@ export const mhdAnalysisBundleSchema = z
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: `claim '${claim.claimId}' must reference an observation model, inference, ELM analysis, or events`,
+          path: ["claims"]
+        });
+      }
+      if (claim.evidence.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `claim '${claim.claimId}' requires evidence`,
           path: ["claims"]
         });
       }
@@ -244,10 +386,59 @@ export const mhdAnalysisBundleSchema = z
         });
       }
       for (const link of claim.evidence) {
+        const hasMediatedReference = link.readoutId !== undefined || link.inferenceId !== undefined;
+        if (
+          link.signalId === undefined &&
+          link.arrayId === undefined &&
+          link.readoutId === undefined &&
+          link.inferenceId === undefined &&
+          link.eventId === undefined
+        ) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `claim '${claim.claimId}' evidence must reference a signal, array, readout, inference, or event`,
+            path: ["claims"]
+          });
+        }
         if (link.arrayId !== undefined && !arrayIds.has(link.arrayId)) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: `claim '${claim.claimId}' evidence references unknown array '${link.arrayId}'`,
+            path: ["claims"]
+          });
+        }
+        if (link.readoutId !== undefined && !readoutIds.has(link.readoutId)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `claim '${claim.claimId}' evidence references unknown mediated readout '${link.readoutId}'`,
+            path: ["claims"]
+          });
+        }
+        if (link.inferenceId !== undefined && !inferenceIds.has(link.inferenceId)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `claim '${claim.claimId}' evidence references unknown inference '${link.inferenceId}'`,
+            path: ["claims"]
+          });
+        }
+        if (link.eventId !== undefined && !eventIds.has(link.eventId)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `claim '${claim.claimId}' evidence references unknown event '${link.eventId}'`,
+            path: ["claims"]
+          });
+        }
+        if (link.eventId !== undefined && !hasMediatedReference) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `claim '${claim.claimId}' cannot use bare event evidence`,
+            path: ["claims"]
+          });
+        }
+        if (!hasMediatedReference) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `claim '${claim.claimId}' evidence must reference a mediated readout or inference`,
             path: ["claims"]
           });
         }

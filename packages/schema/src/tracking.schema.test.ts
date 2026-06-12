@@ -4,7 +4,8 @@ import {
   eventRecordSchema,
   metricRecordSchema,
   runManifestSchema,
-  runRecordSchema
+  runRecordSchema,
+  runStoreMetadataSchema
 } from "./index";
 
 const safeCapabilities = {
@@ -58,6 +59,7 @@ const artifactRecord = {
   type: "signal_series",
   path: "artifacts/signal-series.json",
   sha256: "0".repeat(64),
+  byteSize: 128,
   createdAt: "2026-05-24T00:00:01.000Z",
   metadata: {}
 };
@@ -112,6 +114,48 @@ describe("tracking schemas", () => {
         artifacts: [artifactRecord]
       })
     ).not.toThrow();
+  });
+
+  it("validates distributed RunStore identity and machine-scoped run records", () => {
+    const distributedRunId = "OPR-20260524-node-a-abcdef123456";
+    const distributedRunRecord = {
+      ...runRecord,
+      runId: distributedRunId,
+      storeId: `OPS-${"a".repeat(32)}`,
+      machineId: "node-a",
+      runGroupId: "will-o-wisp-campaign",
+      partitionId: "shot-001-window-000"
+    };
+
+    expect(() => runStoreMetadataSchema.parse({
+      kind: "openplazma.run_store",
+      version: "0.1.0",
+      layoutVersion: "0.2.0",
+      storeId: `OPS-${"a".repeat(32)}`,
+      backendKind: "local_filesystem",
+      createdAt: "2026-05-24T00:00:00.000Z",
+      machineId: "node-a",
+      limitations: ["Read-only analysis artifacts only."]
+    })).not.toThrow();
+    expect(() => runRecordSchema.parse(distributedRunRecord)).not.toThrow();
+    expect(() => metricRecordSchema.parse({
+      kind: "openplazma.metric",
+      version: "0.1.0",
+      runId: distributedRunId,
+      name: "partition_index",
+      value: 1,
+      createdAt: "2026-05-24T00:00:02.000Z"
+    })).not.toThrow();
+    expect(() => eventRecordSchema.parse({
+      kind: "openplazma.event",
+      version: "0.1.0",
+      runId: distributedRunId,
+      eventType: "run_started",
+      machineId: "node-a",
+      createdAt: "2026-05-24T00:00:00.000Z",
+      message: "Run started.",
+      metadata: {}
+    })).not.toThrow();
   });
 
   it("rejects unsafe capabilities", () => {

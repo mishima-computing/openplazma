@@ -6507,7 +6507,10 @@
           0.0095,
           0.0105
         ],
-        "signalId": "d-alpha"
+        "signalId": "d-alpha",
+        "evidenceReadoutIds": [
+          "elm-01-readout"
+        ]
       },
       {
         "kind": "openplazma.phenomenon_event",
@@ -6519,7 +6522,10 @@
           0.0195,
           0.0205
         ],
-        "signalId": "d-alpha"
+        "signalId": "d-alpha",
+        "evidenceReadoutIds": [
+          "elm-02-readout"
+        ]
       },
       {
         "kind": "openplazma.phenomenon_event",
@@ -6531,7 +6537,10 @@
           0.0295,
           0.0305
         ],
-        "signalId": "d-alpha"
+        "signalId": "d-alpha",
+        "evidenceReadoutIds": [
+          "elm-03-readout"
+        ]
       },
       {
         "kind": "openplazma.phenomenon_event",
@@ -6543,7 +6552,10 @@
           0.0395,
           0.0405
         ],
-        "signalId": "d-alpha"
+        "signalId": "d-alpha",
+        "evidenceReadoutIds": [
+          "elm-04-readout"
+        ]
       },
       {
         "kind": "openplazma.phenomenon_event",
@@ -6555,7 +6567,10 @@
           0.0495,
           0.0505
         ],
-        "signalId": "d-alpha"
+        "signalId": "d-alpha",
+        "evidenceReadoutIds": [
+          "elm-05-readout"
+        ]
       },
       {
         "kind": "openplazma.phenomenon_event",
@@ -6567,7 +6582,10 @@
           0.0595,
           0.0605
         ],
-        "signalId": "d-alpha"
+        "signalId": "d-alpha",
+        "evidenceReadoutIds": [
+          "elm-06-readout"
+        ]
       },
       {
         "kind": "openplazma.phenomenon_event",
@@ -6579,7 +6597,10 @@
           0.0695,
           0.0705
         ],
-        "signalId": "d-alpha"
+        "signalId": "d-alpha",
+        "evidenceReadoutIds": [
+          "elm-07-readout"
+        ]
       },
       {
         "kind": "openplazma.phenomenon_event",
@@ -6591,7 +6612,10 @@
           0.0795,
           0.0805
         ],
-        "signalId": "d-alpha"
+        "signalId": "d-alpha",
+        "evidenceReadoutIds": [
+          "elm-08-readout"
+        ]
       },
       {
         "kind": "openplazma.phenomenon_event",
@@ -6603,7 +6627,10 @@
           0.0895,
           0.0905
         ],
-        "signalId": "d-alpha"
+        "signalId": "d-alpha",
+        "evidenceReadoutIds": [
+          "elm-09-readout"
+        ]
       },
       {
         "kind": "openplazma.phenomenon_event",
@@ -6615,7 +6642,10 @@
           0.0995,
           0.1005
         ],
-        "signalId": "d-alpha"
+        "signalId": "d-alpha",
+        "evidenceReadoutIds": [
+          "elm-10-readout"
+        ]
       }
     ],
     "observationModels": [],
@@ -6699,7 +6729,18 @@
               0.01,
               0.1
             ],
-            "rationale": "Ten evenly spaced D-alpha crashes (regularity 0.98) give an ELM frequency near 100 Hz."
+            "rationale": "Ten evenly spaced D-alpha crashes (regularity 0.98) give an ELM frequency near 100 Hz.",
+            "readoutId": "elm-d-alpha-readout",
+            "method": "signal_trace_review",
+            "assumptions": [],
+            "limitations": [
+              "Mediated evidence link; not direct phenomenon observation."
+            ],
+            "alternatives": [
+              "threshold selection",
+              "signal coupling",
+              "annotation uncertainty"
+            ]
           },
           {
             "kind": "openplazma.evidence_link",
@@ -6710,7 +6751,18 @@
               0.01,
               0.1
             ],
-            "rationale": "Stored energy drops step-wise at each crash, consistent with ELM pedestal losses."
+            "rationale": "Stored energy drops step-wise at each crash, consistent with ELM pedestal losses.",
+            "readoutId": "claim-type-I-elms-evidence-2-readout",
+            "method": "signal_trace_review",
+            "assumptions": [],
+            "limitations": [
+              "Mediated evidence link; not direct phenomenon observation."
+            ],
+            "alternatives": [
+              "threshold selection",
+              "signal coupling",
+              "annotation uncertainty"
+            ]
           },
           {
             "kind": "openplazma.evidence_link",
@@ -6721,8 +6773,335 @@
               0,
               0.01
             ],
-            "rationale": "The pre-ELM phase alone does not distinguish ELM type."
+            "rationale": "The pre-ELM phase alone does not distinguish ELM type.",
+            "readoutId": "elm-d-alpha-readout",
+            "method": "signal_trace_review",
+            "assumptions": [],
+            "limitations": [
+              "Mediated evidence link; not direct phenomenon observation."
+            ],
+            "alternatives": [
+              "threshold selection",
+              "signal coupling",
+              "annotation uncertainty"
+            ]
           }
+        ]
+      }
+    ],
+    "readouts": [
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "elm-d-alpha-readout",
+        "readoutKind": "elm_detection",
+        "observable": "light_intensity",
+        "signalId": "d-alpha",
+        "method": "elm_crash_detection",
+        "status": "detected",
+        "timeRange": [
+          0.01,
+          0.1
+        ],
+        "value": 100,
+        "unit": "Hz",
+        "assumptions": [
+          "Crashes appear as sharp positive spikes in the source signal.",
+          "Crash spacing reflects the ELM cycle."
+        ],
+        "limitations": [
+          "Threshold-based detection can miss small crashes.",
+          "Classification is a coarse heuristic, not a pedestal-stability calculation."
+        ],
+        "alternatives": [
+          "threshold selection",
+          "recycling-light coupling",
+          "edge transient ambiguity"
+        ]
+      },
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "elm-01-readout",
+        "readoutKind": "event_detection",
+        "observable": "light_intensity",
+        "signalId": "d-alpha",
+        "eventId": "elm-01",
+        "method": "event_time_annotation",
+        "status": "detected",
+        "timeRange": [
+          0.0095,
+          0.0105
+        ],
+        "assumptions": [
+          "Event timing is derived from fixture signals."
+        ],
+        "limitations": [
+          "Event labels are mediated annotations, not direct phenomenon evidence."
+        ],
+        "alternatives": [
+          "threshold selection",
+          "signal coupling",
+          "annotation uncertainty"
+        ]
+      },
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "elm-02-readout",
+        "readoutKind": "event_detection",
+        "observable": "light_intensity",
+        "signalId": "d-alpha",
+        "eventId": "elm-02",
+        "method": "event_time_annotation",
+        "status": "detected",
+        "timeRange": [
+          0.0195,
+          0.0205
+        ],
+        "assumptions": [
+          "Event timing is derived from fixture signals."
+        ],
+        "limitations": [
+          "Event labels are mediated annotations, not direct phenomenon evidence."
+        ],
+        "alternatives": [
+          "threshold selection",
+          "signal coupling",
+          "annotation uncertainty"
+        ]
+      },
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "elm-03-readout",
+        "readoutKind": "event_detection",
+        "observable": "light_intensity",
+        "signalId": "d-alpha",
+        "eventId": "elm-03",
+        "method": "event_time_annotation",
+        "status": "detected",
+        "timeRange": [
+          0.0295,
+          0.0305
+        ],
+        "assumptions": [
+          "Event timing is derived from fixture signals."
+        ],
+        "limitations": [
+          "Event labels are mediated annotations, not direct phenomenon evidence."
+        ],
+        "alternatives": [
+          "threshold selection",
+          "signal coupling",
+          "annotation uncertainty"
+        ]
+      },
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "elm-04-readout",
+        "readoutKind": "event_detection",
+        "observable": "light_intensity",
+        "signalId": "d-alpha",
+        "eventId": "elm-04",
+        "method": "event_time_annotation",
+        "status": "detected",
+        "timeRange": [
+          0.0395,
+          0.0405
+        ],
+        "assumptions": [
+          "Event timing is derived from fixture signals."
+        ],
+        "limitations": [
+          "Event labels are mediated annotations, not direct phenomenon evidence."
+        ],
+        "alternatives": [
+          "threshold selection",
+          "signal coupling",
+          "annotation uncertainty"
+        ]
+      },
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "elm-05-readout",
+        "readoutKind": "event_detection",
+        "observable": "light_intensity",
+        "signalId": "d-alpha",
+        "eventId": "elm-05",
+        "method": "event_time_annotation",
+        "status": "detected",
+        "timeRange": [
+          0.0495,
+          0.0505
+        ],
+        "assumptions": [
+          "Event timing is derived from fixture signals."
+        ],
+        "limitations": [
+          "Event labels are mediated annotations, not direct phenomenon evidence."
+        ],
+        "alternatives": [
+          "threshold selection",
+          "signal coupling",
+          "annotation uncertainty"
+        ]
+      },
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "elm-06-readout",
+        "readoutKind": "event_detection",
+        "observable": "light_intensity",
+        "signalId": "d-alpha",
+        "eventId": "elm-06",
+        "method": "event_time_annotation",
+        "status": "detected",
+        "timeRange": [
+          0.0595,
+          0.0605
+        ],
+        "assumptions": [
+          "Event timing is derived from fixture signals."
+        ],
+        "limitations": [
+          "Event labels are mediated annotations, not direct phenomenon evidence."
+        ],
+        "alternatives": [
+          "threshold selection",
+          "signal coupling",
+          "annotation uncertainty"
+        ]
+      },
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "elm-07-readout",
+        "readoutKind": "event_detection",
+        "observable": "light_intensity",
+        "signalId": "d-alpha",
+        "eventId": "elm-07",
+        "method": "event_time_annotation",
+        "status": "detected",
+        "timeRange": [
+          0.0695,
+          0.0705
+        ],
+        "assumptions": [
+          "Event timing is derived from fixture signals."
+        ],
+        "limitations": [
+          "Event labels are mediated annotations, not direct phenomenon evidence."
+        ],
+        "alternatives": [
+          "threshold selection",
+          "signal coupling",
+          "annotation uncertainty"
+        ]
+      },
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "elm-08-readout",
+        "readoutKind": "event_detection",
+        "observable": "light_intensity",
+        "signalId": "d-alpha",
+        "eventId": "elm-08",
+        "method": "event_time_annotation",
+        "status": "detected",
+        "timeRange": [
+          0.0795,
+          0.0805
+        ],
+        "assumptions": [
+          "Event timing is derived from fixture signals."
+        ],
+        "limitations": [
+          "Event labels are mediated annotations, not direct phenomenon evidence."
+        ],
+        "alternatives": [
+          "threshold selection",
+          "signal coupling",
+          "annotation uncertainty"
+        ]
+      },
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "elm-09-readout",
+        "readoutKind": "event_detection",
+        "observable": "light_intensity",
+        "signalId": "d-alpha",
+        "eventId": "elm-09",
+        "method": "event_time_annotation",
+        "status": "detected",
+        "timeRange": [
+          0.0895,
+          0.0905
+        ],
+        "assumptions": [
+          "Event timing is derived from fixture signals."
+        ],
+        "limitations": [
+          "Event labels are mediated annotations, not direct phenomenon evidence."
+        ],
+        "alternatives": [
+          "threshold selection",
+          "signal coupling",
+          "annotation uncertainty"
+        ]
+      },
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "elm-10-readout",
+        "readoutKind": "event_detection",
+        "observable": "light_intensity",
+        "signalId": "d-alpha",
+        "eventId": "elm-10",
+        "method": "event_time_annotation",
+        "status": "detected",
+        "timeRange": [
+          0.0995,
+          0.1005
+        ],
+        "assumptions": [
+          "Event timing is derived from fixture signals."
+        ],
+        "limitations": [
+          "Event labels are mediated annotations, not direct phenomenon evidence."
+        ],
+        "alternatives": [
+          "threshold selection",
+          "signal coupling",
+          "annotation uncertainty"
+        ]
+      },
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "claim-type-I-elms-evidence-2-readout",
+        "readoutKind": "event_detection",
+        "observable": "stored_energy",
+        "signalId": "stored-energy",
+        "method": "signal_trace_review",
+        "status": "detected",
+        "timeRange": [
+          0.01,
+          0.1
+        ],
+        "assumptions": [
+          "Signal trace is reviewed as mediated evidence."
+        ],
+        "limitations": [
+          "Signal trace evidence is not a bare phenomenon label."
+        ],
+        "alternatives": [
+          "threshold selection",
+          "signal coupling",
+          "annotation uncertainty"
         ]
       }
     ]

@@ -18,8 +18,8 @@ The package is `will-o-wisp-001`:
 - available evidence: human visual report, low-rate brightness trace, coarse
   visible spectrum
 - missing or unresolved evidence: calibrated current, fusion products, particle
-  diagnostics, gamma diagnostics, neutron diagnostics, and direct plasma
-  maintenance conditions
+  diagnostics, gamma diagnostics, neutron diagnostics, and mediated evidence for
+  plasma maintenance conditions
 
 The correct first result can be conservative: the supplied evidence does not
 support a fusion claim.
@@ -31,7 +31,8 @@ support a fusion claim.
 3. Select `will-o-wisp-001`.
 4. Inspect the Target, Missing observables, Unresolved artifacts, Diagnostic
    artifacts, and Claims sections.
-5. Use Report Builder to keep a claim tied to explicit evidence artifact IDs.
+5. Use Report Builder to keep a claim tied to explicit artifact provenance and
+   mediated readout evidence.
 6. Review the JSON preview before exporting.
 
 The public browser path uses `STATIC_FIXTURE` data only. It does not fetch live

@@ -1,8 +1,8 @@
-# Local RunStore MVP
+# Local RunStore
 
 The M5 RunStore is a local-first, inspectable tracking layer for Python and local Notebook workflows. It records Runs, metrics, artifacts, events, and manifests as JSON and JSONL files.
 
-This MVP is intentionally small. The local Observatory can read RunStore output, and the Python SDK can log read-only local signal imports. The RunStore itself does not add cloud sync, network data ingestion, AI assist, simulation, facility operation, or command/control actions.
+The local Observatory can read RunStore output, and the Python SDK can log read-only local signal imports. The RunStore itself does not add cloud sync, network data ingestion, AI assist, simulation, facility operation, or command/control actions.
 
 ## Purpose
 
@@ -30,23 +30,24 @@ This directory is ignored by git. It is local output, not source code.
 
 RunStore records do not require an account, cloud service, external sync, or external data fetch.
 
-## Integrity, Locking, And Limits
+## Integrity, Locking, And Scale Boundaries
 
-The local RunStore is still a file-based MVP, but it now fails closed for the main corruption cases that can happen during notebook use.
+The local RunStore is still file-based, but it fails closed for the main corruption cases that can happen during notebook use.
 
 Writes and reads share a local `.openplazma/.write.lock` directory lock. The lock is re-entrant inside one thread, so internal read-after-write validation can run without deadlocking. Other threads or processes wait for the lock before reading or writing, which prevents readers from observing half-written `run.json`, `manifest.json`, `metrics.jsonl`, or `events.jsonl` state.
 
-The lock owner is recorded as `pid=<process id>`. A lock with a dead owner pid is treated as stale and cleared. A malformed lock owner is cleared only after a grace period. A live owner pid is not cleared automatically; callers wait until the lock is released or until the lock timeout is reached.
+The lock owner records host, process id, token, and creation time. A lock from the same host with a dead owner pid is treated as stale and cleared. A malformed lock owner is cleared only after a grace period. A live local owner pid is not cleared automatically; callers wait until the lock is released or until the lock timeout is reached. A lock from another host is not cleared by PID inference.
 
-The current local limits are:
+RunStore metadata is written to `.openplazma/runstore.json` and includes a stable `storeId`, backend kind, and local machine identity. New Run records can also carry `runGroupId`, `machineId`, and `partitionId` so multiple machines can produce collision-resistant records for one logical campaign.
 
-- metrics per Run: `100000`
-- artifacts per Run: `10000`
-- artifact file size: `64 MiB`
+OpenPlazma no longer treats fixed metric-count, artifact-count, or artifact-byte constants as correctness boundaries. Scaling must be expressed through backend policy and through bounded APIs:
 
-The SDK enforces these limits both when writing and when reading existing RunStore files. A RunStore that exceeds the limits is rejected instead of being partially loaded into memory.
+- `iter_metrics` and `iter_events` stream JSONL records.
+- `iter_runs` scans runs without forcing a full-store materialization.
+- `list_runs_page` returns stable cursor pages.
+- `list_run_group` and `summarize_run_group` group machine or partition runs for one logical campaign.
 
-JSON files are written through atomic replace. Multi-file Run mutations such as `log_metric`, `log_artifact`, `finish`, and `fail` snapshot the affected files and roll back if a later write step fails. JSONL files must end with a newline, and malformed or truncated JSONL records are rejected with an explicit validation error.
+JSON files are written through atomic replace. Multi-file Run mutations such as `log_metric`, `log_artifact`, `finish`, and `fail` snapshot the affected files and roll back if a later write step fails. JSONL files must end with a newline, malformed or truncated JSONL records are rejected with an explicit validation error, and artifact byte size plus SHA-256 metadata is validated on read.
 
 ## Directory Layout
 
@@ -54,6 +55,7 @@ Each Run is written as inspectable files:
 
 ```text
 .openplazma/
+  runstore.json
   runs/
     OPR-YYYYMMDD-000001/
       run.json
@@ -64,6 +66,13 @@ Each Run is written as inspectable files:
         experiment-context.json
         signal-series.json
         study-record.json
+      manifest.json
+    OPR-YYYYMMDD-node-a-abcdef123456/
+      run.json
+      config.json
+      metrics.jsonl
+      events.jsonl
+      artifacts/
       manifest.json
 ```
 
@@ -105,6 +114,12 @@ runs = op.list_runs()
 record = op.load_run(runs[0]["runId"])
 metrics = op.load_metrics(runs[0]["runId"])
 manifest = op.load_manifest(runs[0]["runId"])
+
+for metric in op.iter_metrics(runs[0]["runId"]):
+    ...
+
+page = op.list_runs_page(page_size=100)
+group_summary = op.summarize_run_group("will-o-wisp-campaign")
 ```
 
 See [Notebook tracking integration](notebook-tracking-integration.md) for the full local notebook workflow. See [Observatory UI MVP](observatory-mvp.md) for read-only local HTML inspection and [Observatory Compare MVP](observatory-compare-mvp.md) for comparing two local Runs.
@@ -168,6 +183,8 @@ OpenPlazma is read-only analysis and decision support. It can preserve evidence,
 - Local files only.
 - JSON and JSONL only.
 - File-based lock, not a database transaction log.
+- Multi-machine identity and collision-resistant IDs are recorded, but the default local filesystem backend is not a distributed workflow engine.
+- No fixed default metric, artifact, or byte-size cap; operational resource ceilings must be explicit backend or operator policy.
 - Read-only local Observatory export and two-Run compare page only.
 - No automatic repair of corrupted RunStore records.
 - No public data ingestion.

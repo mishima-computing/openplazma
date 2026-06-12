@@ -131,6 +131,23 @@ const diagnosticInstrumentRefSchema = z.object({
   calibration: diagnosticCalibrationSchema
 });
 
+const diagnosticArtifactSourceSchema = z.object({
+  sourceKind: z.enum([
+    "local_fixture",
+    "public_snapshot",
+    "derived_artifact",
+    "human_report",
+    "synthetic_fixture",
+    "unknown"
+  ]),
+  label: z.string().min(1),
+  uri: z.string().min(1).optional(),
+  artifactIds: z.array(z.string().min(1)).optional(),
+  signalIds: z.array(z.string().min(1)).optional(),
+  sha256: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+  limitations: z.array(z.string().min(1)).min(1)
+});
+
 const diagnosticContributionSchema = z.object({
   contributionKind: z.enum([
     "thermal_emission",
@@ -273,12 +290,49 @@ const diagnosticArtifactSchema = z.object({
   instrument: diagnosticInstrumentRefSchema.optional(),
   contributions: z.array(diagnosticContributionSchema).optional(),
   frequencyAnalyses: z.array(frequencyAnalysisSchema).optional(),
+  source: diagnosticArtifactSourceSchema.optional(),
   sourceUri: z.string().min(1).optional(),
   signalIds: z.array(z.string().min(1)).optional(),
   quantity: z.string().min(1).optional(),
   unit: z.string().min(1).optional(),
   description: z.string().min(1),
   limitations: z.array(z.string().min(1)).min(1)
+});
+
+const observationStatementSchema = z.object({
+  kind: z.literal("openplazma.observation_statement"),
+  version: versionSchema,
+  readoutId: z.string().min(1),
+  artifactId: z.string().min(1),
+  signalId: z.string().min(1).optional(),
+  targetRegionId: z.string().min(1).optional(),
+  observable: measuredObservableSchema,
+  readoutKind: z.enum([
+    "raw_sample",
+    "summary_statistic",
+    "frequency_band",
+    "frequency_peak",
+    "spectral_feature",
+    "image_feature",
+    "thermal_feature",
+    "field_feature",
+    "particle_count",
+    "absence_statement",
+    "human_report",
+    "model_readout",
+    "unknown"
+  ]),
+  method: z.string().min(1),
+  selector: z.string().min(1).optional(),
+  timeRange: z.tuple([z.number().finite(), z.number().finite()]).optional(),
+  value: z.number().finite().optional(),
+  textValue: z.string().min(1).optional(),
+  unit: z.string().min(1).optional(),
+  status: z.enum(["detected", "not_detected", "candidate", "inconclusive", "unknown"]),
+  uncertainty: z.string().min(1).optional(),
+  assumptions: z.array(z.string().min(1)),
+  limitations: z.array(z.string().min(1)).min(1),
+  alternatives: z.array(z.string().min(1))
 });
 
 const fusionStatusSchema = z.enum([
@@ -337,8 +391,10 @@ const conditionEstimateSchema = z.object({
   unit: z.string().min(1).optional(),
   method: z.string().min(1).optional(),
   evidenceArtifactIds: z.array(z.string().min(1)),
+  evidenceReadoutIds: z.array(z.string().min(1)).optional(),
   assumptions: z.array(z.string().min(1)),
-  limitations: z.array(z.string().min(1))
+  limitations: z.array(z.string().min(1)),
+  alternatives: z.array(z.string().min(1)).optional()
 });
 
 export const fusionConditionAssessmentSchema = z
@@ -402,9 +458,61 @@ const investigationClaimSchema = z.object({
   statement: z.string().min(1),
   status: z.enum(["support", "contradict", "inconclusive", "untested"]),
   evidenceArtifactIds: z.array(z.string().min(1)),
+  evidenceReadoutIds: z.array(z.string().min(1)).optional(),
+  method: z.string().min(1).optional(),
   assumptions: z.array(z.string().min(1)),
-  limitations: z.array(z.string().min(1))
+  limitations: z.array(z.string().min(1)),
+  alternatives: z.array(z.string().min(1)).optional()
 });
+
+function normalizedStatement(statement: string): string {
+  return statement.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function readsAsPositiveIdentityClaim(claim: z.infer<typeof investigationClaimSchema>): boolean {
+  if (claim.status !== "support") {
+    return false;
+  }
+  const statement = normalizedStatement(claim.statement);
+  const negativeMarkers = [
+    "does not support",
+    "unsupported",
+    "untested",
+    "not proof",
+    "not prove",
+    "cannot identify",
+    "cannot prove",
+    "insufficient",
+    "remains untested"
+  ];
+  if (negativeMarkers.some((marker) => statement.includes(marker))) {
+    return false;
+  }
+  if (statement.includes("prove") || statement.includes("proof")) {
+    return true;
+  }
+  if (statement.includes(" is plasma") || statement.includes(" is fusion") || statement.includes("fusion is occurring")) {
+    return true;
+  }
+  return claim.claimType === "plasma_presence" || claim.claimType === "source_identity";
+}
+
+function checkReadoutRefs(
+  readoutIds: Set<string>,
+  ids: string[] | undefined,
+  path: Array<string | number>,
+  ctx: z.RefinementCtx
+): void {
+  for (const readoutId of ids ?? []) {
+    if (!readoutIds.has(readoutId)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `references unknown mediated readout '${readoutId}'`,
+        path
+      });
+    }
+  }
+}
 
 function checkArtifactRefs(
   artifactIds: Set<string>,
@@ -432,12 +540,16 @@ export const investigationPackageSchema = z
     target: investigationTargetSchema,
     questions: z.array(investigationQuestionSchema).min(1),
     artifacts: z.array(diagnosticArtifactSchema),
+    observations: z.array(observationStatementSchema).optional(),
     fusionAssessment: fusionConditionAssessmentSchema,
     claims: z.array(investigationClaimSchema),
     limitations: z.array(z.string().min(1)).min(1)
   })
   .superRefine((pack, ctx) => {
     const artifactIds = new Set<string>();
+    const artifactById = new Map<string, (typeof pack.artifacts)[number]>();
+    const readoutIds = new Set<string>();
+    const readoutById = new Map<string, NonNullable<typeof pack.observations>[number]>();
     const regionIds = new Set((pack.target.regions ?? []).map((region) => region.regionId));
     for (const [index, region] of (pack.target.regions ?? []).entries()) {
       if (region.parentRegionId !== undefined && !regionIds.has(region.parentRegionId)) {
@@ -457,11 +569,45 @@ export const investigationPackageSchema = z
         });
       }
       artifactIds.add(artifact.artifactId);
+      artifactById.set(artifact.artifactId, artifact);
       if (artifact.targetRegionId !== undefined && !regionIds.has(artifact.targetRegionId)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: `diagnostic artifact '${artifact.artifactId}' references unknown target region '${artifact.targetRegionId}'`,
           path: ["artifacts", index, "targetRegionId"]
+        });
+      }
+    }
+    for (const [index, readout] of (pack.observations ?? []).entries()) {
+      if (readoutIds.has(readout.readoutId)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `duplicate mediated readout id '${readout.readoutId}'`,
+          path: ["observations", index, "readoutId"]
+        });
+      }
+      readoutIds.add(readout.readoutId);
+      readoutById.set(readout.readoutId, readout);
+      if (!artifactIds.has(readout.artifactId)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `mediated readout '${readout.readoutId}' references unknown diagnostic artifact '${readout.artifactId}'`,
+          path: ["observations", index, "artifactId"]
+        });
+      }
+      if (readout.targetRegionId !== undefined && !regionIds.has(readout.targetRegionId)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `mediated readout '${readout.readoutId}' references unknown target region '${readout.targetRegionId}'`,
+          path: ["observations", index, "targetRegionId"]
+        });
+      }
+      const artifact = artifactById.get(readout.artifactId);
+      if (artifact?.signalIds !== undefined && readout.signalId !== undefined && !artifact.signalIds.includes(readout.signalId)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `mediated readout '${readout.readoutId}' references signal '${readout.signalId}' outside artifact '${readout.artifactId}'`,
+          path: ["observations", index, "signalId"]
         });
       }
     }
@@ -472,6 +618,36 @@ export const investigationPackageSchema = z
         ["fusionAssessment", "observedOrInferredConditions", index, "evidenceArtifactIds"],
         ctx
       );
+      checkReadoutRefs(
+        readoutIds,
+        estimate.evidenceReadoutIds,
+        ["fusionAssessment", "observedOrInferredConditions", index, "evidenceReadoutIds"],
+        ctx
+      );
+      if (
+        ["measured", "inferred", "bounded", "contradicted"].includes(estimate.status) &&
+        (estimate.evidenceReadoutIds ?? []).length === 0
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "observed or inferred fusion conditions require mediated readout evidence",
+          path: ["fusionAssessment", "observedOrInferredConditions", index, "evidenceReadoutIds"]
+        });
+      }
+      if (["measured", "inferred", "bounded", "contradicted"].includes(estimate.status) && estimate.method === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "observed or inferred fusion conditions require a method",
+          path: ["fusionAssessment", "observedOrInferredConditions", index, "method"]
+        });
+      }
+      if (["measured", "inferred", "bounded", "contradicted"].includes(estimate.status) && estimate.alternatives === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "observed or inferred fusion conditions require alternatives",
+          path: ["fusionAssessment", "observedOrInferredConditions", index, "alternatives"]
+        });
+      }
     }
     for (const [index, estimate] of pack.fusionAssessment.requiredConditions.entries()) {
       checkArtifactRefs(
@@ -480,9 +656,87 @@ export const investigationPackageSchema = z
         ["fusionAssessment", "requiredConditions", index, "evidenceArtifactIds"],
         ctx
       );
+      checkReadoutRefs(
+        readoutIds,
+        estimate.evidenceReadoutIds,
+        ["fusionAssessment", "requiredConditions", index, "evidenceReadoutIds"],
+        ctx
+      );
     }
     for (const [index, claim] of pack.claims.entries()) {
       checkArtifactRefs(artifactIds, claim.evidenceArtifactIds, ["claims", index, "evidenceArtifactIds"], ctx);
+      checkReadoutRefs(readoutIds, claim.evidenceReadoutIds, ["claims", index, "evidenceReadoutIds"], ctx);
+      if (["support", "contradict"].includes(claim.status) && (claim.evidenceReadoutIds ?? []).length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `claim '${claim.claimId}' requires mediated readout evidence`,
+          path: ["claims", index, "evidenceReadoutIds"]
+        });
+      }
+      if (["support", "contradict"].includes(claim.status) && claim.method === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `claim '${claim.claimId}' requires an interpretation method`,
+          path: ["claims", index, "method"]
+        });
+      }
+      if (["support", "contradict"].includes(claim.status) && claim.alternatives === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `claim '${claim.claimId}' requires alternatives`,
+          path: ["claims", index, "alternatives"]
+        });
+      }
+      const statement = normalizedStatement(claim.statement);
+      if (
+        /(\bno\b|\bnot\b).*(observed|detected).*(therefore|so).*(absent|no fusion|not fusion)/.test(statement) ||
+        /no .* (observed|detected).*therefore/.test(statement)
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "absence-only reasoning cannot establish absence without diagnostic adequacy",
+          path: ["claims", index, "statement"]
+        });
+      }
+      if (readsAsPositiveIdentityClaim(claim)) {
+        const readouts = (claim.evidenceReadoutIds ?? []).map((readoutId) => readoutById.get(readoutId)).filter((value) => value !== undefined);
+        const evidenceArtifacts = new Set<string>(claim.evidenceArtifactIds);
+        for (const readout of readouts) {
+          evidenceArtifacts.add(readout.artifactId);
+        }
+        const artifacts = [...evidenceArtifacts].map((artifactId) => artifactById.get(artifactId)).filter((value) => value !== undefined);
+        const allHumanEye = artifacts.length > 0 && artifacts.every((artifact) => artifact.instrument?.instrumentKind === "human_eye");
+        const allVisibleOnly =
+          readouts.length > 0 &&
+          readouts.every((readout) => readout.observable === "visible_light") &&
+          artifacts.every((artifact) => (artifact.instrument?.observables ?? ["visible_light"]).every((observable) => observable === "visible_light"));
+        const allSynthetic =
+          artifacts.length > 0 &&
+          artifacts.every(
+            (artifact) => artifact.provenanceKind === "synthetic" || artifact.instrument?.instrumentKind === "simulation_diagnostic"
+          );
+        if (allHumanEye) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "human-eye evidence alone cannot support a positive plasma, fusion, or source-identity claim",
+            path: ["claims", index, "evidenceReadoutIds"]
+          });
+        }
+        if (allSynthetic || statement.includes("simulation observed")) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "simulation output cannot be treated as direct observation of a physical phenomenon",
+            path: ["claims", index, "evidenceReadoutIds"]
+          });
+        }
+        if (allVisibleOnly) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "visible light alone cannot support a positive plasma, fusion, or source-identity claim",
+            path: ["claims", index, "evidenceReadoutIds"]
+          });
+        }
+      }
     }
   });
 
@@ -550,6 +804,7 @@ export const investigationSessionSchema = z
       });
     }
     const sessionArtifactIds = new Set(session.package.artifacts.map((artifact) => artifact.artifactId));
+    const sessionReadoutIds = new Set((session.package.observations ?? []).map((readout) => readout.readoutId));
     for (const [index, report] of session.reports.entries()) {
       if (report.packageId !== session.package.packageId) {
         ctx.addIssue({
@@ -563,6 +818,12 @@ export const investigationSessionSchema = z
           sessionArtifactIds,
           claim.evidenceArtifactIds,
           ["reports", index, "claims", claimIndex, "evidenceArtifactIds"],
+          ctx
+        );
+        checkReadoutRefs(
+          sessionReadoutIds,
+          claim.evidenceReadoutIds,
+          ["reports", index, "claims", claimIndex, "evidenceReadoutIds"],
           ctx
         );
       }

@@ -1407,7 +1407,10 @@
           0.08,
           0.082
         ],
-        "signalId": "greenwald-fraction"
+        "signalId": "greenwald-fraction",
+        "evidenceReadoutIds": [
+          "dlimit-readout"
+        ]
       },
       {
         "kind": "openplazma.phenomenon_event",
@@ -1419,7 +1422,10 @@
           0.082,
           0.09
         ],
-        "signalId": "radiated-fraction"
+        "signalId": "radiated-fraction",
+        "evidenceReadoutIds": [
+          "rad-collapse-readout"
+        ]
       },
       {
         "kind": "openplazma.phenomenon_event",
@@ -1431,7 +1437,10 @@
           0.09,
           0.098
         ],
-        "signalId": "plasma-current"
+        "signalId": "plasma-current",
+        "evidenceReadoutIds": [
+          "quench-readout"
+        ]
       }
     ],
     "observationModels": [],
@@ -1457,7 +1466,18 @@
               0.06,
               0.09
             ],
-            "rationale": "n/nGW crosses 1.0 just before the collapse."
+            "rationale": "n/nGW crosses 1.0 just before the collapse.",
+            "readoutId": "claim-density-limit-evidence-1-readout",
+            "method": "signal_trace_review",
+            "assumptions": [],
+            "limitations": [
+              "Mediated evidence link; not direct phenomenon observation."
+            ],
+            "alternatives": [
+              "threshold selection",
+              "signal coupling",
+              "annotation uncertainty"
+            ]
           },
           {
             "kind": "openplazma.evidence_link",
@@ -1468,7 +1488,18 @@
               0.06,
               0.09
             ],
-            "rationale": "Radiated power fraction reaches ~1.0 (radiative collapse)."
+            "rationale": "Radiated power fraction reaches ~1.0 (radiative collapse).",
+            "readoutId": "claim-density-limit-evidence-2-readout",
+            "method": "signal_trace_review",
+            "assumptions": [],
+            "limitations": [
+              "Mediated evidence link; not direct phenomenon observation."
+            ],
+            "alternatives": [
+              "threshold selection",
+              "signal coupling",
+              "annotation uncertainty"
+            ]
           },
           {
             "kind": "openplazma.evidence_link",
@@ -1479,8 +1510,174 @@
               0,
               0.06
             ],
-            "rationale": "The early flat-top phase alone does not predict the disruption."
+            "rationale": "The early flat-top phase alone does not predict the disruption.",
+            "readoutId": "claim-density-limit-evidence-3-readout",
+            "method": "signal_trace_review",
+            "assumptions": [],
+            "limitations": [
+              "Mediated evidence link; not direct phenomenon observation."
+            ],
+            "alternatives": [
+              "threshold selection",
+              "signal coupling",
+              "annotation uncertainty"
+            ]
           }
+        ]
+      }
+    ],
+    "readouts": [
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "dlimit-readout",
+        "readoutKind": "event_detection",
+        "observable": "density",
+        "signalId": "greenwald-fraction",
+        "eventId": "dlimit",
+        "method": "event_time_annotation",
+        "status": "detected",
+        "timeRange": [
+          0.08,
+          0.082
+        ],
+        "assumptions": [
+          "Event timing is derived from fixture signals."
+        ],
+        "limitations": [
+          "Event labels are mediated annotations, not direct phenomenon evidence."
+        ],
+        "alternatives": [
+          "threshold selection",
+          "signal coupling",
+          "annotation uncertainty"
+        ]
+      },
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "rad-collapse-readout",
+        "readoutKind": "event_detection",
+        "observable": "radiation",
+        "signalId": "radiated-fraction",
+        "eventId": "rad-collapse",
+        "method": "event_time_annotation",
+        "status": "detected",
+        "timeRange": [
+          0.082,
+          0.09
+        ],
+        "assumptions": [
+          "Event timing is derived from fixture signals."
+        ],
+        "limitations": [
+          "Event labels are mediated annotations, not direct phenomenon evidence."
+        ],
+        "alternatives": [
+          "threshold selection",
+          "signal coupling",
+          "annotation uncertainty"
+        ]
+      },
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "quench-readout",
+        "readoutKind": "event_detection",
+        "observable": "electric_current",
+        "signalId": "plasma-current",
+        "eventId": "quench",
+        "method": "event_time_annotation",
+        "status": "detected",
+        "timeRange": [
+          0.09,
+          0.098
+        ],
+        "assumptions": [
+          "Event timing is derived from fixture signals."
+        ],
+        "limitations": [
+          "Event labels are mediated annotations, not direct phenomenon evidence."
+        ],
+        "alternatives": [
+          "threshold selection",
+          "signal coupling",
+          "annotation uncertainty"
+        ]
+      },
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "claim-density-limit-evidence-1-readout",
+        "readoutKind": "event_detection",
+        "observable": "density",
+        "signalId": "greenwald-fraction",
+        "method": "signal_trace_review",
+        "status": "detected",
+        "timeRange": [
+          0.06,
+          0.09
+        ],
+        "assumptions": [
+          "Signal trace is reviewed as mediated evidence."
+        ],
+        "limitations": [
+          "Signal trace evidence is not a bare phenomenon label."
+        ],
+        "alternatives": [
+          "threshold selection",
+          "signal coupling",
+          "annotation uncertainty"
+        ]
+      },
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "claim-density-limit-evidence-2-readout",
+        "readoutKind": "event_detection",
+        "observable": "radiation",
+        "signalId": "radiated-fraction",
+        "method": "signal_trace_review",
+        "status": "detected",
+        "timeRange": [
+          0.06,
+          0.09
+        ],
+        "assumptions": [
+          "Signal trace is reviewed as mediated evidence."
+        ],
+        "limitations": [
+          "Signal trace evidence is not a bare phenomenon label."
+        ],
+        "alternatives": [
+          "threshold selection",
+          "signal coupling",
+          "annotation uncertainty"
+        ]
+      },
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "claim-density-limit-evidence-3-readout",
+        "readoutKind": "event_detection",
+        "observable": "electric_current",
+        "signalId": "plasma-current",
+        "method": "signal_trace_review",
+        "status": "inconclusive",
+        "timeRange": [
+          0,
+          0.06
+        ],
+        "assumptions": [
+          "Signal trace is reviewed as mediated evidence."
+        ],
+        "limitations": [
+          "Signal trace evidence is not a bare phenomenon label."
+        ],
+        "alternatives": [
+          "threshold selection",
+          "signal coupling",
+          "annotation uncertainty"
         ]
       }
     ]
