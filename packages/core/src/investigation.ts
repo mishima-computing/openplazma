@@ -384,9 +384,16 @@ export interface InvestigationFixtureManifest {
   version: "0.1.0";
   provider: "STATIC_FIXTURE";
   datasetId: string;
-  packages: Array<{
-    packageId: string;
-    title: string;
-    path: string;
-  }>;
+  packages: InvestigationPackageMetadata[];
+}
+
+export interface InvestigationPackageMetadata {
+  packageId: string;
+  title: string;
+  path: string;
+}
+
+export interface InvestigationDataSource {
+  listInvestigationPackages(): Promise<InvestigationPackageMetadata[]>;
+  getInvestigationPackage(packageId: string): Promise<InvestigationPackage | null>;
 }

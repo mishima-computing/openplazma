@@ -290,3 +290,13 @@ The fixture manifest is intentionally separate from the shot manifest. Shot
 fixtures carry signal records for the Real Signal Room; investigation fixtures
 carry evidence packages for unknown-energy reasoning. Both use repo-root
 relative paths and `STATIC_FIXTURE` provenance.
+
+`StaticFixtureDataSource` exposes these packages through:
+
+```text
+listInvestigationPackages()
+getInvestigationPackage(packageId)
+```
+
+This keeps investigation package loading read-only and fixture-backed until a
+future ADR approves external data sources.
