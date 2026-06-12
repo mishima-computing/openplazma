@@ -66,6 +66,9 @@ importers:
       '@openplazma/core':
         specifier: workspace:*
         version: link:../core
+      '@openplazma/schema':
+        specifier: workspace:*
+        version: link:../schema
 
   packages/core: {}
 

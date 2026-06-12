@@ -71,6 +71,12 @@ export class StaticFixtureDataSource implements FusionDataSource, InvestigationD
       }
       this.investigationPackages.set(pack.packageId, pack);
     }
+    const manifestPackageIds = new Set(this.investigationManifest.packages.map((entry) => entry.packageId));
+    for (const packageId of this.investigationPackages.keys()) {
+      if (!manifestPackageIds.has(packageId)) {
+        throw new Error(`unregistered investigation package '${packageId}'`);
+      }
+    }
     for (const entry of this.investigationManifest.packages) {
       const pack = this.investigationPackages.get(entry.packageId);
       if (pack === undefined) {

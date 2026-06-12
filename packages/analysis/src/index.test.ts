@@ -561,6 +561,27 @@ describe("mixed-signal diagnostic assessment", () => {
     ).toThrow("unknown diagnostic artifact");
   });
 
+  it("rejects package inputs outside the canonical schema shape", () => {
+    expect(() =>
+      buildInvestigationPackage({
+        packageId: "",
+        title: "",
+        target: {
+          kind: "openplazma.investigation_target",
+          version: "0.1.0",
+          targetId: "bad-package-target",
+          targetKind: "unknown",
+          label: "Bad package target",
+          description: "Bad package target.",
+          candidateEnergySources: ["unknown"],
+          limitations: ["Bad package fixture."]
+        },
+        questions: [],
+        limitations: []
+      })
+    ).toThrow("packageId");
+  });
+
   it("rejects invalid investigation session initialization contracts", () => {
     const claim = {
       kind: "openplazma.investigation_claim" as const,
@@ -599,6 +620,14 @@ describe("mixed-signal diagnostic assessment", () => {
 
     expect(() =>
       createInvestigationSession({
+        sessionId: "",
+        package: pack,
+        createdAt: "2026-06-13T00:00:00.000Z"
+      })
+    ).toThrow("sessionId");
+
+    expect(() =>
+      createInvestigationSession({
         sessionId: "session-reported-without-report",
         package: pack,
         status: "reported",
@@ -616,12 +645,41 @@ describe("mixed-signal diagnostic assessment", () => {
 
     expect(() =>
       createInvestigationSession({
+        sessionId: "session-impossible-created-at",
+        package: pack,
+        createdAt: "2026-02-31T00:00:00.000Z"
+      })
+    ).toThrow("createdAt");
+
+    expect(() =>
+      createInvestigationSession({
         sessionId: "session-bad-updated-at",
         package: pack,
         createdAt: "2026-06-13T00:00:00.000Z",
         updatedAt: "today"
       })
     ).toThrow("updatedAt");
+
+    expect(() =>
+      createInvestigationSession({
+        sessionId: "session-bad-initial-report-id",
+        package: pack,
+        createdAt: "2026-06-13T00:00:00.000Z",
+        reports: [
+          {
+            kind: "openplazma.investigation_report",
+            version: "0.1.0",
+            reportId: "",
+            packageId: "session-contract-test",
+            createdAt: "2026-06-13T00:00:00.000Z",
+            claims: [claim],
+            assumptions: [],
+            limitations: ["Report ID must be non-empty."],
+            nextObservations: []
+          }
+        ]
+      })
+    ).toThrow("reportId");
 
     expect(() =>
       createInvestigationSession({
@@ -703,6 +761,55 @@ describe("mixed-signal diagnostic assessment", () => {
         "today"
       )
     ).toThrow("updatedAt");
+  });
+
+  it("rejects generated reports outside the canonical schema shape", () => {
+    const claim = {
+      kind: "openplazma.investigation_claim" as const,
+      version: "0.1.0" as const,
+      claimId: "claim-eye",
+      claimType: "source_identity" as const,
+      statement: "The eye report is evidence.",
+      status: "inconclusive" as const,
+      evidenceArtifactIds: ["eye-report"],
+      assumptions: [],
+      limitations: []
+    };
+    const pack = buildInvestigationPackage({
+      packageId: "report-contract-test",
+      title: "Report contract test",
+      target: {
+        kind: "openplazma.investigation_target",
+        version: "0.1.0",
+        targetId: "report-contract-target",
+        targetKind: "unknown",
+        label: "Report contract target",
+        description: "Report contract target.",
+        candidateEnergySources: ["unknown"],
+        limitations: ["Report fixture."]
+      },
+      questions: [
+        {
+          questionId: "q-source",
+          questionKind: "energy_source_classification",
+          text: "What source is supported?"
+        }
+      ],
+      artifacts: [humanEyeArtifact()],
+      claims: [claim]
+    });
+    const session = createInvestigationSession({
+      sessionId: "session-report-contract",
+      package: pack,
+      createdAt: "2026-06-13T00:00:00.000Z"
+    });
+
+    expect(() => createInvestigationSessionReport(session, { reportId: "" })).toThrow("reportId");
+    expect(() =>
+      createInvestigationSessionReport(session, {
+        createdAt: "2026-02-31T00:00:00.000Z"
+      })
+    ).toThrow("createdAt");
   });
 
   it("rejects session claims and reports that reference the wrong evidence boundary", () => {

@@ -186,4 +186,28 @@ describe("StaticFixtureDataSource", () => {
         )
     ).toThrow("manifest title");
   });
+
+  it("fails fast when supplied investigation packages are not registered in the manifest", () => {
+    expect(
+      () =>
+        new StaticFixtureDataSource(
+          [],
+          undefined,
+          [willOWispInvestigationPackage, organismInteriorInvestigationPackage],
+          {
+            kind: "openplazma.investigation_fixture_manifest",
+            version: "0.1.0",
+            provider: "STATIC_FIXTURE",
+            datasetId: "broken",
+            packages: [
+              {
+                packageId: "will-o-wisp-001",
+                title: "Will-o'-the-wisp first anomaly",
+                path: "data/fixtures/static/investigations/will-o-wisp-001/investigation-package.json"
+              }
+            ]
+          }
+        )
+    ).toThrow("unregistered investigation package");
+  });
 });
