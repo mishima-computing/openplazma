@@ -262,6 +262,79 @@ def test_load_manifest_rejects_content_addressed_blob_digest_mismatch(tmp_path: 
         op.load_manifest(run.run_id, run_store=run_store)
 
 
+def test_merge_run_store_copies_runs_and_content_addressed_blobs(tmp_path: Path):
+    source_store = tmp_path / "source" / ".openplazma"
+    target_store = tmp_path / "target" / ".openplazma"
+    source_file = tmp_path / "source-signal.bin"
+    source_file.write_bytes(b"source-signal" * 32)
+    run = op.start_run(
+        project="openplazma-demo",
+        campaign="merge-source",
+        run_type="notebook_analysis",
+        context=sample_context(),
+        run_store=source_store,
+        machine_id="source-node",
+    )
+    artifact = run.log_artifact("large_signal", "signal_blob", source_file, content_addressed=True)
+    run.log_metric("source_metric", 1)
+
+    summary = op.merge_run_store(source_store, target_store)
+
+    assert summary["copiedRunIds"] == [run.run_id]
+    assert summary["copiedRunCount"] == 1
+    assert summary["copiedBlobCount"] == 1
+    assert op.load_run(run.run_id, run_store=target_store)["metricCount"] == 1
+    assert op.load_artifact_blob(artifact, run_store=target_store).read_bytes() == source_file.read_bytes()
+
+
+def test_merge_run_store_is_idempotent_for_identical_runs(tmp_path: Path):
+    source_store = tmp_path / "source" / ".openplazma"
+    target_store = tmp_path / "target" / ".openplazma"
+    run = op.start_run(
+        project="openplazma-demo",
+        campaign="merge-source",
+        run_type="notebook_analysis",
+        context=sample_context(),
+        run_store=source_store,
+        machine_id="source-node",
+    )
+    run.log_artifact("large_json", "summary_blob", {"value": 1}, content_addressed=True)
+
+    first = op.merge_run_store(source_store, target_store)
+    second = op.merge_run_store(source_store, target_store)
+
+    assert first["copiedRunCount"] == 1
+    assert second["copiedRunCount"] == 0
+    assert second["skippedRunIds"] == [run.run_id]
+    assert second["skippedBlobCount"] == 1
+
+
+def test_merge_run_store_rejects_run_id_collision_without_overwrite(tmp_path: Path):
+    source_store = tmp_path / "source" / ".openplazma"
+    target_store = tmp_path / "target" / ".openplazma"
+    source = op.start_run(
+        project="openplazma-demo",
+        campaign="source",
+        run_type="notebook_analysis",
+        context=sample_context(),
+        run_store=source_store,
+    )
+    target = op.start_run(
+        project="openplazma-demo",
+        campaign="target",
+        run_type="notebook_analysis",
+        context=sample_context(),
+        run_store=target_store,
+    )
+    assert source.run_id == target.run_id
+    target.log_metric("target_metric", 2)
+
+    with pytest.raises(ValueError, match="overwrite existing run id"):
+        op.merge_run_store(source_store, target_store)
+
+    assert [metric["name"] for metric in op.load_metrics(target.run_id, run_store=target_store)] == ["target_metric"]
+
+
 def test_log_artifact_accepts_nested_json_metadata(tmp_path: Path):
     run = op.start_run(
         project="openplazma-demo",

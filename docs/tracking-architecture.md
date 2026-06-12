@@ -154,6 +154,8 @@ The local filesystem backend is a safe default and compatibility layer. It recor
 
 Content-addressed blobs are the local bridge between small inspectable JSON records and large evidence payloads. The manifest keeps metadata, checksums, sizes, and blob references; the blob store owns immutable bytes. This prevents large signals or derived arrays from being forced into one JSON manifest while preserving read-only provenance and digest validation.
 
+Multiple local RunStores can be merged after offline or machine-scoped work. Merge copies missing Run directories and content-addressed blobs, skips byte-identical Run directories, and rejects colliding Run IDs with different bytes. It does not silently overwrite or remap historical evidence.
+
 See [Local RunStore MVP](runstore-mvp.md), [Notebook tracking integration](notebook-tracking-integration.md), [StudyTask layer](studytask_layer.md), [Guided StudyFlow](guided-study-flow.md), [Observatory UI MVP](observatory-mvp.md), and [Observatory Compare MVP](observatory-compare-mvp.md) for Python API examples and current limitations.
 
 See [Observation Model Direction](observation-model.md) for the future implementation policy around theory, diagnostics, raw signals, derived signals, inference, claims, simulator sweeps, and evidence links.

@@ -47,6 +47,7 @@ OpenPlazma no longer treats fixed metric-count, artifact-count, or artifact-byte
 - `list_runs_page` returns stable cursor pages.
 - `list_run_group` and `summarize_run_group` group machine or partition runs for one logical campaign.
 - content-addressed artifact blobs store large payload bytes once under `.openplazma/blobs/sha256/...`, while Run manifests keep small artifact records and pointer files.
+- `merge_run_store` imports another local RunStore without overwriting colliding Run IDs; identical run trees are skipped, different run trees fail closed.
 
 JSON files are written through atomic replace. Multi-file Run mutations such as `log_metric`, `log_artifact`, `finish`, and `fail` snapshot the affected files and roll back if a later write step fails. JSONL files must end with a newline, malformed or truncated JSONL records are rejected with an explicit validation error, and artifact byte size plus SHA-256 metadata is validated on read.
 
@@ -137,6 +138,8 @@ artifact = run.log_artifact(
     media_type="application/octet-stream",
 )
 blob_path = op.load_artifact_blob(artifact)
+
+merge_summary = op.merge_run_store("worker-a/.openplazma", ".openplazma")
 ```
 
 See [Notebook tracking integration](notebook-tracking-integration.md) for the full local notebook workflow. See [Observatory UI MVP](observatory-mvp.md) for read-only local HTML inspection and [Observatory Compare MVP](observatory-compare-mvp.md) for comparing two local Runs.
@@ -203,6 +206,7 @@ OpenPlazma is read-only analysis and decision support. It can preserve evidence,
 - Multi-machine identity and collision-resistant IDs are recorded, but the default local filesystem backend is not a distributed workflow engine.
 - No fixed default metric, artifact, or byte-size cap; operational resource ceilings must be explicit backend or operator policy.
 - Content-addressed blobs deduplicate and validate large artifact bytes, but the local filesystem backend is still not an object-store ledger or repair engine.
+- Local RunStore merge rejects colliding Run IDs unless the run directories are byte-identical; it does not remap historical IDs.
 - Read-only local Observatory export and two-Run compare page only.
 - No automatic repair of corrupted RunStore records.
 - No public data ingestion.
