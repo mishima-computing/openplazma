@@ -29,3 +29,6 @@ jobs:
       - name: Test
         working-directory: python/openplazma
         run: python -m pytest
+
+      - name: Validate investigation fixtures
+        run: python scripts/validate-investigation-fixtures.py

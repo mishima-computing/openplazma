@@ -2,9 +2,10 @@
 
 OpenPlazma tutorials are guided missions for learning read-only plasma signal analysis, evidence logging, and comparison workflows.
 
-Available tutorial:
+Available tutorials:
 
 - [Read the Signal](read-the-signal/README.md)
+- [Investigate Will-o'-the-wisp](investigate-will-o-wisp.md)
 
 Workshop materials:
 
@@ -31,6 +32,7 @@ Local technical path:
 - Runs the Read the Signal guided StudyFlow locally.
 - Creates local Runs under `.openplazma/`.
 - Exports local Observatory and Compare pages.
+- Creates local investigation reports under `.openplazma/investigation-reports/`.
 
 ## Mission Boundary
 

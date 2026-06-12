@@ -301,6 +301,27 @@ getInvestigationPackage(packageId)
 This keeps investigation package loading read-only and fixture-backed until a
 future ADR approves external data sources.
 
+The Python SDK exposes the same static package path for notebooks and local
+scripts:
+
+```python
+import openplazma as op
+
+package = op.load_static_investigation_package(repo_root, "will-o-wisp-001")
+summary = op.summarize_investigation_package(package)
+report = op.create_investigation_report(package)
+op.save_investigation_report(report, ".openplazma/investigation-reports/report.json", package=package)
+```
+
+For the first guided investigation path, see
+[Investigate Will-o'-the-wisp](tutorials/investigate-will-o-wisp.md).
+
+CI validates all static investigation packages and draft report shape with:
+
+```sh
+python scripts/validate-investigation-fixtures.py
+```
+
 `@openplazma/analysis` also provides read-only helpers for deriving
 `FrequencyAnalysis` objects from signal-shaped records:
 

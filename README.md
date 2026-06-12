@@ -28,6 +28,7 @@ Public readiness docs:
 - [Local signal import](docs/local-signal-import.md)
 - [Observation model direction](docs/observation-model.md)
 - [Investigation model](docs/investigation-model.md)
+- [Investigate Will-o'-the-wisp tutorial](docs/tutorials/investigate-will-o-wisp.md)
 - [Notebook tracking integration](docs/notebook-tracking-integration.md)
 - [StudyTask layer](docs/studytask_layer.md)
 - [Guided StudyFlow](docs/guided-study-flow.md)
@@ -84,6 +85,17 @@ python notebooks/examples/local_runstore_example.py
 This writes inspectable local files under `.openplazma/`, which is ignored by git.
 For the full local notebook tracking flow, see [Notebook tracking integration](docs/notebook-tracking-integration.md).
 
+Create a local Will-o'-the-wisp investigation report from a static evidence package:
+
+```sh
+python notebooks/examples/will_o_wisp_investigation_report.py
+```
+
+This writes a validated local report under `.openplazma/investigation-reports/`.
+It does not claim the luminous phenomenon is plasma or fusion; it records the
+evidence, limitations, and next diagnostics. See the
+[Investigate Will-o'-the-wisp tutorial](docs/tutorials/investigate-will-o-wisp.md).
+
 The first local StudyTask is Read the Signal. See [StudyTask layer](docs/studytask_layer.md).
 
 The first guided StudyFlow connects Read the Signal to local RunStore logging, Observatory export, and two-Run comparison. See [Guided StudyFlow](docs/guided-study-flow.md).
@@ -127,6 +139,7 @@ corepack pnpm typecheck
 corepack pnpm test
 (cd python/openplazma && python -m pytest)
 python scripts/check-public-repo-hygiene.py
+python scripts/validate-investigation-fixtures.py
 ```
 
 ## JupyterLite Workbench MVP
