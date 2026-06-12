@@ -521,6 +521,46 @@ describe("mixed-signal diagnostic assessment", () => {
     expect(reported.reports).toHaveLength(1);
   });
 
+  it("rejects package claims that reference evidence outside the package boundary", () => {
+    expect(() =>
+      buildInvestigationPackage({
+        packageId: "package-boundary-test",
+        title: "Package boundary test",
+        target: {
+          kind: "openplazma.investigation_target",
+          version: "0.1.0",
+          targetId: "package-boundary-target",
+          targetKind: "unknown",
+          label: "Package boundary target",
+          description: "Package boundary target.",
+          candidateEnergySources: ["unknown"],
+          limitations: ["Boundary fixture."]
+        },
+        questions: [
+          {
+            questionId: "q-source",
+            questionKind: "energy_source_classification",
+            text: "What source is supported?"
+          }
+        ],
+        artifacts: [humanEyeArtifact()],
+        claims: [
+          {
+            kind: "openplazma.investigation_claim",
+            version: "0.1.0",
+            claimId: "claim-missing-artifact",
+            claimType: "source_identity",
+            statement: "A missing artifact supports this claim.",
+            status: "support",
+            evidenceArtifactIds: ["missing-artifact"],
+            assumptions: [],
+            limitations: []
+          }
+        ]
+      })
+    ).toThrow("unknown diagnostic artifact");
+  });
+
   it("rejects session claims and reports that reference the wrong evidence boundary", () => {
     const pack = buildInvestigationPackage({
       packageId: "boundary-test",
@@ -563,6 +603,46 @@ describe("mixed-signal diagnostic assessment", () => {
         limitations: []
       })
     ).toThrow("unknown diagnostic artifact");
+
+    expect(() =>
+      recordInvestigationReport(session, {
+        kind: "openplazma.investigation_report",
+        version: "0.1.0",
+        reportId: "empty-claims-report",
+        packageId: "boundary-test",
+        createdAt: "2026-06-13T00:00:00.000Z",
+        claims: [],
+        assumptions: [],
+        limitations: ["Reports need at least one claim."],
+        nextObservations: []
+      })
+    ).toThrow("requires at least one claim");
+
+    expect(() =>
+      recordInvestigationReport(session, {
+        kind: "openplazma.investigation_report",
+        version: "0.1.0",
+        reportId: "bad-time-report",
+        packageId: "boundary-test",
+        createdAt: "today",
+        claims: [
+          {
+            kind: "openplazma.investigation_claim",
+            version: "0.1.0",
+            claimId: "claim-eye-bad-time",
+            claimType: "source_identity",
+            statement: "The eye report is evidence.",
+            status: "inconclusive",
+            evidenceArtifactIds: ["eye-report"],
+            assumptions: [],
+            limitations: []
+          }
+        ],
+        assumptions: [],
+        limitations: ["Report timestamp must be machine-readable."],
+        nextObservations: []
+      })
+    ).toThrow("createdAt");
 
     expect(() =>
       recordInvestigationReport(session, {

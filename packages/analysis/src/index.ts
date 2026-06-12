@@ -905,6 +905,28 @@ function assertClaimArtifactRefs(pack: InvestigationPackage, claim: Investigatio
   }
 }
 
+function assertIsoDateTime(value: string, name: string): void {
+  if (Number.isNaN(Date.parse(value)) || !/(?:Z|[+-]\d{2}:\d{2})$/.test(value)) {
+    throw new Error(`${name} must be an ISO datetime with timezone offset.`);
+  }
+}
+
+function assertInvestigationReportContract(pack: InvestigationPackage, report: InvestigationReport): void {
+  if (report.packageId !== pack.packageId) {
+    throw new Error("Investigation report packageId must match the session package.");
+  }
+  assertIsoDateTime(report.createdAt, "Investigation report createdAt");
+  if (report.claims.length === 0) {
+    throw new Error("Investigation report requires at least one claim.");
+  }
+  if (report.limitations.length === 0) {
+    throw new Error("Investigation report requires at least one limitation.");
+  }
+  for (const claim of report.claims) {
+    assertClaimArtifactRefs(pack, claim);
+  }
+}
+
 function deriveSessionStatus(pack: InvestigationPackage, reports: InvestigationReport[]): InvestigationSessionStatus {
   if (reports.length > 0) {
     return "reported";
@@ -926,7 +948,7 @@ function defaultNextObservations(session: InvestigationSession): string[] {
 }
 
 export function buildInvestigationPackage(input: BuildInvestigationPackageInput): InvestigationPackage {
-  return {
+  const pack: InvestigationPackage = {
     kind: "openplazma.investigation_package",
     version: "0.1.0",
     packageId: input.packageId,
@@ -938,6 +960,10 @@ export function buildInvestigationPackage(input: BuildInvestigationPackageInput)
     claims: input.claims ?? [],
     limitations: input.limitations ?? ["External investigation package; source-specific limitations must be reviewed."]
   };
+  for (const claim of pack.claims) {
+    assertClaimArtifactRefs(pack, claim);
+  }
+  return pack;
 }
 
 export function createInvestigationSession(input: CreateInvestigationSessionInput): InvestigationSession {
@@ -1004,7 +1030,7 @@ export function createInvestigationSessionReport(
   for (const claim of claims) {
     assertClaimArtifactRefs(session.package, claim);
   }
-  return {
+  const report: InvestigationReport = {
     kind: "openplazma.investigation_report",
     version: "0.1.0",
     reportId: options.reportId ?? `report-${session.sessionId}`,
@@ -1015,6 +1041,8 @@ export function createInvestigationSessionReport(
     limitations: options.limitations ?? [...session.limitations, ...session.package.limitations],
     nextObservations: options.nextObservations ?? defaultNextObservations(session)
   };
+  assertInvestigationReportContract(session.package, report);
+  return report;
 }
 
 export function recordInvestigationReport(
@@ -1022,12 +1050,8 @@ export function recordInvestigationReport(
   report: InvestigationReport,
   updatedAt: string = nowIso()
 ): InvestigationSession {
-  if (report.packageId !== session.package.packageId) {
-    throw new Error("Investigation report packageId must match the session package.");
-  }
-  for (const claim of report.claims) {
-    assertClaimArtifactRefs(session.package, claim);
-  }
+  assertInvestigationReportContract(session.package, report);
+  assertIsoDateTime(updatedAt, "Investigation session updatedAt");
   return {
     ...session,
     updatedAt,

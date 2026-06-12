@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { StaticFixtureDataSource } from "./index";
+import { organismInteriorInvestigationPackage, StaticFixtureDataSource, willOWispInvestigationPackage } from "./index";
 
 describe("StaticFixtureDataSource", () => {
   it("loads the bundled manifest and sample shot", async () => {
@@ -130,5 +130,36 @@ describe("StaticFixtureDataSource", () => {
           ]
         })
     ).toThrow("missing-investigation");
+  });
+
+  it("fails fast when supplied investigation packages contain duplicate package ids", () => {
+    expect(
+      () =>
+        new StaticFixtureDataSource(
+          [],
+          undefined,
+          [
+            willOWispInvestigationPackage,
+            {
+              ...organismInteriorInvestigationPackage,
+              packageId: willOWispInvestigationPackage.packageId,
+              title: "Duplicate will-o-wisp payload"
+            }
+          ],
+          {
+            kind: "openplazma.investigation_fixture_manifest",
+            version: "0.1.0",
+            provider: "STATIC_FIXTURE",
+            datasetId: "broken",
+            packages: [
+              {
+                packageId: "will-o-wisp-001",
+                title: "Will-o'-the-wisp first anomaly",
+                path: "data/fixtures/static/investigations/will-o-wisp-001/investigation-package.json"
+              }
+            ]
+          }
+        )
+    ).toThrow("duplicate investigation package id");
   });
 });
