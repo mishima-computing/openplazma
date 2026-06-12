@@ -11,6 +11,7 @@ import {
   analyzeTemporalFrequency,
   addDiagnosticArtifact,
   addInvestigationClaim,
+  addObservationStatement,
   assessDiagnosticArtifact,
   assessInvestigationMeasurements,
   assessInvestigationSession,
@@ -490,8 +491,25 @@ describe("mixed-signal diagnostic assessment", () => {
     });
 
     const withArtifact = addDiagnosticArtifact(session, humanEyeArtifact(), "2026-06-13T00:01:00.000Z");
-    const withClaim = addInvestigationClaim(
+    const withReadout = addObservationStatement(
       withArtifact,
+      {
+        kind: "openplazma.observation_statement",
+        version: "0.1.0",
+        readoutId: "eye-visible-readout",
+        artifactId: "eye-report",
+        observable: "visible_light",
+        readoutKind: "human_report",
+        method: "unaided_visual_report",
+        status: "candidate",
+        assumptions: ["The witness report is sincere."],
+        limitations: ["Human vision is not calibrated to separate source mechanisms."],
+        alternatives: ["thermal glow", "chemical luminescence", "reflection"]
+      },
+      "2026-06-13T00:01:30.000Z"
+    );
+    const withClaim = addInvestigationClaim(
+      withReadout,
       {
         kind: "openplazma.investigation_claim",
         version: "0.1.0",
@@ -500,8 +518,11 @@ describe("mixed-signal diagnostic assessment", () => {
         statement: "Visible testimony alone does not support a fusion claim.",
         status: "support",
         evidenceArtifactIds: ["eye-report"],
+        evidenceReadoutIds: ["eye-visible-readout"],
+        method: "evidence_gap_review",
         assumptions: [],
-        limitations: ["No particle product diagnostic is attached."]
+        limitations: ["No particle product diagnostic is attached."],
+        alternatives: ["chemical luminescence", "thermal emission", "reflection"]
       },
       "2026-06-13T00:02:00.000Z"
     );

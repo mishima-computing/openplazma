@@ -69,6 +69,8 @@ export interface PhenomenonEvent {
   label: string;
   timeRange: [number, number];
   signalId?: string | undefined;
+  producedByInferenceId?: string | undefined;
+  evidenceReadoutIds?: string[] | undefined;
   notes?: string | undefined;
 }
 
@@ -122,6 +124,50 @@ export interface RotationTrackPoint {
 
 export type InferenceMethod = "magnetic_mode_phase_fit";
 
+export type MhdReadoutKind =
+  | "phase_fit"
+  | "frequency_track"
+  | "threshold_crossing"
+  | "event_detection"
+  | "elm_detection"
+  | "model_readout"
+  | "manual_annotation"
+  | "unknown";
+
+export type MhdObservable =
+  | "magnetic_field"
+  | "electric_current"
+  | "loop_voltage"
+  | "radiation"
+  | "light_intensity"
+  | "stored_energy"
+  | "density"
+  | "motion"
+  | "unknown";
+
+export type MhdReadoutStatus = "detected" | "not_detected" | "candidate" | "inconclusive" | "unknown";
+
+export interface MhdObservationStatement {
+  kind: "openplazma.mhd_observation_statement";
+  version: "0.1.0";
+  readoutId: string;
+  readoutKind: MhdReadoutKind;
+  observable: MhdObservable;
+  signalId?: string | undefined;
+  arrayId?: string | undefined;
+  observationModelId?: string | undefined;
+  inferenceId?: string | undefined;
+  eventId?: string | undefined;
+  method: string;
+  status: MhdReadoutStatus;
+  timeRange?: [number, number] | undefined;
+  value?: number | undefined;
+  unit?: string | undefined;
+  assumptions: string[];
+  limitations: string[];
+  alternatives: string[];
+}
+
 export interface Inference {
   kind: "openplazma.inference";
   version: "0.1.0";
@@ -129,12 +175,14 @@ export interface Inference {
   label: string;
   method: InferenceMethod;
   sourceArrayId: string;
+  evidenceReadoutIds: string[];
   modeEstimate: ModeNumberEstimate;
   rotationTrack: RotationTrackPoint[];
   lockingDetected: boolean;
   lockTimeRange?: [number, number] | undefined;
   assumptions: string[];
   limitations: string[];
+  alternatives: string[];
 }
 
 export type EvidenceVerdict = "support" | "contradict" | "inconclusive";
@@ -145,8 +193,15 @@ export interface EvidenceLink {
   verdict: EvidenceVerdict;
   signalId?: string | undefined;
   arrayId?: string | undefined;
+  readoutId?: string | undefined;
+  inferenceId?: string | undefined;
+  eventId?: string | undefined;
+  method: string;
   timeRange: [number, number];
   rationale: string;
+  assumptions: string[];
+  limitations: string[];
+  alternatives: string[];
 }
 
 export interface Claim {
@@ -200,6 +255,7 @@ export interface MhdAnalysisBundle {
   events: PhenomenonEvent[];
   observationModels: ObservationModel[];
   inferences: Inference[];
+  readouts?: MhdObservationStatement[] | undefined;
   claims: Claim[];
   provenanceKind: DataProvenanceKind;
   elmAnalyses?: ElmAnalysis[] | undefined;

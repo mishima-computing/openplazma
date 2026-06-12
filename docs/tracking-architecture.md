@@ -106,10 +106,11 @@ Capabilities are safety and boundary metadata, not UI toggles.
 
 ## Local-First RunStore Direction
 
-The first RunStore MVP uses inspectable local files:
+The first RunStore backend uses inspectable local files:
 
 ```text
 .openplazma/
+  runstore.json
   runs/
     OPR-YYYYMMDD-000001/
       run.json
@@ -122,15 +123,29 @@ The first RunStore MVP uses inspectable local files:
         study-record.json
         plot.png
       manifest.json
+    OPR-YYYYMMDD-node-a-abcdef123456/
+      run.json
+      config.json
+      metrics.jsonl
+      events.jsonl
+      artifacts/
+      manifest.json
 ```
 
 Direction:
 
 - JSON and JSONL first.
 - Inspectable by default.
-- No binary-first run format in the MVP.
-- No cloud dependency in the MVP.
-- No account required in the MVP.
+- Collision-resistant Run IDs for machine-scoped writers.
+- `storeId`, `machineId`, `runGroupId`, and `partitionId` on Run records when scale-out workflows need them.
+- Streaming and paged read APIs instead of fixed global caps.
+- No binary-first run format in the local backend.
+- No cloud dependency in the local backend.
+- No account required in the local backend.
+
+Removing fixed caps is not the same thing as claiming unlimited local filesystem scale. If a backend or operator needs resource ceilings, those ceilings must be explicit policy. They must not be hidden correctness constants that make long campaigns invalid by default.
+
+The local filesystem backend is a safe default and compatibility layer. It records multi-machine identity and refuses to clear remote-host locks by PID inference, but it is not a scheduler, workflow engine, object-store ledger, or facility integration layer.
 
 See [Local RunStore MVP](runstore-mvp.md), [Notebook tracking integration](notebook-tracking-integration.md), [StudyTask layer](studytask_layer.md), [Guided StudyFlow](guided-study-flow.md), [Observatory UI MVP](observatory-mvp.md), and [Observatory Compare MVP](observatory-compare-mvp.md) for Python API examples and current limitations.
 
@@ -149,6 +164,8 @@ The tracking architecture does not add:
 - cloud account dependency
 - external product dependency
 - AI assist
+- hidden metric, artifact, or byte-size caps as architecture
+- live facility telemetry or facility control through RunStore records
 
 OpenPlazma remains a local-first workbench for read-only plasma signal analysis, provenance tracking, comparison, and decision support.
 

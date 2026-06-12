@@ -1,0 +1,77 @@
+version: 1
+
+note: Active routing metadata for the final Bootstrap roster. Canonical behavior lives in roles/*.md.
+
+agents:
+  functional-ci-action-writer:
+    primary: codex
+    write_scope:
+      - .github/workflows/**
+    adapter: .codex/agents/functional-ci-action-writer.toml
+    schema: schemas/ci-action-writer-result.schema.json
+  security-ci-action-writer:
+    primary: claude
+    model: fable
+    write_scope:
+      - .github/workflows/**
+    adapter: .claude/agents/security-ci-action-writer.md
+    schema: schemas/ci-action-writer-result.schema.json
+  nonfunctional-ci-action-writer:
+    primary: codex
+    write_scope:
+      - .github/workflows/**
+    adapter: .codex/agents/nonfunctional-ci-action-writer.toml
+    schema: schemas/ci-action-writer-result.schema.json
+  aggressive-designer:
+    primary: claude
+    write_scope: []
+    adapter: .claude/agents/aggressive-designer.md
+    schema: schemas/design-proposal.schema.json
+    output_to: aufheben-designer
+  conservative-designer:
+    primary: codex
+    write_scope: []
+    adapter: .codex/agents/conservative-designer.toml
+    schema: schemas/design-proposal.schema.json
+    output_to: aufheben-designer
+  genius:
+    primary: claude
+    write_scope: []
+    adapter: .claude/agents/genius.md
+    schema: schemas/genius-packet.schema.json
+    output_to: aufheben-designer
+  aufheben-designer:
+    primary: claude
+    write_scope: []
+    adapter: .claude/agents/aufheben-designer.md
+    schema: schemas/implementation-contract.schema.json
+    output_to: implementer
+  implementer:
+    primary: codex
+    secondary: claude
+    write_scope:
+      - implementation-contract
+    adapter: .codex/agents/implementer.toml
+    secondary_adapter: .claude/agents/implementer.md
+    schema: schemas/implementation-result.schema.json
+
+protocol:
+  - codex-main-controller
+
+subsystems:
+  - local-tooling
+  - gate-reporting
+  - artifact-hashing
+
+carriers:
+  codex:
+    status: active
+    config_dir: .codex
+    agents_dir: .codex/agents
+  claude:
+    status: active
+    config_dir: .claude
+    agents_dir: .claude/agents
+  antigravity:
+    status: reserved
+    config_dir: .antigravity

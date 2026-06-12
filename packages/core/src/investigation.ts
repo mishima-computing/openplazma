@@ -171,6 +171,24 @@ export interface DiagnosticInstrumentRef {
   calibration: DiagnosticCalibration;
 }
 
+export type DiagnosticArtifactSourceKind =
+  | "local_fixture"
+  | "public_snapshot"
+  | "derived_artifact"
+  | "human_report"
+  | "synthetic_fixture"
+  | "unknown";
+
+export interface DiagnosticArtifactSource {
+  sourceKind: DiagnosticArtifactSourceKind;
+  label: string;
+  uri?: string | undefined;
+  artifactIds?: string[] | undefined;
+  signalIds?: string[] | undefined;
+  sha256?: string | undefined;
+  limitations: string[];
+}
+
 export type FrequencyDomain =
   | "electromagnetic_carrier"
   | "intensity_modulation"
@@ -244,12 +262,52 @@ export interface DiagnosticArtifact {
   instrument?: DiagnosticInstrumentRef | undefined;
   contributions?: DiagnosticContribution[] | undefined;
   frequencyAnalyses?: FrequencyAnalysis[] | undefined;
+  source?: DiagnosticArtifactSource | undefined;
   sourceUri?: string | undefined;
   signalIds?: string[] | undefined;
   quantity?: string | undefined;
   unit?: string | undefined;
   description: string;
   limitations: string[];
+}
+
+export type ObservationReadoutKind =
+  | "raw_sample"
+  | "summary_statistic"
+  | "frequency_band"
+  | "frequency_peak"
+  | "spectral_feature"
+  | "image_feature"
+  | "thermal_feature"
+  | "field_feature"
+  | "particle_count"
+  | "absence_statement"
+  | "human_report"
+  | "model_readout"
+  | "unknown";
+
+export type ObservationStatementStatus = "detected" | "not_detected" | "candidate" | "inconclusive" | "unknown";
+
+export interface ObservationStatement {
+  kind: "openplazma.observation_statement";
+  version: "0.1.0";
+  readoutId: string;
+  artifactId: string;
+  signalId?: string | undefined;
+  targetRegionId?: string | undefined;
+  observable: MeasuredObservable;
+  readoutKind: ObservationReadoutKind;
+  method: string;
+  selector?: string | undefined;
+  timeRange?: [number, number] | undefined;
+  value?: number | undefined;
+  textValue?: string | undefined;
+  unit?: string | undefined;
+  status: ObservationStatementStatus;
+  uncertainty?: string | undefined;
+  assumptions: string[];
+  limitations: string[];
+  alternatives: string[];
 }
 
 export type FusionStatus =
@@ -327,8 +385,10 @@ export interface FusionConditionEstimate {
   unit?: string | undefined;
   method?: string | undefined;
   evidenceArtifactIds: string[];
+  evidenceReadoutIds?: string[] | undefined;
   assumptions: string[];
   limitations: string[];
+  alternatives?: string[] | undefined;
 }
 
 export interface FusionConditionAssessment {
@@ -362,8 +422,11 @@ export interface InvestigationClaim {
   statement: string;
   status: InvestigationClaimStatus;
   evidenceArtifactIds: string[];
+  evidenceReadoutIds?: string[] | undefined;
+  method?: string | undefined;
   assumptions: string[];
   limitations: string[];
+  alternatives?: string[] | undefined;
 }
 
 export interface InvestigationPackage {
@@ -374,6 +437,7 @@ export interface InvestigationPackage {
   target: InvestigationTarget;
   questions: InvestigationQuestion[];
   artifacts: DiagnosticArtifact[];
+  observations?: ObservationStatement[] | undefined;
   fusionAssessment: FusionConditionAssessment;
   claims: InvestigationClaim[];
   limitations: string[];

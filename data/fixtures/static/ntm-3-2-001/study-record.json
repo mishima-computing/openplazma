@@ -36478,6 +36478,10 @@
         "timeRange": [
           0.04,
           0.06
+        ],
+        "producedByInferenceId": "inf-ntm",
+        "evidenceReadoutIds": [
+          "inf-ntm-phase-fit-readout"
         ]
       },
       {
@@ -36489,6 +36493,10 @@
         "timeRange": [
           0.12,
           0.16
+        ],
+        "producedByInferenceId": "inf-ntm",
+        "evidenceReadoutIds": [
+          "inf-ntm-phase-fit-readout"
         ]
       }
     ],
@@ -36571,6 +36579,13 @@
         "limitations": [
           "Toroidal mode number resolved only up to |n| <= 4 (Nyquist for 8 probes).",
           "Island width is an educational sqrt-amplitude estimate, not a calibrated reconstruction."
+        ],
+        "evidenceReadoutIds": [
+          "inf-ntm-phase-fit-readout"
+        ],
+        "alternatives": [
+          "Aliased higher-n mode",
+          "multi-mode superposition"
         ]
       }
     ],
@@ -36596,7 +36611,20 @@
               0.05,
               0.12
             ],
-            "rationale": "Phase fit recovers n=2 (m=3) with rotation that stays ~4 kHz, i.e. growth without locking."
+            "rationale": "Phase fit recovers n=2 (m=3) with rotation that stays ~4 kHz, i.e. growth without locking.",
+            "readoutId": "inf-ntm-phase-fit-readout",
+            "inferenceId": "inf-ntm",
+            "method": "magnetic_mode_phase_fit",
+            "assumptions": [
+              "Single dominant rotating mode within the analysis window."
+            ],
+            "limitations": [
+              "Mediated evidence link; not direct phenomenon observation."
+            ],
+            "alternatives": [
+              "Aliased higher-n mode",
+              "multi-mode superposition"
+            ]
           },
           {
             "kind": "openplazma.evidence_link",
@@ -36607,8 +36635,49 @@
               0.12,
               0.18
             ],
-            "rationale": "Fluctuation amplitude saturates, consistent with a metastable NTM island reaching steady width."
+            "rationale": "Fluctuation amplitude saturates, consistent with a metastable NTM island reaching steady width.",
+            "readoutId": "inf-ntm-phase-fit-readout",
+            "inferenceId": "inf-ntm",
+            "method": "magnetic_mode_phase_fit",
+            "assumptions": [
+              "Single dominant rotating mode within the analysis window."
+            ],
+            "limitations": [
+              "Mediated evidence link; not direct phenomenon observation."
+            ],
+            "alternatives": [
+              "Aliased higher-n mode",
+              "multi-mode superposition"
+            ]
           }
+        ]
+      }
+    ],
+    "readouts": [
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "inf-ntm-phase-fit-readout",
+        "readoutKind": "phase_fit",
+        "observable": "magnetic_field",
+        "arrayId": "mirnov-toroidal",
+        "inferenceId": "inf-ntm",
+        "method": "magnetic_mode_phase_fit",
+        "status": "detected",
+        "timeRange": [
+          0.02,
+          0.18
+        ],
+        "assumptions": [
+          "Single dominant rotating mode within the analysis window."
+        ],
+        "limitations": [
+          "Toroidal mode number resolved only up to |n| <= 4 (Nyquist for 8 probes).",
+          "Island width is an educational sqrt-amplitude estimate, not a calibrated reconstruction."
+        ],
+        "alternatives": [
+          "Aliased higher-n mode",
+          "multi-mode superposition"
         ]
       }
     ]

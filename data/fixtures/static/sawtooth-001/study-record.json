@@ -2258,7 +2258,10 @@
           0.0037,
           0.0043
         ],
-        "signalId": "sxr-core"
+        "signalId": "sxr-core",
+        "evidenceReadoutIds": [
+          "saw-01-readout"
+        ]
       },
       {
         "kind": "openplazma.phenomenon_event",
@@ -2270,7 +2273,10 @@
           0.0077,
           0.0083
         ],
-        "signalId": "sxr-core"
+        "signalId": "sxr-core",
+        "evidenceReadoutIds": [
+          "saw-02-readout"
+        ]
       },
       {
         "kind": "openplazma.phenomenon_event",
@@ -2282,7 +2288,10 @@
           0.0117,
           0.0123
         ],
-        "signalId": "sxr-core"
+        "signalId": "sxr-core",
+        "evidenceReadoutIds": [
+          "saw-03-readout"
+        ]
       },
       {
         "kind": "openplazma.phenomenon_event",
@@ -2294,7 +2303,10 @@
           0.0157,
           0.0163
         ],
-        "signalId": "sxr-core"
+        "signalId": "sxr-core",
+        "evidenceReadoutIds": [
+          "saw-04-readout"
+        ]
       },
       {
         "kind": "openplazma.phenomenon_event",
@@ -2306,7 +2318,10 @@
           0.0197,
           0.0203
         ],
-        "signalId": "sxr-core"
+        "signalId": "sxr-core",
+        "evidenceReadoutIds": [
+          "saw-05-readout"
+        ]
       },
       {
         "kind": "openplazma.phenomenon_event",
@@ -2318,7 +2333,10 @@
           0.0237,
           0.0243
         ],
-        "signalId": "sxr-core"
+        "signalId": "sxr-core",
+        "evidenceReadoutIds": [
+          "saw-06-readout"
+        ]
       },
       {
         "kind": "openplazma.phenomenon_event",
@@ -2330,7 +2348,10 @@
           0.0277,
           0.0283
         ],
-        "signalId": "sxr-core"
+        "signalId": "sxr-core",
+        "evidenceReadoutIds": [
+          "saw-07-readout"
+        ]
       },
       {
         "kind": "openplazma.phenomenon_event",
@@ -2342,7 +2363,10 @@
           0.0317,
           0.0323
         ],
-        "signalId": "sxr-core"
+        "signalId": "sxr-core",
+        "evidenceReadoutIds": [
+          "saw-08-readout"
+        ]
       },
       {
         "kind": "openplazma.phenomenon_event",
@@ -2354,7 +2378,10 @@
           0.0357,
           0.0363
         ],
-        "signalId": "sxr-core"
+        "signalId": "sxr-core",
+        "evidenceReadoutIds": [
+          "saw-09-readout"
+        ]
       },
       {
         "kind": "openplazma.phenomenon_event",
@@ -2366,7 +2393,10 @@
           0.0397,
           0.0403
         ],
-        "signalId": "sxr-core"
+        "signalId": "sxr-core",
+        "evidenceReadoutIds": [
+          "saw-10-readout"
+        ]
       },
       {
         "kind": "openplazma.phenomenon_event",
@@ -2378,7 +2408,10 @@
           0.0437,
           0.0443
         ],
-        "signalId": "sxr-core"
+        "signalId": "sxr-core",
+        "evidenceReadoutIds": [
+          "saw-11-readout"
+        ]
       },
       {
         "kind": "openplazma.phenomenon_event",
@@ -2390,7 +2423,10 @@
           0.0477,
           0.0483
         ],
-        "signalId": "sxr-core"
+        "signalId": "sxr-core",
+        "evidenceReadoutIds": [
+          "saw-12-readout"
+        ]
       }
     ],
     "observationModels": [],
@@ -2425,8 +2461,358 @@
               0.004,
               0.048
             ],
-            "rationale": "Twelve evenly spaced central-SXR collapses give a sawtooth period near 4 ms."
+            "rationale": "Twelve evenly spaced central-SXR collapses give a sawtooth period near 4 ms.",
+            "readoutId": "claim-sawtooth-evidence-1-readout",
+            "method": "signal_trace_review",
+            "assumptions": [],
+            "limitations": [
+              "Mediated evidence link; not direct phenomenon observation."
+            ],
+            "alternatives": [
+              "threshold selection",
+              "signal coupling",
+              "annotation uncertainty"
+            ]
           }
+        ]
+      }
+    ],
+    "readouts": [
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "saw-01-readout",
+        "readoutKind": "event_detection",
+        "observable": "radiation",
+        "signalId": "sxr-core",
+        "eventId": "saw-01",
+        "method": "event_time_annotation",
+        "status": "detected",
+        "timeRange": [
+          0.0037,
+          0.0043
+        ],
+        "assumptions": [
+          "Event timing is derived from fixture signals."
+        ],
+        "limitations": [
+          "Event labels are mediated annotations, not direct phenomenon evidence."
+        ],
+        "alternatives": [
+          "threshold selection",
+          "signal coupling",
+          "annotation uncertainty"
+        ]
+      },
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "saw-02-readout",
+        "readoutKind": "event_detection",
+        "observable": "radiation",
+        "signalId": "sxr-core",
+        "eventId": "saw-02",
+        "method": "event_time_annotation",
+        "status": "detected",
+        "timeRange": [
+          0.0077,
+          0.0083
+        ],
+        "assumptions": [
+          "Event timing is derived from fixture signals."
+        ],
+        "limitations": [
+          "Event labels are mediated annotations, not direct phenomenon evidence."
+        ],
+        "alternatives": [
+          "threshold selection",
+          "signal coupling",
+          "annotation uncertainty"
+        ]
+      },
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "saw-03-readout",
+        "readoutKind": "event_detection",
+        "observable": "radiation",
+        "signalId": "sxr-core",
+        "eventId": "saw-03",
+        "method": "event_time_annotation",
+        "status": "detected",
+        "timeRange": [
+          0.0117,
+          0.0123
+        ],
+        "assumptions": [
+          "Event timing is derived from fixture signals."
+        ],
+        "limitations": [
+          "Event labels are mediated annotations, not direct phenomenon evidence."
+        ],
+        "alternatives": [
+          "threshold selection",
+          "signal coupling",
+          "annotation uncertainty"
+        ]
+      },
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "saw-04-readout",
+        "readoutKind": "event_detection",
+        "observable": "radiation",
+        "signalId": "sxr-core",
+        "eventId": "saw-04",
+        "method": "event_time_annotation",
+        "status": "detected",
+        "timeRange": [
+          0.0157,
+          0.0163
+        ],
+        "assumptions": [
+          "Event timing is derived from fixture signals."
+        ],
+        "limitations": [
+          "Event labels are mediated annotations, not direct phenomenon evidence."
+        ],
+        "alternatives": [
+          "threshold selection",
+          "signal coupling",
+          "annotation uncertainty"
+        ]
+      },
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "saw-05-readout",
+        "readoutKind": "event_detection",
+        "observable": "radiation",
+        "signalId": "sxr-core",
+        "eventId": "saw-05",
+        "method": "event_time_annotation",
+        "status": "detected",
+        "timeRange": [
+          0.0197,
+          0.0203
+        ],
+        "assumptions": [
+          "Event timing is derived from fixture signals."
+        ],
+        "limitations": [
+          "Event labels are mediated annotations, not direct phenomenon evidence."
+        ],
+        "alternatives": [
+          "threshold selection",
+          "signal coupling",
+          "annotation uncertainty"
+        ]
+      },
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "saw-06-readout",
+        "readoutKind": "event_detection",
+        "observable": "radiation",
+        "signalId": "sxr-core",
+        "eventId": "saw-06",
+        "method": "event_time_annotation",
+        "status": "detected",
+        "timeRange": [
+          0.0237,
+          0.0243
+        ],
+        "assumptions": [
+          "Event timing is derived from fixture signals."
+        ],
+        "limitations": [
+          "Event labels are mediated annotations, not direct phenomenon evidence."
+        ],
+        "alternatives": [
+          "threshold selection",
+          "signal coupling",
+          "annotation uncertainty"
+        ]
+      },
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "saw-07-readout",
+        "readoutKind": "event_detection",
+        "observable": "radiation",
+        "signalId": "sxr-core",
+        "eventId": "saw-07",
+        "method": "event_time_annotation",
+        "status": "detected",
+        "timeRange": [
+          0.0277,
+          0.0283
+        ],
+        "assumptions": [
+          "Event timing is derived from fixture signals."
+        ],
+        "limitations": [
+          "Event labels are mediated annotations, not direct phenomenon evidence."
+        ],
+        "alternatives": [
+          "threshold selection",
+          "signal coupling",
+          "annotation uncertainty"
+        ]
+      },
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "saw-08-readout",
+        "readoutKind": "event_detection",
+        "observable": "radiation",
+        "signalId": "sxr-core",
+        "eventId": "saw-08",
+        "method": "event_time_annotation",
+        "status": "detected",
+        "timeRange": [
+          0.0317,
+          0.0323
+        ],
+        "assumptions": [
+          "Event timing is derived from fixture signals."
+        ],
+        "limitations": [
+          "Event labels are mediated annotations, not direct phenomenon evidence."
+        ],
+        "alternatives": [
+          "threshold selection",
+          "signal coupling",
+          "annotation uncertainty"
+        ]
+      },
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "saw-09-readout",
+        "readoutKind": "event_detection",
+        "observable": "radiation",
+        "signalId": "sxr-core",
+        "eventId": "saw-09",
+        "method": "event_time_annotation",
+        "status": "detected",
+        "timeRange": [
+          0.0357,
+          0.0363
+        ],
+        "assumptions": [
+          "Event timing is derived from fixture signals."
+        ],
+        "limitations": [
+          "Event labels are mediated annotations, not direct phenomenon evidence."
+        ],
+        "alternatives": [
+          "threshold selection",
+          "signal coupling",
+          "annotation uncertainty"
+        ]
+      },
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "saw-10-readout",
+        "readoutKind": "event_detection",
+        "observable": "radiation",
+        "signalId": "sxr-core",
+        "eventId": "saw-10",
+        "method": "event_time_annotation",
+        "status": "detected",
+        "timeRange": [
+          0.0397,
+          0.0403
+        ],
+        "assumptions": [
+          "Event timing is derived from fixture signals."
+        ],
+        "limitations": [
+          "Event labels are mediated annotations, not direct phenomenon evidence."
+        ],
+        "alternatives": [
+          "threshold selection",
+          "signal coupling",
+          "annotation uncertainty"
+        ]
+      },
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "saw-11-readout",
+        "readoutKind": "event_detection",
+        "observable": "radiation",
+        "signalId": "sxr-core",
+        "eventId": "saw-11",
+        "method": "event_time_annotation",
+        "status": "detected",
+        "timeRange": [
+          0.0437,
+          0.0443
+        ],
+        "assumptions": [
+          "Event timing is derived from fixture signals."
+        ],
+        "limitations": [
+          "Event labels are mediated annotations, not direct phenomenon evidence."
+        ],
+        "alternatives": [
+          "threshold selection",
+          "signal coupling",
+          "annotation uncertainty"
+        ]
+      },
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "saw-12-readout",
+        "readoutKind": "event_detection",
+        "observable": "radiation",
+        "signalId": "sxr-core",
+        "eventId": "saw-12",
+        "method": "event_time_annotation",
+        "status": "detected",
+        "timeRange": [
+          0.0477,
+          0.0483
+        ],
+        "assumptions": [
+          "Event timing is derived from fixture signals."
+        ],
+        "limitations": [
+          "Event labels are mediated annotations, not direct phenomenon evidence."
+        ],
+        "alternatives": [
+          "threshold selection",
+          "signal coupling",
+          "annotation uncertainty"
+        ]
+      },
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "claim-sawtooth-evidence-1-readout",
+        "readoutKind": "event_detection",
+        "observable": "radiation",
+        "signalId": "sxr-core",
+        "method": "signal_trace_review",
+        "status": "detected",
+        "timeRange": [
+          0.004,
+          0.048
+        ],
+        "assumptions": [
+          "Signal trace is reviewed as mediated evidence."
+        ],
+        "limitations": [
+          "Signal trace evidence is not a bare phenomenon label."
+        ],
+        "alternatives": [
+          "threshold selection",
+          "signal coupling",
+          "annotation uncertainty"
         ]
       }
     ]

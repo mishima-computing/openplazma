@@ -1,8 +1,22 @@
 import { z } from "zod";
-import type { ArtifactRecord, EventRecord, MetricRecord, RunManifest, RunRecord } from "@openplazma/core";
+import type {
+  ArtifactRecord,
+  EventRecord,
+  MetricRecord,
+  RunManifest,
+  RunRecord,
+  RunStoreMetadata
+} from "@openplazma/core";
 
 const isoDateTimeSchema = z.string().datetime({ offset: true });
 const versionSchema = z.literal("0.1.0");
+const runIdSchema = z.string().regex(/^OPR-\d{8}(?:-\d{6,}|-[A-Za-z0-9_.-]+-[a-f0-9]{12})$/);
+const artifactIdSchema = z.string().regex(/^OPA-\d{8}-\d{6,}$/);
+const storeIdSchema = z.string().regex(/^OPS-[a-f0-9]{32}$/);
+const safeIdentitySchema = z
+  .string()
+  .regex(/^[A-Za-z0-9_.-]+$/)
+  .refine((value) => value !== "." && value !== "..", "identity must not be . or ..");
 const providerSchema = z.enum(["STATIC_FIXTURE", "LOCAL_SIGNAL_FILE", "NOAA_SWPC"]);
 const inspiredBySchema = z.literal("FAIR_MAST");
 const validationStatusSchema = z.literal("schema_validated");
@@ -67,7 +81,7 @@ export const runRecordSchema = z
   .object({
     kind: z.literal("openplazma.run"),
     version: versionSchema,
-    runId: z.string().regex(/^OPR-\d{8}-\d{6}$/),
+    runId: runIdSchema,
     project: z.string().min(1),
     campaign: z.string().min(1),
     runType: z.string().min(1),
@@ -82,6 +96,10 @@ export const runRecordSchema = z
     }),
     source: sourceRefSchema,
     capabilities: capabilitiesSchema,
+    storeId: storeIdSchema.optional(),
+    machineId: safeIdentitySchema.optional(),
+    runGroupId: safeIdentitySchema.nullish(),
+    partitionId: safeIdentitySchema.nullish(),
     contextRef: z
       .object({
         artifactName: z.string().min(1),
@@ -126,7 +144,7 @@ export const runRecordSchema = z
 export const metricRecordSchema = z.object({
   kind: z.literal("openplazma.metric"),
   version: versionSchema,
-  runId: z.string().regex(/^OPR-\d{8}-\d{6}$/),
+  runId: runIdSchema,
   name: z.string().min(1),
   value: jsonValueSchema,
   step: z.number().int().nonnegative().nullable().optional(),
@@ -136,12 +154,13 @@ export const metricRecordSchema = z.object({
 export const artifactRecordSchema = z.object({
   kind: z.literal("openplazma.artifact"),
   version: versionSchema,
-  artifactId: z.string().regex(/^OPA-\d{8}-\d{6}$/),
-  runId: z.string().regex(/^OPR-\d{8}-\d{6}$/),
+  artifactId: artifactIdSchema,
+  runId: runIdSchema,
   name: z.string().min(1),
   type: z.string().min(1),
   path: artifactPathSchema,
   sha256: z.string().regex(/^[a-f0-9]{64}$/),
+  byteSize: z.number().int().nonnegative().optional(),
   createdAt: isoDateTimeSchema,
   metadata: metadataSchema
 });
@@ -149,8 +168,9 @@ export const artifactRecordSchema = z.object({
 export const eventRecordSchema = z.object({
   kind: z.literal("openplazma.event"),
   version: versionSchema,
-  runId: z.string().regex(/^OPR-\d{8}-\d{6}$/),
+  runId: runIdSchema,
   eventType: z.enum(["run_started", "metric_logged", "artifact_logged", "run_finished", "run_failed"]),
+  machineId: safeIdentitySchema.optional(),
   createdAt: isoDateTimeSchema,
   message: z.string().min(1),
   metadata: metadataSchema
@@ -160,7 +180,7 @@ export const runManifestSchema = z
   .object({
     kind: z.literal("openplazma.run_manifest"),
     version: versionSchema,
-    runId: z.string().regex(/^OPR-\d{8}-\d{6}$/),
+    runId: runIdSchema,
     createdAt: isoDateTimeSchema,
     updatedAt: isoDateTimeSchema,
     artifacts: z.array(artifactRecordSchema)
@@ -209,6 +229,17 @@ export const runManifestSchema = z
     });
   });
 
+export const runStoreMetadataSchema = z.object({
+  kind: z.literal("openplazma.run_store"),
+  version: versionSchema,
+  layoutVersion: z.string().min(1),
+  storeId: storeIdSchema,
+  backendKind: z.string().min(1),
+  createdAt: isoDateTimeSchema,
+  machineId: safeIdentitySchema.optional(),
+  limitations: z.array(z.string().min(1)).optional()
+});
+
 export function parseRunRecord(input: unknown): RunRecord {
   return runRecordSchema.parse(input) as RunRecord;
 }
@@ -227,4 +258,8 @@ export function parseEventRecord(input: unknown): EventRecord {
 
 export function parseRunManifest(input: unknown): RunManifest {
   return runManifestSchema.parse(input) as RunManifest;
+}
+
+export function parseRunStoreMetadata(input: unknown): RunStoreMetadata {
+  return runStoreMetadataSchema.parse(input) as RunStoreMetadata;
 }

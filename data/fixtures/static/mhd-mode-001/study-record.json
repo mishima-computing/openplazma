@@ -7859,6 +7859,9 @@
         "timeRange": [
           0,
           0.001
+        ],
+        "evidenceReadoutIds": [
+          "onset-readout"
         ]
       },
       {
@@ -7870,6 +7873,10 @@
         "timeRange": [
           0.006,
           0.012
+        ],
+        "producedByInferenceId": "inf-toroidal",
+        "evidenceReadoutIds": [
+          "inf-toroidal-phase-fit-readout"
         ]
       },
       {
@@ -7881,6 +7888,10 @@
         "timeRange": [
           0.012,
           0.016
+        ],
+        "producedByInferenceId": "inf-toroidal",
+        "evidenceReadoutIds": [
+          "inf-toroidal-phase-fit-readout"
         ]
       },
       {
@@ -7893,7 +7904,11 @@
           0.016,
           0.0165
         ],
-        "signalId": "plasma-current"
+        "signalId": "plasma-current",
+        "producedByInferenceId": "inf-toroidal",
+        "evidenceReadoutIds": [
+          "inf-toroidal-phase-fit-readout"
+        ]
       },
       {
         "kind": "openplazma.phenomenon_event",
@@ -7904,6 +7919,10 @@
         "timeRange": [
           0.016,
           0.017
+        ],
+        "producedByInferenceId": "inf-toroidal",
+        "evidenceReadoutIds": [
+          "inf-toroidal-phase-fit-readout"
         ]
       }
     ],
@@ -8007,6 +8026,13 @@
         "limitations": [
           "Toroidal mode number resolved only up to |n| <= 4 (Nyquist for 8 probes).",
           "Rotation frequency estimated per window."
+        ],
+        "evidenceReadoutIds": [
+          "inf-toroidal-phase-fit-readout"
+        ],
+        "alternatives": [
+          "Aliased higher-n mode",
+          "multi-mode superposition"
         ]
       }
     ],
@@ -8028,7 +8054,20 @@
               0,
               0.006
             ],
-            "rationale": "Phase fit across the toroidal array recovers n=1, matching the 2/1 hypothesis (confidence 0.98)."
+            "rationale": "Phase fit across the toroidal array recovers n=1, matching the 2/1 hypothesis (confidence 0.98).",
+            "readoutId": "inf-toroidal-phase-fit-readout",
+            "inferenceId": "inf-toroidal",
+            "method": "magnetic_mode_phase_fit",
+            "assumptions": [
+              "Single dominant rotating mode within the analysis window."
+            ],
+            "limitations": [
+              "Mediated evidence link; not direct phenomenon observation."
+            ],
+            "alternatives": [
+              "Aliased higher-n mode",
+              "multi-mode superposition"
+            ]
           },
           {
             "kind": "openplazma.evidence_link",
@@ -8039,7 +8078,20 @@
               0.012,
               0.016
             ],
-            "rationale": "Rotation frequency collapses to ~0 while amplitude grows, then the current quenches: locking precedes disruption."
+            "rationale": "Rotation frequency collapses to ~0 while amplitude grows, then the current quenches: locking precedes disruption.",
+            "readoutId": "inf-toroidal-phase-fit-readout",
+            "inferenceId": "inf-toroidal",
+            "method": "magnetic_mode_phase_fit",
+            "assumptions": [
+              "Single dominant rotating mode within the analysis window."
+            ],
+            "limitations": [
+              "Mediated evidence link; not direct phenomenon observation."
+            ],
+            "alternatives": [
+              "Aliased higher-n mode",
+              "multi-mode superposition"
+            ]
           },
           {
             "kind": "openplazma.evidence_link",
@@ -8050,8 +8102,74 @@
               0.017,
               0.02
             ],
-            "rationale": "Post-quench loop-voltage decay is consistent with several scenarios and does not by itself identify the mode."
+            "rationale": "Post-quench loop-voltage decay is consistent with several scenarios and does not by itself identify the mode.",
+            "readoutId": "inf-toroidal-phase-fit-readout",
+            "inferenceId": "inf-toroidal",
+            "method": "magnetic_mode_phase_fit",
+            "assumptions": [
+              "Single dominant rotating mode within the analysis window."
+            ],
+            "limitations": [
+              "Mediated evidence link; not direct phenomenon observation."
+            ],
+            "alternatives": [
+              "Aliased higher-n mode",
+              "multi-mode superposition"
+            ]
           }
+        ]
+      }
+    ],
+    "readouts": [
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "inf-toroidal-phase-fit-readout",
+        "readoutKind": "phase_fit",
+        "observable": "magnetic_field",
+        "arrayId": "mirnov-toroidal",
+        "inferenceId": "inf-toroidal",
+        "method": "magnetic_mode_phase_fit",
+        "status": "detected",
+        "timeRange": [
+          0.002,
+          0.015
+        ],
+        "assumptions": [
+          "Single dominant rotating mode within the analysis window."
+        ],
+        "limitations": [
+          "Toroidal mode number resolved only up to |n| <= 4 (Nyquist for 8 probes).",
+          "Rotation frequency estimated per window."
+        ],
+        "alternatives": [
+          "Aliased higher-n mode",
+          "multi-mode superposition"
+        ]
+      },
+      {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": "onset-readout",
+        "readoutKind": "event_detection",
+        "observable": "magnetic_field",
+        "eventId": "onset",
+        "method": "event_time_annotation",
+        "status": "detected",
+        "timeRange": [
+          0,
+          0.001
+        ],
+        "assumptions": [
+          "Event timing is derived from fixture signals."
+        ],
+        "limitations": [
+          "Event labels are mediated annotations, not direct phenomenon evidence."
+        ],
+        "alternatives": [
+          "threshold selection",
+          "signal coupling",
+          "annotation uncertainty"
         ]
       }
     ]

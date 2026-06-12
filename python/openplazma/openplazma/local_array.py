@@ -131,6 +131,22 @@ def import_mirnov_array_csv(
     }
     inference = build_inference_from_array(array, signals, island_width_gain=island_width_gain)
     n = inference["modeEstimate"]["toroidalModeNumber"]
+    readout_id = inference["evidenceReadoutIds"][0]
+    readout = {
+        "kind": "openplazma.mhd_observation_statement",
+        "version": "0.1.0",
+        "readoutId": readout_id,
+        "readoutKind": "phase_fit",
+        "observable": "magnetic_field",
+        "arrayId": array_id,
+        "inferenceId": inference["inferenceId"],
+        "method": inference["method"],
+        "status": "detected",
+        "timeRange": [time[0], time[-1]],
+        "assumptions": list(inference["assumptions"]),
+        "limitations": list(inference["limitations"]),
+        "alternatives": list(inference["alternatives"]),
+    }
     claim = {
         "kind": "openplazma.claim",
         "version": "0.1.0",
@@ -143,8 +159,14 @@ def import_mirnov_array_csv(
                 "version": "0.1.0",
                 "verdict": "support",
                 "arrayId": array_id,
+                "readoutId": readout_id,
+                "inferenceId": inference["inferenceId"],
+                "method": inference["method"],
                 "timeRange": [time[0], time[-1]],
                 "rationale": f"Cross-probe phase fit recovers n={n} (confidence {inference['modeEstimate']['confidence']:.2f}).",
+                "assumptions": list(inference["assumptions"]),
+                "limitations": list(inference["limitations"]),
+                "alternatives": list(inference["alternatives"]),
             }
         ],
     }
@@ -156,6 +178,7 @@ def import_mirnov_array_csv(
         "events": [],
         "observationModels": [],
         "inferences": [inference],
+        "readouts": [readout],
         "claims": [claim],
     }
 

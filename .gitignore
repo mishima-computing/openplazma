@@ -27,6 +27,7 @@ apps/workbench-lite/.jupyterlite.doit.db
 .jupyterlite.doit.db
 .openplazma/
 **/.openplazma/
+.agent-runs/
 notebooks/examples/sample-study-record-from-notebook.json
 openplazma-*.png
 openplazma-real-signal-room-*.png

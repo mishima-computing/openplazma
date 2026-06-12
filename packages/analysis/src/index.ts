@@ -20,6 +20,7 @@ import type {
   Inference,
   MeasuredObservable,
   ModeNumberEstimate,
+  ObservationStatement,
   PhenomenonEvent,
   RotationTrackPoint,
   SignalSeries,
@@ -438,14 +439,16 @@ export function buildInferenceFromArray(
             options.islandWidthGain
           )
         };
+  const inferenceId = options.inferenceId ?? `inf-${array.arrayId}`;
 
   return {
     kind: "openplazma.inference",
     version: "0.1.0",
-    inferenceId: options.inferenceId ?? `inf-${array.arrayId}`,
+    inferenceId,
     label: options.label ?? `Phase-fit mode estimate for ${array.label}`,
     method: "magnetic_mode_phase_fit",
     sourceArrayId: array.arrayId,
+    evidenceReadoutIds: [`${inferenceId}-phase-fit-readout`],
     modeEstimate,
     rotationTrack,
     lockingDetected: locking.locked,
@@ -457,6 +460,10 @@ export function buildInferenceFromArray(
     limitations: [
       `Toroidal mode number is only resolved up to |n| <= ${nyquistN} (Nyquist limit for ${array.channels.length} probes); higher n aliases to its principal value.`,
       "Rotation frequency is estimated per window and smears fast transients."
+    ],
+    alternatives: [
+      "Higher toroidal mode numbers can alias onto the principal value.",
+      "Multiple simultaneous modes can bias a single-mode phase fit."
     ]
   };
 }
@@ -478,10 +485,16 @@ export function evaluateEvidence(
     version: "0.1.0",
     verdict: modeMatch ? "support" : "contradict",
     arrayId: inference.sourceArrayId,
+    readoutId: inference.evidenceReadoutIds[0],
+    inferenceId: inference.inferenceId,
+    method: inference.method,
     timeRange: hypothesis.timeRange,
     rationale: modeMatch
       ? `Phase fit recovers toroidal mode number n=${inference.modeEstimate.toroidalModeNumber}, matching the hypothesis (confidence ${inference.modeEstimate.confidence.toFixed(2)}).`
-      : `Phase fit recovers n=${inference.modeEstimate.toroidalModeNumber}, not the hypothesised n=${hypothesis.toroidalModeNumber}.`
+      : `Phase fit recovers n=${inference.modeEstimate.toroidalModeNumber}, not the hypothesised n=${hypothesis.toroidalModeNumber}.`,
+    assumptions: inference.assumptions,
+    limitations: inference.limitations,
+    alternatives: inference.alternatives
   });
 
   const quench = events.find((e) => e.phenomenon === "current_quench" || e.phenomenon === "disruption");
@@ -492,10 +505,16 @@ export function evaluateEvidence(
       version: "0.1.0",
       verdict: locksBeforeQuench ? "support" : "inconclusive",
       arrayId: inference.sourceArrayId,
+      readoutId: inference.evidenceReadoutIds[0],
+      inferenceId: inference.inferenceId,
+      method: "rotation_track_threshold",
       timeRange: inference.lockTimeRange,
       rationale: locksBeforeQuench
         ? "Mode rotation collapses (locks) before the current quench, consistent with a locked-mode disruption."
-        : "Locking and quench timing overlap ambiguously."
+        : "Locking and quench timing overlap ambiguously.",
+      assumptions: inference.assumptions,
+      limitations: inference.limitations,
+      alternatives: ["A timing overlap can also reflect unrelated transients or threshold selection."]
     });
   } else {
     links.push({
@@ -503,8 +522,14 @@ export function evaluateEvidence(
       version: "0.1.0",
       verdict: "inconclusive",
       arrayId: inference.sourceArrayId,
+      readoutId: inference.evidenceReadoutIds[0],
+      inferenceId: inference.inferenceId,
+      method: "rotation_track_threshold",
       timeRange: hypothesis.timeRange,
-      rationale: "No clear locking-then-quench sequence was detected in the available signals."
+      rationale: "No clear locking-then-quench sequence was detected in the available signals.",
+      assumptions: inference.assumptions,
+      limitations: inference.limitations,
+      alternatives: ["A mode may be present without a resolved locking-then-quench sequence."]
     });
   }
 
@@ -833,6 +858,7 @@ export interface BuildInvestigationPackageInput {
   target: InvestigationTarget;
   questions: InvestigationQuestion[];
   artifacts?: DiagnosticArtifact[] | undefined;
+  observations?: ObservationStatement[] | undefined;
   fusionAssessment?: FusionConditionAssessment | undefined;
   claims?: InvestigationClaim[] | undefined;
   limitations?: string[] | undefined;
@@ -901,6 +927,17 @@ function uniqueArtifacts(artifacts: DiagnosticArtifact[]): DiagnosticArtifact[] 
   return artifacts;
 }
 
+function uniqueObservations(observations: ObservationStatement[]): ObservationStatement[] {
+  const seen = new Set<string>();
+  for (const observation of observations) {
+    if (seen.has(observation.readoutId)) {
+      throw new Error(`Duplicate observation readout id '${observation.readoutId}'.`);
+    }
+    seen.add(observation.readoutId);
+  }
+  return observations;
+}
+
 function assertClaimArtifactRefs(pack: InvestigationPackage, claim: InvestigationClaim): void {
   const artifactIds = new Set(pack.artifacts.map((artifact) => artifact.artifactId));
   for (const artifactId of claim.evidenceArtifactIds) {
@@ -959,6 +996,7 @@ export function buildInvestigationPackage(input: BuildInvestigationPackageInput)
     target: input.target,
     questions: input.questions,
     artifacts: uniqueArtifacts(input.artifacts ?? []),
+    observations: input.observations === undefined ? undefined : uniqueObservations(input.observations),
     fusionAssessment: input.fusionAssessment ?? defaultFusionAssessment(input.packageId),
     claims: input.claims ?? [],
     limitations: input.limitations ?? ["External investigation package; source-specific limitations must be reviewed."]
@@ -997,6 +1035,26 @@ export function addDiagnosticArtifact(
   const nextPackage: InvestigationPackage = {
     ...session.package,
     artifacts
+  };
+  const nextSession: InvestigationSession = {
+    ...session,
+    updatedAt,
+    status: deriveSessionStatus(nextPackage, session.reports),
+    package: nextPackage
+  };
+  assertInvestigationSessionContract(nextSession);
+  return nextSession;
+}
+
+export function addObservationStatement(
+  session: InvestigationSession,
+  observation: ObservationStatement,
+  updatedAt: string = nowIso()
+): InvestigationSession {
+  const observations = uniqueObservations([...(session.package.observations ?? []), observation]);
+  const nextPackage: InvestigationPackage = {
+    ...session.package,
+    observations
   };
   const nextSession: InvestigationSession = {
     ...session,

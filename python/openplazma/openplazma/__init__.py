@@ -45,13 +45,19 @@ from .observatory import (
 from .plotting import plot_signal
 from .records import create_study_record, load_study_record, save_study_record, validate_study_record
 from .runstore import (
+    iter_events,
+    iter_metrics,
+    iter_runs,
+    list_run_group,
     list_runs,
+    list_runs_page,
     load_manifest,
     load_metrics,
     load_run,
     log_context_signal_and_study_record,
     runstore_output_hint,
     start_run,
+    summarize_run_group,
 )
 from .signals import summarize_signal, validate_signal_series
 from .tasks import (
@@ -86,6 +92,9 @@ __all__ = [
     "goertzel_phase_amplitude",
     "import_mirnov_array_csv",
     "create_investigation_report",
+    "iter_events",
+    "iter_metrics",
+    "iter_runs",
     "track_rotation_frequency",
     "validate_mhd_analysis_bundle",
     "export_observatory_compare_html",
@@ -94,7 +103,9 @@ __all__ = [
     "flow_expected_metrics",
     "flow_to_run_config",
     "import_local_signal_csv",
+    "list_run_group",
     "list_runs",
+    "list_runs_page",
     "list_static_investigation_packages",
     "list_study_flows",
     "load_experiment_context",
@@ -123,6 +134,7 @@ __all__ = [
     "summarize_capability_comparison",
     "summarize_investigation_package",
     "summarize_metric_comparison",
+    "summarize_run_group",
     "summarize_run",
     "summarize_runstore",
     "summarize_signal",

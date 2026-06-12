@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import type { FusionConditionAssessment, InvestigationPackage } from "@openplazma/core";
 import {
   fusionConditionAssessmentSchema,
   investigationFixtureManifestSchema,
@@ -17,7 +18,7 @@ function readFixtureJson(path: string): unknown {
   return JSON.parse(readFileSync(join(process.cwd(), path), "utf8")) as unknown;
 }
 
-function willOWispPackage() {
+function willOWispPackage(): InvestigationPackage {
   return {
     kind: "openplazma.investigation_package",
     version: "0.1.0",
@@ -255,6 +256,41 @@ function willOWispPackage() {
         limitations: ["No neutron, gamma, or particle diagnostics are supplied."]
       }
     ],
+    observations: [
+      {
+        kind: "openplazma.observation_statement",
+        version: "0.1.0",
+        readoutId: "brightness-flicker-readout",
+        artifactId: "emission-timeseries",
+        signalId: "emission-intensity",
+        observable: "visible_light",
+        readoutKind: "frequency_peak",
+        method: "fft",
+        selector: "frequencyAnalyses[brightness-fft].peaks[dominant-flicker]",
+        status: "candidate",
+        value: 0.67,
+        unit: "Hz",
+        assumptions: ["The field sample rate is approximately stable."],
+        limitations: ["The peak is a mediated brightness readout, not source identity."],
+        alternatives: ["motion", "aliasing", "instrument response"]
+      },
+      {
+        kind: "openplazma.observation_statement",
+        version: "0.1.0",
+        readoutId: "visible-spectrum-readout",
+        artifactId: "visible-spectrum",
+        observable: "visible_light",
+        readoutKind: "spectral_feature",
+        method: "spectral_line_fit",
+        selector: "frequencyAnalyses[visible-carrier-spectrum].peaks[green-line-candidate]",
+        status: "candidate",
+        value: 5.45e14,
+        unit: "Hz",
+        assumptions: ["Wavelength-to-frequency conversion uses vacuum light speed approximation."],
+        limitations: ["The feature is visible-light evidence, not reaction-product evidence."],
+        alternatives: ["chemical emission", "thermal emission", "background reflection"]
+      }
+    ],
     fusionAssessment: {
       kind: "openplazma.fusion_condition_assessment",
       version: "0.1.0",
@@ -268,8 +304,11 @@ function willOWispPackage() {
           status: "unknown",
           logicalRole: "unknown",
           evidenceArtifactIds: ["visible-spectrum"],
+          evidenceReadoutIds: ["visible-spectrum-readout"],
+          method: "coarse_spectrum_review",
           assumptions: [],
-          limitations: ["The spectrum is too coarse to infer ion temperature."]
+          limitations: ["The spectrum is too coarse to infer ion temperature."],
+          alternatives: ["chemical emission", "thermal emission"]
         }
       ],
       requiredConditions: [],
@@ -286,15 +325,18 @@ function willOWispPackage() {
         statement: "The supplied will-o'-the-wisp evidence does not support a fusion claim.",
         status: "support",
         evidenceArtifactIds: ["emission-timeseries", "visible-spectrum"],
+        evidenceReadoutIds: ["brightness-flicker-readout", "visible-spectrum-readout"],
+        method: "evidence_gap_review",
         assumptions: ["The supplied artifact set is complete for this mission step."],
-        limitations: ["Absence of evidence is not proof that no fusion source exists."]
+        limitations: ["Absence of evidence is not proof that no fusion source exists."],
+        alternatives: ["chemical_luminescence", "electrical_discharge", "sensor_artifact"]
       }
     ],
     limitations: ["Educational investigation package only.", "No real hardware control path."]
   };
 }
 
-function inverseFusionAssessment() {
+function inverseFusionAssessment(): FusionConditionAssessment {
   return {
     kind: "openplazma.fusion_condition_assessment",
     version: "0.1.0",
@@ -328,7 +370,7 @@ function inverseFusionAssessment() {
   };
 }
 
-function organismInteriorPackage() {
+function organismInteriorPackage(): InvestigationPackage {
   return {
     kind: "openplazma.investigation_package",
     version: "0.1.0",
@@ -513,6 +555,68 @@ function organismInteriorPackage() {
         limitations: ["This trace is explicitly modeled as mixed-source until decomposed."]
       }
     ],
+    observations: [
+      {
+        kind: "openplazma.observation_statement",
+        version: "0.1.0",
+        readoutId: "composition-profile-readout",
+        artifactId: "composition-profile",
+        targetRegionId: "luminous-organ",
+        observable: "composition",
+        readoutKind: "summary_statistic",
+        method: "derived_profile_review",
+        status: "candidate",
+        assumptions: ["The derived profile is representative of the luminous region."],
+        limitations: ["Composition is inferred, not sampled directly."],
+        alternatives: ["external-field response", "imaging artifact"]
+      },
+      {
+        kind: "openplazma.observation_statement",
+        version: "0.1.0",
+        readoutId: "thermal-map-readout",
+        artifactId: "thermal-map",
+        targetRegionId: "luminous-organ",
+        observable: "temperature",
+        readoutKind: "thermal_feature",
+        method: "derived_thermal_map_review",
+        status: "candidate",
+        assumptions: ["The thermal reconstruction is spatially aligned."],
+        limitations: ["Thermal maps do not identify the energy source by themselves."],
+        alternatives: ["metabolism", "thermal coupling", "external heating"]
+      },
+      {
+        kind: "openplazma.observation_statement",
+        version: "0.1.0",
+        readoutId: "acoustic-trace-readout",
+        artifactId: "acoustic-trace",
+        targetRegionId: "abdomen",
+        observable: "acoustic_wave",
+        readoutKind: "frequency_band",
+        method: "remote_acoustic_review",
+        status: "candidate",
+        assumptions: ["The acoustic channel is time-aligned with the thermal map."],
+        limitations: ["Motion and physiology can mimic source periodicity."],
+        alternatives: ["motion", "physiology", "sensor coupling"]
+      },
+      {
+        kind: "openplazma.observation_statement",
+        version: "0.1.0",
+        readoutId: "mixed-current-readout",
+        artifactId: "mixed-current-trace",
+        signalId: "internal-current",
+        targetRegionId: "luminous-organ",
+        observable: "electric_current",
+        readoutKind: "frequency_peak",
+        method: "stft",
+        selector: "frequencyAnalyses[current-stft].peaks[current-3hz]",
+        status: "candidate",
+        value: 3.2,
+        unit: "Hz",
+        assumptions: ["Sampling intervals are stable after timestamp correction."],
+        limitations: ["Current modulation does not distinguish heat, light, gravity, and instrument coupling by itself."],
+        alternatives: ["thermal coupling", "photoelectric coupling", "gravity coupling", "instrument noise"]
+      }
+    ],
     fusionAssessment: {
       kind: "openplazma.fusion_condition_assessment",
       version: "0.1.0",
@@ -526,8 +630,11 @@ function organismInteriorPackage() {
           status: "inferred",
           logicalRole: "supporting",
           evidenceArtifactIds: ["composition-profile"],
+          evidenceReadoutIds: ["composition-profile-readout"],
+          method: "derived_profile_review",
           assumptions: ["The derived composition profile is representative of the luminous region."],
-          limitations: ["No direct fuel sample exists."]
+          limitations: ["No direct fuel sample exists."],
+          alternatives: ["imaging artifact", "external-field response"]
         },
         {
           parameter: "confinement_mechanism",
@@ -542,8 +649,11 @@ function organismInteriorPackage() {
           status: "bounded",
           logicalRole: "supporting",
           evidenceArtifactIds: ["mixed-current-trace"],
+          evidenceReadoutIds: ["mixed-current-readout"],
+          method: "stft",
           assumptions: ["The mixed current trace bounds one possible energy-input channel."],
-          limitations: ["The current may be induced by heat, light, gravity-like coupling, or noise."]
+          limitations: ["The current may be induced by heat, light, gravity-like coupling, or noise."],
+          alternatives: ["thermal coupling", "photoelectric coupling", "gravity coupling", "instrument noise"]
         }
       ],
       requiredConditions: [
@@ -577,8 +687,11 @@ function organismInteriorPackage() {
         statement: "Internal fusion remains untested because necessary diagnostics are missing.",
         status: "inconclusive",
         evidenceArtifactIds: ["thermal-map", "composition-profile", "mixed-current-trace"],
+        evidenceReadoutIds: ["thermal-map-readout", "composition-profile-readout", "mixed-current-readout"],
+        method: "evidence_gap_review",
         assumptions: [],
-        limitations: ["Thermal and composition evidence can support multiple non-fusion explanations."]
+        limitations: ["Thermal and composition evidence can support multiple non-fusion explanations."],
+        alternatives: ["metabolism", "chemical_luminescence", "external_field", "sensor_artifact"]
       }
     ],
     limitations: ["Remote biological investigation package only.", "No command/control path."]
@@ -704,6 +817,215 @@ describe("InvestigationPackage schema", () => {
     pack.artifacts[1]!.frequencyAnalyses![0]!.bands[0]!.upperFrequencyHz = 1;
 
     expect(() => investigationPackageSchema.parse(pack)).toThrow();
+  });
+
+  it("validates mediated observation statements and structured artifact sources", () => {
+    const pack = willOWispPackage();
+    pack.artifacts[1]!.source = {
+      sourceKind: "local_fixture",
+      label: "Will-o-wisp optical trace fixture",
+      artifactIds: [],
+      signalIds: ["emission-intensity"],
+      limitations: ["Synthetic educational fixture."]
+    };
+    pack.observations = [
+      {
+        kind: "openplazma.observation_statement",
+        version: "0.1.0",
+        readoutId: "brightness-flicker-readout",
+        artifactId: "emission-timeseries",
+        observable: "visible_light",
+        readoutKind: "frequency_peak",
+        method: "fft",
+        selector: "frequencyAnalyses[brightness-fft].peaks[dominant-flicker]",
+        status: "candidate",
+        value: 0.67,
+        unit: "Hz",
+        assumptions: ["The field sample rate is approximately stable."],
+        limitations: ["The peak is a mediated brightness readout, not source identity."],
+        alternatives: ["motion", "aliasing", "instrument response"]
+      }
+    ];
+    pack.claims[0]!.evidenceReadoutIds = ["brightness-flicker-readout"];
+    pack.claims[0]!.method = "evidence_gap_review";
+    pack.claims[0]!.alternatives = ["chemical_luminescence", "electrical_discharge", "sensor_artifact"];
+    pack.fusionAssessment.observedOrInferredConditions[0]!.evidenceReadoutIds = ["brightness-flicker-readout"];
+    pack.fusionAssessment.observedOrInferredConditions[0]!.method = "coarse_spectrum_review";
+    pack.fusionAssessment.observedOrInferredConditions[0]!.alternatives = ["thermal emission", "chemical emission"];
+
+    const parsed = parseInvestigationPackage(pack);
+
+    expect(parsed.observations?.[0]?.readoutId).toBe("brightness-flicker-readout");
+    expect(parsed.artifacts[1]?.source?.sourceKind).toBe("local_fixture");
+    expect(parsed.claims[0]?.evidenceReadoutIds).toContain("brightness-flicker-readout");
+  });
+
+  it("rejects artifact-only support claims that skip mediated readouts", () => {
+    const pack = willOWispPackage();
+    pack.claims[0]!.evidenceReadoutIds = [];
+
+    expect(() => investigationPackageSchema.parse(pack)).toThrow("mediated readout");
+  });
+
+  it("rejects positive plasma or fusion claims from unaided human-eye evidence alone", () => {
+    const pack = willOWispPackage();
+    pack.observations = [
+      {
+        kind: "openplazma.observation_statement",
+        version: "0.1.0",
+        readoutId: "eye-visible-readout",
+        artifactId: "witness-eye-report",
+        observable: "visible_light",
+        readoutKind: "human_report",
+        method: "unaided_visual_report",
+        status: "detected",
+        assumptions: ["The witness report is sincere."],
+        limitations: ["Human vision is uncalibrated."],
+        alternatives: ["combustion", "reflection", "sensor artifact"]
+      }
+    ];
+    pack.fusionAssessment.observedOrInferredConditions = [];
+    pack.claims = [
+      {
+        kind: "openplazma.investigation_claim",
+        version: "0.1.0",
+        claimId: "claim-eye-proves-plasma",
+        claimType: "plasma_presence",
+        statement: "The unaided eye report proves the phenomenon is plasma.",
+        status: "support",
+        evidenceArtifactIds: ["witness-eye-report"],
+        evidenceReadoutIds: ["eye-visible-readout"],
+        method: "visual_identity_shortcut",
+        assumptions: ["Visible glow is plasma."],
+        limitations: ["No calibrated diagnostic."],
+        alternatives: []
+      }
+    ];
+
+    expect(() => investigationPackageSchema.parse(pack)).toThrow("human-eye");
+  });
+
+  it("rejects visible-light, absence-only, and simulation-as-observation shortcuts", () => {
+    const visibleLightPack = willOWispPackage();
+    visibleLightPack.observations = [
+      {
+        kind: "openplazma.observation_statement",
+        version: "0.1.0",
+        readoutId: "visible-spectrum-readout",
+        artifactId: "visible-spectrum",
+        observable: "visible_light",
+        readoutKind: "spectral_feature",
+        method: "spectral_line_fit",
+        status: "candidate",
+        assumptions: ["The visible feature is stable."],
+        limitations: ["Visible light alone does not identify plasma or fusion."],
+        alternatives: ["chemical emission", "thermal emission"]
+      }
+    ];
+    visibleLightPack.fusionAssessment.observedOrInferredConditions = [];
+    visibleLightPack.claims = [
+      {
+        kind: "openplazma.investigation_claim",
+        version: "0.1.0",
+        claimId: "claim-visible-proves-fusion",
+        claimType: "fusion_status",
+        statement: "Visible light proves fusion is occurring.",
+        status: "support",
+        evidenceArtifactIds: ["visible-spectrum"],
+        evidenceReadoutIds: ["visible-spectrum-readout"],
+        method: "visible_light_shortcut",
+        assumptions: ["Visible light is a fusion signature."],
+        limitations: ["No product diagnostics."],
+        alternatives: []
+      }
+    ];
+
+    expect(() => investigationPackageSchema.parse(visibleLightPack)).toThrow("visible light");
+
+    const absencePack = willOWispPackage();
+    absencePack.observations = [
+      {
+        kind: "openplazma.observation_statement",
+        version: "0.1.0",
+        readoutId: "neutron-absence-readout",
+        artifactId: "visible-spectrum",
+        observable: "neutron_flux",
+        readoutKind: "absence_statement",
+        method: "not_measured",
+        status: "not_detected",
+        assumptions: ["The visible fixture is treated as the only supplied evidence."],
+        limitations: ["There is no neutron detector in the artifact set."],
+        alternatives: ["missing diagnostic", "below detection threshold"]
+      }
+    ];
+    absencePack.fusionAssessment.observedOrInferredConditions = [];
+    absencePack.claims = [
+      {
+        kind: "openplazma.investigation_claim",
+        version: "0.1.0",
+        claimId: "claim-absence-proves-no-fusion",
+        claimType: "fusion_status",
+        statement: "No neutron flux was observed therefore fusion is absent.",
+        status: "support",
+        evidenceArtifactIds: ["visible-spectrum"],
+        evidenceReadoutIds: ["neutron-absence-readout"],
+        method: "absence_shortcut",
+        assumptions: ["No observation means absence."],
+        limitations: ["The diagnostic adequacy is not established."],
+        alternatives: []
+      }
+    ];
+
+    expect(() => investigationPackageSchema.parse(absencePack)).toThrow("absence");
+
+    const simulationPack = willOWispPackage();
+    simulationPack.artifacts[1]!.provenanceKind = "synthetic";
+    simulationPack.artifacts[1]!.instrument = {
+      instrumentKind: "simulation_diagnostic",
+      label: "Synthetic diagnostic",
+      observables: ["visible_light"],
+      calibration: {
+        status: "unknown",
+        responseKnown: false,
+        correctionApplied: false,
+        description: "Synthetic output has no physical instrument response.",
+        limitations: ["Simulation output is not an observation of the physical phenomenon."]
+      }
+    };
+    simulationPack.fusionAssessment.observedOrInferredConditions = [];
+    simulationPack.observations = [
+      {
+        kind: "openplazma.observation_statement",
+        version: "0.1.0",
+        readoutId: "synthetic-visible-readout",
+        artifactId: "emission-timeseries",
+        observable: "visible_light",
+        readoutKind: "model_readout",
+        method: "synthetic_fixture",
+        status: "detected",
+        assumptions: ["Synthetic output represents a scenario."],
+        limitations: ["Synthetic output is not a physical observation."],
+        alternatives: ["model assumption", "fixture artifact"]
+      }
+    ];
+    simulationPack.claims = [
+      {
+        kind: "openplazma.investigation_claim",
+        version: "0.1.0",
+        claimId: "claim-simulation-observed-plasma",
+        claimType: "plasma_presence",
+        statement: "The simulation observed the phenomenon is plasma.",
+        status: "support",
+        evidenceArtifactIds: ["emission-timeseries"],
+        evidenceReadoutIds: ["synthetic-visible-readout"],
+        method: "simulation_observation_shortcut",
+        assumptions: ["Synthetic output is physical observation."],
+        limitations: ["No measured physical diagnostic."],
+        alternatives: []
+      }
+    ];
+
+    expect(() => investigationPackageSchema.parse(simulationPack)).toThrow("simulation");
   });
 
   it("validates bundled investigation fixtures from the registry", () => {
@@ -858,6 +1180,7 @@ describe("InvestigationPackage schema", () => {
       ...basePackage,
       packageId: "draft-external-session-001",
       artifacts: [],
+      observations: [],
       claims: [],
       fusionAssessment: {
         ...basePackage.fusionAssessment,

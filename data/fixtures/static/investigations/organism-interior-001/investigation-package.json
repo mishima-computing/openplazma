@@ -23,14 +23,18 @@
         "regionId": "abdomen",
         "label": "Abdominal cavity",
         "description": "Primary internal observation region.",
-        "limitations": ["All internal diagnostics are remote or derived."]
+        "limitations": [
+          "All internal diagnostics are remote or derived."
+        ]
       },
       {
         "regionId": "luminous-organ",
         "label": "Luminous organ candidate",
         "description": "Localized region with higher emission and temperature signatures.",
         "parentRegionId": "abdomen",
-        "limitations": ["The region may be an imaging artifact or external-field response."]
+        "limitations": [
+          "The region may be an imaging artifact or external-field response."
+        ]
       }
     ],
     "limitations": [
@@ -67,7 +71,16 @@
       "quantity": "temperature",
       "unit": "K",
       "description": "Derived internal temperature map around the luminous region.",
-      "limitations": ["Thermal maps do not identify the energy source by themselves."]
+      "limitations": [
+        "Thermal maps do not identify the energy source by themselves."
+      ],
+      "source": {
+        "sourceKind": "derived_artifact",
+        "label": "Internal thermal map source record",
+        "limitations": [
+          "Static investigation fixture metadata; not live telemetry."
+        ]
+      }
     },
     {
       "kind": "openplazma.diagnostic_artifact",
@@ -80,7 +93,16 @@
       "quantity": "pressure_wave",
       "unit": "a.u.",
       "description": "Remote acoustic measurement of internal pulses.",
-      "limitations": ["Motion and physiology can mimic source periodicity."]
+      "limitations": [
+        "Motion and physiology can mimic source periodicity."
+      ],
+      "source": {
+        "sourceKind": "local_fixture",
+        "label": "Internal acoustic trace source record",
+        "limitations": [
+          "Static investigation fixture metadata; not live telemetry."
+        ]
+      }
     },
     {
       "kind": "openplazma.diagnostic_artifact",
@@ -93,7 +115,16 @@
       "quantity": "composition",
       "unit": "fraction",
       "description": "Estimated local gas composition near the luminous region.",
-      "limitations": ["Composition is inferred, not sampled directly."]
+      "limitations": [
+        "Composition is inferred, not sampled directly."
+      ],
+      "source": {
+        "sourceKind": "derived_artifact",
+        "label": "Atmospheric composition profile source record",
+        "limitations": [
+          "Static investigation fixture metadata; not live telemetry."
+        ]
+      }
     },
     {
       "kind": "openplazma.diagnostic_artifact",
@@ -106,7 +137,9 @@
       "instrument": {
         "instrumentKind": "current_probe",
         "label": "Shielded current probe",
-        "observables": ["electric_current"],
+        "observables": [
+          "electric_current"
+        ],
         "calibration": {
           "status": "estimated",
           "responseKnown": false,
@@ -123,28 +156,36 @@
           "role": "candidate",
           "status": "unresolved",
           "description": "Internal heat may induce current through thermal coupling.",
-          "limitations": ["Thermal coupling has not been independently calibrated."]
+          "limitations": [
+            "Thermal coupling has not been independently calibrated."
+          ]
         },
         {
           "contributionKind": "photoelectric_coupling",
           "role": "candidate",
           "status": "unresolved",
           "description": "Light from the luminous region may drive a photoelectric response.",
-          "limitations": ["The optical path and sensor response are not separated."]
+          "limitations": [
+            "The optical path and sensor response are not separated."
+          ]
         },
         {
           "contributionKind": "gravity_coupling",
           "role": "candidate",
           "status": "unresolved",
           "description": "Gravity-like variation is retained as a possible coupling term.",
-          "limitations": ["No independent gravimeter trace is available for this region."]
+          "limitations": [
+            "No independent gravimeter trace is available for this region."
+          ]
         },
         {
           "contributionKind": "instrument_noise",
           "role": "noise",
           "status": "unresolved",
           "description": "Electronics noise and shielding leakage may contribute.",
-          "limitations": ["The noise floor is only estimated."]
+          "limitations": [
+            "The noise floor is only estimated."
+          ]
         }
       ],
       "frequencyAnalyses": [
@@ -166,7 +207,9 @@
               "quantity": "current modulation",
               "unit": "A",
               "description": "Temporal frequency range of the internal current trace.",
-              "limitations": ["The band can contain source behavior, coupling, motion, and noise."]
+              "limitations": [
+                "The band can contain source behavior, coupling, motion, and noise."
+              ]
             }
           ],
           "peaks": [
@@ -176,21 +219,39 @@
               "amplitude": 0.03,
               "signalToNoiseRatio": 2.4,
               "interpretation": "Weak current modulation candidate.",
-              "limitations": ["This peak is below a source-identification threshold."]
+              "limitations": [
+                "This peak is below a source-identification threshold."
+              ]
             }
           ],
           "description": "Short-time Fourier analysis of the mixed current channel.",
-          "assumptions": ["Sampling intervals are stable after timestamp correction."],
+          "assumptions": [
+            "Sampling intervals are stable after timestamp correction."
+          ],
           "limitations": [
             "Current modulation does not distinguish heat, light, gravity, and instrument coupling by itself."
           ]
         }
       ],
-      "signalIds": ["internal-current"],
+      "signalIds": [
+        "internal-current"
+      ],
       "quantity": "electric_current",
       "unit": "A",
       "description": "Electrical current trace near the luminous internal region.",
-      "limitations": ["This trace is explicitly modeled as mixed-source until decomposed."]
+      "limitations": [
+        "This trace is explicitly modeled as mixed-source until decomposed."
+      ],
+      "source": {
+        "sourceKind": "local_fixture",
+        "label": "Mixed current trace source record",
+        "signalIds": [
+          "internal-current"
+        ],
+        "limitations": [
+          "Static investigation fixture metadata; not live telemetry."
+        ]
+      }
     }
   ],
   "fusionAssessment": {
@@ -199,31 +260,72 @@
     "assessmentId": "organism-fusion-assessment",
     "fusionStatus": "unknown",
     "conditionMode": "forward_from_observations",
-    "reactionCandidates": ["unknown"],
+    "reactionCandidates": [
+      "unknown"
+    ],
     "observedOrInferredConditions": [
       {
         "parameter": "composition",
         "status": "inferred",
         "logicalRole": "supporting",
-        "evidenceArtifactIds": ["composition-profile"],
-        "assumptions": ["The derived composition profile is representative of the luminous region."],
-        "limitations": ["No direct fuel sample exists."]
+        "evidenceArtifactIds": [
+          "composition-profile"
+        ],
+        "assumptions": [
+          "The derived composition profile is representative of the luminous region."
+        ],
+        "limitations": [
+          "No direct fuel sample exists."
+        ],
+        "evidenceReadoutIds": [
+          "composition-profile-readout"
+        ],
+        "method": "mediated_artifact_review",
+        "alternatives": [
+          "unresolved coupling",
+          "missing diagnostic",
+          "background contribution"
+        ]
       },
       {
         "parameter": "confinement_mechanism",
         "status": "unknown",
         "logicalRole": "unknown",
-        "evidenceArtifactIds": ["thermal-map", "acoustic-trace"],
+        "evidenceArtifactIds": [
+          "thermal-map",
+          "acoustic-trace"
+        ],
         "assumptions": [],
-        "limitations": ["Heat and acoustic periodicity do not establish plasma confinement."]
+        "limitations": [
+          "Heat and acoustic periodicity do not establish plasma confinement."
+        ],
+        "evidenceReadoutIds": [
+          "thermal-map-readout",
+          "acoustic-trace-readout"
+        ]
       },
       {
         "parameter": "energy_input",
         "status": "bounded",
         "logicalRole": "supporting",
-        "evidenceArtifactIds": ["mixed-current-trace"],
-        "assumptions": ["The mixed current trace bounds one possible energy-input channel."],
-        "limitations": ["The current may be induced by heat, light, gravity-like coupling, or noise."]
+        "evidenceArtifactIds": [
+          "mixed-current-trace"
+        ],
+        "assumptions": [
+          "The mixed current trace bounds one possible energy-input channel."
+        ],
+        "limitations": [
+          "The current may be induced by heat, light, gravity-like coupling, or noise."
+        ],
+        "evidenceReadoutIds": [
+          "mixed-current-trace-readout"
+        ],
+        "method": "mediated_artifact_review",
+        "alternatives": [
+          "unresolved coupling",
+          "missing diagnostic",
+          "background contribution"
+        ]
       }
     ],
     "requiredConditions": [
@@ -232,21 +334,38 @@
         "status": "required",
         "logicalRole": "necessary",
         "evidenceArtifactIds": [],
-        "assumptions": ["A thermonuclear interpretation would require fusion-relevant ion temperatures."],
-        "limitations": ["The current artifact set does not measure ion temperature."]
+        "assumptions": [
+          "A thermonuclear interpretation would require fusion-relevant ion temperatures."
+        ],
+        "limitations": [
+          "The current artifact set does not measure ion temperature."
+        ]
       },
       {
         "parameter": "particle_loss",
         "status": "required",
         "logicalRole": "necessary",
         "evidenceArtifactIds": [],
-        "assumptions": ["Sustained internal plasma would require a loss balance."],
-        "limitations": ["Particle losses are not measured."]
+        "assumptions": [
+          "Sustained internal plasma would require a loss balance."
+        ],
+        "limitations": [
+          "Particle losses are not measured."
+        ]
       }
     ],
-    "unknowns": ["ion temperature", "particle products", "confinement mechanism", "loss balance"],
-    "assumptions": ["The organism may be a source, a reactor, a shielded cavity, or a passive responder."],
-    "limitations": ["The package does not prove plasma or fusion."]
+    "unknowns": [
+      "ion temperature",
+      "particle products",
+      "confinement mechanism",
+      "loss balance"
+    ],
+    "assumptions": [
+      "The organism may be a source, a reactor, a shielded cavity, or a passive responder."
+    ],
+    "limitations": [
+      "The package does not prove plasma or fusion."
+    ]
   },
   "claims": [
     {
@@ -256,10 +375,113 @@
       "claimType": "fusion_status",
       "statement": "Internal fusion remains untested because necessary diagnostics are missing.",
       "status": "inconclusive",
-      "evidenceArtifactIds": ["thermal-map", "composition-profile", "mixed-current-trace"],
+      "evidenceArtifactIds": [
+        "thermal-map",
+        "composition-profile",
+        "mixed-current-trace"
+      ],
       "assumptions": [],
-      "limitations": ["Thermal, composition, and current evidence can support multiple non-fusion explanations."]
+      "limitations": [
+        "Thermal, composition, and current evidence can support multiple non-fusion explanations."
+      ],
+      "evidenceReadoutIds": [
+        "thermal-map-readout",
+        "composition-profile-readout",
+        "mixed-current-trace-readout"
+      ]
     }
   ],
-  "limitations": ["Remote biological investigation package only.", "No command/control path."]
+  "limitations": [
+    "Remote biological investigation package only.",
+    "No command/control path."
+  ],
+  "observations": [
+    {
+      "kind": "openplazma.observation_statement",
+      "version": "0.1.0",
+      "readoutId": "thermal-map-readout",
+      "artifactId": "thermal-map",
+      "targetRegionId": "luminous-organ",
+      "observable": "temperature",
+      "readoutKind": "thermal_feature",
+      "method": "artifact_readout_review",
+      "status": "candidate",
+      "assumptions": [],
+      "limitations": [
+        "Thermal maps do not identify the energy source by themselves."
+      ],
+      "alternatives": [
+        "instrument response",
+        "coupling",
+        "background"
+      ]
+    },
+    {
+      "kind": "openplazma.observation_statement",
+      "version": "0.1.0",
+      "readoutId": "acoustic-trace-readout",
+      "artifactId": "acoustic-trace",
+      "targetRegionId": "abdomen",
+      "observable": "acoustic_wave",
+      "readoutKind": "frequency_band",
+      "method": "artifact_readout_review",
+      "status": "candidate",
+      "assumptions": [],
+      "limitations": [
+        "Motion and physiology can mimic source periodicity."
+      ],
+      "alternatives": [
+        "instrument response",
+        "coupling",
+        "background"
+      ]
+    },
+    {
+      "kind": "openplazma.observation_statement",
+      "version": "0.1.0",
+      "readoutId": "composition-profile-readout",
+      "artifactId": "composition-profile",
+      "targetRegionId": "luminous-organ",
+      "observable": "composition",
+      "readoutKind": "summary_statistic",
+      "method": "artifact_readout_review",
+      "status": "candidate",
+      "assumptions": [],
+      "limitations": [
+        "Composition is inferred, not sampled directly."
+      ],
+      "alternatives": [
+        "instrument response",
+        "coupling",
+        "background"
+      ]
+    },
+    {
+      "kind": "openplazma.observation_statement",
+      "version": "0.1.0",
+      "readoutId": "mixed-current-trace-readout",
+      "artifactId": "mixed-current-trace",
+      "signalId": "internal-current",
+      "targetRegionId": "luminous-organ",
+      "observable": "electric_current",
+      "readoutKind": "frequency_peak",
+      "method": "stft",
+      "selector": "frequencyAnalyses[current-stft].peaks[current-3hz]",
+      "value": 3.2,
+      "unit": "Hz",
+      "status": "candidate",
+      "assumptions": [
+        "Sampling intervals are stable after timestamp correction."
+      ],
+      "limitations": [
+        "This trace is explicitly modeled as mixed-source until decomposed."
+      ],
+      "alternatives": [
+        "thermal_coupling",
+        "photoelectric_coupling",
+        "gravity_coupling",
+        "instrument_noise"
+      ]
+    }
+  ]
 }

@@ -82,11 +82,7 @@ def test_log_metric_writes_metric_record(tmp_path: Path):
     assert op.load_run(run.run_id, run_store=run_store_path(tmp_path))["metricCount"] == 1
 
 
-def test_log_metric_rejects_metric_count_limit_without_partial_append(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-):
-    monkeypatch.setattr(runstore_module, "MAX_METRICS_PER_RUN", 1)
+def test_log_metric_has_no_fixed_metric_count_cap(tmp_path: Path):
     run_store = run_store_path(tmp_path)
     run = op.start_run(
         project="openplazma-demo",
@@ -96,18 +92,13 @@ def test_log_metric_rejects_metric_count_limit_without_partial_append(
         run_store=run_store,
     )
     run.log_metric("first_metric", 1)
-    run_dir = run_store / "runs" / run.run_id
-    run_json_before = (run_dir / "run.json").read_text(encoding="utf-8")
-    metrics_before = (run_dir / "metrics.jsonl").read_text(encoding="utf-8")
-    events_before = (run_dir / "events.jsonl").read_text(encoding="utf-8")
+    run.log_metric("second_metric", 2)
 
-    with pytest.raises(ValueError, match="MAX_METRICS_PER_RUN"):
-        run.log_metric("second_metric", 2)
-
-    assert (run_dir / "run.json").read_text(encoding="utf-8") == run_json_before
-    assert (run_dir / "metrics.jsonl").read_text(encoding="utf-8") == metrics_before
-    assert (run_dir / "events.jsonl").read_text(encoding="utf-8") == events_before
-    assert [metric["name"] for metric in op.load_metrics(run.run_id, run_store=run_store)] == ["first_metric"]
+    assert not hasattr(runstore_module, "MAX_METRICS_PER_RUN")
+    assert [metric["name"] for metric in op.load_metrics(run.run_id, run_store=run_store)] == [
+        "first_metric",
+        "second_metric",
+    ]
 
 
 def test_log_metric_accepts_nested_json_values(tmp_path: Path):
@@ -154,11 +145,7 @@ def test_log_artifact_writes_json_and_manifest_entry(tmp_path: Path):
     }
 
 
-def test_log_artifact_rejects_source_file_over_size_limit_without_partial_write(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-):
-    monkeypatch.setattr(runstore_module, "MAX_ARTIFACT_BYTES", 8)
+def test_log_artifact_records_source_file_byte_size_without_fixed_cap(tmp_path: Path):
     run_store = run_store_path(tmp_path)
     run = op.start_run(
         project="openplazma-demo",
@@ -171,19 +158,16 @@ def test_log_artifact_rejects_source_file_over_size_limit_without_partial_write(
     source_path.write_text("123456789", encoding="utf-8")
     run_dir = run_store / "runs" / run.run_id
 
-    with pytest.raises(ValueError, match="MAX_ARTIFACT_BYTES"):
-        run.log_artifact("large_artifact", "note", source_path)
+    artifact = run.log_artifact("large_artifact", "note", source_path)
 
-    assert not (run_dir / "artifacts" / "large-artifact.json").exists()
-    assert op.load_manifest(run.run_id, run_store=run_store)["artifacts"] == []
-    assert op.load_run(run.run_id, run_store=run_store)["artifactCount"] == 0
+    assert not hasattr(runstore_module, "MAX_ARTIFACT_BYTES")
+    assert (run_dir / "artifacts" / "large-artifact.json").is_file()
+    assert artifact["byteSize"] == source_path.stat().st_size
+    assert op.load_manifest(run.run_id, run_store=run_store)["artifacts"] == [artifact]
+    assert op.load_run(run.run_id, run_store=run_store)["artifactCount"] == 1
 
 
-def test_log_artifact_rejects_json_data_over_size_limit_without_partial_write(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-):
-    monkeypatch.setattr(runstore_module, "MAX_ARTIFACT_BYTES", 16)
+def test_log_artifact_records_json_byte_size_without_fixed_cap(tmp_path: Path):
     run_store = run_store_path(tmp_path)
     run = op.start_run(
         project="openplazma-demo",
@@ -194,12 +178,13 @@ def test_log_artifact_rejects_json_data_over_size_limit_without_partial_write(
     )
     run_dir = run_store / "runs" / run.run_id
 
-    with pytest.raises(ValueError, match="MAX_ARTIFACT_BYTES"):
-        run.log_artifact("large_json", "note", {"payload": "x" * 128})
+    artifact = run.log_artifact("large_json", "note", {"payload": "x" * 128})
+    artifact_path = run_dir / artifact["path"]
 
-    assert not (run_dir / "artifacts" / "large-json.json").exists()
-    assert op.load_manifest(run.run_id, run_store=run_store)["artifacts"] == []
-    assert op.load_run(run.run_id, run_store=run_store)["artifactCount"] == 0
+    assert artifact_path.is_file()
+    assert artifact["byteSize"] == artifact_path.stat().st_size
+    assert op.load_manifest(run.run_id, run_store=run_store)["artifacts"] == [artifact]
+    assert op.load_run(run.run_id, run_store=run_store)["artifactCount"] == 1
 
 
 def test_log_artifact_accepts_nested_json_metadata(tmp_path: Path):
@@ -287,6 +272,67 @@ def test_list_runs_and_load_run(tmp_path: Path):
     runs = op.list_runs(run_store=run_store_path(tmp_path))
     assert [run["runId"] for run in runs] == [first.run_id, second.run_id]
     assert op.load_run(first.run_id, run_store=run_store_path(tmp_path))["runId"] == first.run_id
+
+
+def test_start_run_records_multi_machine_partition_identity(tmp_path: Path):
+    run_store = run_store_path(tmp_path)
+    run = op.start_run(
+        project="openplazma-demo",
+        campaign="scale-out",
+        run_type="notebook_analysis",
+        context=sample_context(),
+        run_store=run_store,
+        run_group_id="will-o-wisp-campaign",
+        machine_id="node-a",
+        partition_id="shot-001-window-000",
+    )
+
+    assert "-node-a-" in run.run_id
+    assert len(run.run_id.rsplit("-", 1)[1]) == 12
+    record = op.load_run(run.run_id, run_store=run_store)
+    assert record["storeId"].startswith("OPS-")
+    assert record["machineId"] == "node-a"
+    assert record["runGroupId"] == "will-o-wisp-campaign"
+    assert record["partitionId"] == "shot-001-window-000"
+    metadata = json.loads((run_store / "runstore.json").read_text(encoding="utf-8"))
+    assert metadata["storeId"] == record["storeId"]
+    assert metadata["backendKind"] == "local_filesystem"
+    assert [event["machineId"] for event in op.iter_events(run.run_id, run_store=run_store)] == ["node-a"]
+
+
+def test_list_runs_page_and_run_group_summary(tmp_path: Path):
+    run_store = run_store_path(tmp_path)
+    run_ids = []
+    for index, machine_id in enumerate(["node-a", "node-b", "node-c"]):
+        run = op.start_run(
+            project="openplazma-demo",
+            campaign="scale-out",
+            run_type="notebook_analysis",
+            context=sample_context(),
+            run_store=run_store,
+            run_group_id="will-o-wisp-campaign",
+            machine_id=machine_id,
+            partition_id=f"partition-{index:03d}",
+        )
+        run.log_metric("partition_index", index)
+        run_ids.append(run.run_id)
+
+    first_page = op.list_runs_page(run_store=run_store, page_size=2)
+    assert [record["runId"] for record in first_page["runs"]] == sorted(run_ids)[:2]
+    assert first_page["nextCursor"] == sorted(run_ids)[1]
+    second_page = op.list_runs_page(run_store=run_store, page_size=2, cursor=first_page["nextCursor"])
+    assert [record["runId"] for record in second_page["runs"]] == sorted(run_ids)[2:]
+    assert second_page["nextCursor"] is None
+
+    group_records = op.list_run_group("will-o-wisp-campaign", run_store=run_store)
+    assert [record["runId"] for record in group_records] == sorted(run_ids)
+    summary = op.summarize_run_group("will-o-wisp-campaign", run_store=run_store)
+    assert summary["runCount"] == 3
+    assert summary["metricCount"] == 3
+    assert summary["artifactCount"] == 0
+    assert summary["statusCounts"] == {"running": 3}
+    assert summary["machineIds"] == ["node-a", "node-b", "node-c"]
+    assert summary["partitionIds"] == ["partition-000", "partition-001", "partition-002"]
 
 
 def test_path_traversal_artifact_name_is_rejected(tmp_path: Path):
@@ -467,8 +513,7 @@ def test_load_metrics_rejects_jsonl_without_terminal_newline(tmp_path: Path):
         op.load_metrics(run.run_id, run_store=run_store_path(tmp_path))
 
 
-def test_load_metrics_rejects_metric_count_over_limit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(runstore_module, "MAX_METRICS_PER_RUN", 1)
+def test_iter_metrics_streams_records_without_fixed_count_cap(tmp_path: Path):
     run_store = run_store_path(tmp_path)
     run = op.start_run(
         project="openplazma-demo",
@@ -490,8 +535,11 @@ def test_load_metrics_rejects_metric_count_over_limit(tmp_path: Path, monkeypatc
     metrics = [{**metric_template, "name": "first_metric"}, {**metric_template, "name": "second_metric"}]
     metrics_path.write_text("\n".join(json.dumps(metric) for metric in metrics) + "\n", encoding="utf-8")
 
-    with pytest.raises(ValueError, match="MAX_METRICS_PER_RUN"):
-        op.load_metrics(run.run_id, run_store=run_store)
+    assert not hasattr(runstore_module, "MAX_METRICS_PER_RUN")
+    assert [metric["name"] for metric in op.iter_metrics(run.run_id, run_store=run_store)] == [
+        "first_metric",
+        "second_metric",
+    ]
 
 
 def test_load_run_rejects_nonstandard_json_constants(tmp_path: Path):
@@ -815,16 +863,13 @@ def test_load_manifest_rejects_artifact_sha_mismatch(tmp_path: Path):
     )
     artifact = run.log_artifact("signal_series", "signal_series", sample_signal())
     artifact_path = run_store_path(tmp_path) / "runs" / run.run_id / artifact["path"]
-    artifact_path.write_text('{"tampered":true}\n', encoding="utf-8")
+    artifact_path.write_bytes(b"x" * artifact["byteSize"])
 
     with pytest.raises(ValueError, match="sha256"):
         op.load_manifest(run.run_id, run_store=run_store_path(tmp_path))
 
 
-def test_load_manifest_rejects_artifact_file_over_size_limit(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-):
+def test_load_manifest_rejects_artifact_byte_size_mismatch(tmp_path: Path):
     run_store = run_store_path(tmp_path)
     run = op.start_run(
         project="openplazma-demo",
@@ -834,10 +879,12 @@ def test_load_manifest_rejects_artifact_file_over_size_limit(
         run_store=run_store,
     )
     artifact = run.log_artifact("signal_series", "signal_series", sample_signal())
-    artifact_path = run_store / "runs" / run.run_id / artifact["path"]
-    monkeypatch.setattr(runstore_module, "MAX_ARTIFACT_BYTES", artifact_path.stat().st_size - 1)
+    manifest_path = run_store / "runs" / run.run_id / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["artifacts"][0]["byteSize"] = artifact["byteSize"] + 1
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
-    with pytest.raises(ValueError, match="MAX_ARTIFACT_BYTES"):
+    with pytest.raises(ValueError, match="byteSize"):
         op.load_manifest(run.run_id, run_store=run_store)
 
 
@@ -965,12 +1012,12 @@ def test_start_run_retries_colliding_run_id(tmp_path: Path, monkeypatch: pytest.
     original_next_run_id = runstore_module._next_run_id
     calls = 0
 
-    def colliding_next_run_id(run_store_arg: str | Path) -> str:
+    def colliding_next_run_id(run_store_arg: str | Path, *, machine_id: str | None = None) -> str:
         nonlocal calls
         calls += 1
         if calls == 1:
             return first.run_id
-        return original_next_run_id(run_store_arg)
+        return original_next_run_id(run_store_arg, machine_id=machine_id)
 
     monkeypatch.setattr(runstore_module, "_next_run_id", colliding_next_run_id)
 
@@ -1524,6 +1571,24 @@ def test_lock_keeps_old_live_pid_until_timeout(tmp_path: Path):
 
     assert lock_dir.exists()
     assert lock_dir.joinpath("owner").read_text(encoding="utf-8") == f"pid={os.getpid()}\n"
+
+
+def test_lock_keeps_remote_host_owner_until_timeout(tmp_path: Path):
+    run_store = run_store_path(tmp_path)
+    lock_dir = run_store / ".write.lock"
+    lock_dir.mkdir(parents=True)
+    owner = "host=remote-node\npid=999999999\nlockId=abc\ncreatedAt=2026-05-24T00:00:00.000Z\n"
+    lock_dir.joinpath("owner").write_text(owner, encoding="utf-8")
+    stale_time = time.time() - 3600
+    os.utime(lock_dir / "owner", (stale_time, stale_time))
+    os.utime(lock_dir, (stale_time, stale_time))
+
+    with pytest.raises(TimeoutError, match="write lock"):
+        with runstore_module._RunStoreWriteLock(run_store, timeout_seconds=0.03):
+            pass
+
+    assert lock_dir.exists()
+    assert lock_dir.joinpath("owner").read_text(encoding="utf-8") == owner
 
 
 def test_lock_clears_malformed_stale_owner_after_grace_period(tmp_path: Path):

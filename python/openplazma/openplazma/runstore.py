@@ -6,11 +6,13 @@ import math
 import os
 import re
 import shutil
+import socket
 import threading
 import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from ._json import load_json, loads_json, save_json
 from ._validation import require_iso_datetime, require_keys, require_list, require_mapping, require_string
@@ -35,13 +37,10 @@ DEFAULT_LIMITATIONS = [
     "Not a standalone authority for safety-critical operation or reactor design decisions.",
 ]
 
-MAX_METRICS_PER_RUN = 100_000
-MAX_ARTIFACTS_PER_RUN = 10_000
-MAX_ARTIFACT_BYTES = 64 * 1024 * 1024
-
 _SAFE_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
-_RUN_ID_RE = re.compile(r"^OPR-\d{8}-\d{6}$")
-_ARTIFACT_ID_RE = re.compile(r"^OPA-\d{8}-\d{6}$")
+_RUN_ID_RE = re.compile(r"^OPR-\d{8}(?:-\d{6,}|-[A-Za-z0-9_.-]+-[a-f0-9]{12})$")
+_ARTIFACT_ID_RE = re.compile(r"^OPA-\d{8}-\d{6,}$")
+_STORE_ID_RE = re.compile(r"^OPS-[a-f0-9]{32}$")
 _SHA256_RE = re.compile(r"^[a-f0-9]{64}$")
 _WRITE_LOCK_POLL_SECONDS = 0.01
 _WRITE_LOCK_TIMEOUT_SECONDS = 10.0
@@ -55,6 +54,20 @@ def _now() -> str:
 
 def _today() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%d")
+
+
+def _host_id() -> str:
+    selected = os.environ.get("OPENPLAZMA_MACHINE_ID") or socket.gethostname() or "unknown-host"
+    return re.sub(r"[^A-Za-z0-9_.-]+", "-", selected).strip(".-") or "unknown-host"
+
+
+def _safe_identity(value: str | None, name: str) -> str | None:
+    if value is None:
+        return None
+    selected = require_string(value, name)
+    if not _SAFE_NAME_RE.fullmatch(selected) or selected in {".", ".."}:
+        raise ValueError(f"{name} may only contain letters, numbers, dots, underscores, and hyphens.")
+    return selected
 
 
 def _parse_required_datetime(value: Any, name: str) -> datetime:
@@ -110,6 +123,46 @@ def _runs_root(run_store: str | Path) -> Path:
     return _run_store_root(run_store) / "runs"
 
 
+def _runstore_metadata_path(run_store: str | Path) -> Path:
+    return _run_store_root(run_store) / "runstore.json"
+
+
+def _load_or_create_runstore_metadata(run_store: str | Path) -> dict[str, Any]:
+    root = _run_store_root(run_store)
+    metadata_path = _runstore_metadata_path(run_store)
+    if metadata_path.exists():
+        metadata = load_json(metadata_path)
+        require_keys(metadata, ["kind", "version", "layoutVersion", "storeId", "backendKind", "createdAt"], "RunStoreMetadata")
+        if metadata["kind"] != "openplazma.run_store":
+            raise ValueError("RunStoreMetadata.kind must be openplazma.run_store.")
+        if metadata["version"] != "0.1.0":
+            raise ValueError("RunStoreMetadata.version must be 0.1.0.")
+        if not _STORE_ID_RE.fullmatch(require_string(metadata["storeId"], "RunStoreMetadata.storeId")):
+            raise ValueError("RunStoreMetadata.storeId must look like OPS-<32 lowercase hex chars>.")
+        require_string(metadata["layoutVersion"], "RunStoreMetadata.layoutVersion")
+        require_string(metadata["backendKind"], "RunStoreMetadata.backendKind")
+        require_iso_datetime(metadata["createdAt"], "RunStoreMetadata.createdAt")
+        return metadata
+
+    created_at = _now()
+    metadata = {
+        "kind": "openplazma.run_store",
+        "version": "0.1.0",
+        "layoutVersion": "0.2.0",
+        "storeId": f"OPS-{uuid.uuid4().hex}",
+        "backendKind": "local_filesystem",
+        "createdAt": created_at,
+        "machineId": _host_id(),
+        "limitations": [
+            "Local filesystem RunStore backend.",
+            "Read-only analysis artifacts only; no facility telemetry or control path.",
+        ],
+    }
+    root.mkdir(parents=True, exist_ok=True)
+    save_json(metadata, metadata_path)
+    return metadata
+
+
 class _RunStoreWriteLock:
     def __init__(
         self,
@@ -142,7 +195,10 @@ class _RunStoreWriteLock:
                 self.lock_dir.mkdir()
                 self.acquired = True
                 lock_counts[self.lock_key] = 1
-                (self.lock_dir / "owner").write_text(f"pid={os.getpid()}\n", encoding="utf-8")
+                (self.lock_dir / "owner").write_text(
+                    f"host={_host_id()}\npid={os.getpid()}\nlockId={uuid.uuid4().hex}\ncreatedAt={_now()}\n",
+                    encoding="utf-8",
+                )
                 return self
             except FileExistsError:
                 if self._clear_stale_lock():
@@ -187,6 +243,14 @@ class _RunStoreWriteLock:
             owner = owner_path.read_text(encoding="utf-8")
         except OSError:
             return "malformed"
+        fields: dict[str, str] = {}
+        for line in owner.splitlines():
+            if "=" in line:
+                key, value = line.split("=", 1)
+                fields[key] = value
+        host = fields.get("host")
+        if host is not None and host != _host_id():
+            return "remote"
         match = re.search(r"^pid=(\d+)$", owner, re.MULTILINE)
         if match is None:
             return "malformed"
@@ -221,9 +285,11 @@ def _run_store_write_lock(run_store: str | Path) -> _RunStoreWriteLock:
     return _RunStoreWriteLock(run_store)
 
 
-def _next_run_id(run_store: str | Path) -> str:
+def _next_run_id(run_store: str | Path, *, machine_id: str | None = None) -> str:
     runs_root = _runs_root(run_store)
     runs_root.mkdir(parents=True, exist_ok=True)
+    if machine_id is not None:
+        return f"OPR-{_today()}-{machine_id}-{uuid.uuid4().hex[:12]}"
     prefix = f"OPR-{_today()}-"
     existing = []
     for path in runs_root.glob(f"{prefix}*"):
@@ -235,14 +301,14 @@ def _next_run_id(run_store: str | Path) -> str:
 
 def _run_dir(run_id: str, run_store: str | Path) -> Path:
     if not _RUN_ID_RE.fullmatch(run_id):
-        raise ValueError("run_id must look like OPR-YYYYMMDD-000001.")
+        raise ValueError("run_id must look like OPR-YYYYMMDD-000001 or OPR-YYYYMMDD-machine-<12 hex chars>.")
     return _runs_root(run_store) / run_id
 
 
-def _allocate_run_dir(run_store: str | Path) -> tuple[str, Path]:
+def _allocate_run_dir(run_store: str | Path, *, machine_id: str | None = None) -> tuple[str, Path]:
     last_error: FileExistsError | None = None
     for _ in range(20):
-        run_id = _next_run_id(run_store)
+        run_id = _next_run_id(run_store, machine_id=machine_id)
         run_dir = _run_dir(run_id, run_store)
         try:
             run_dir.mkdir(parents=True, exist_ok=False)
@@ -265,17 +331,6 @@ def _write_jsonl(path: Path, value: dict[str, Any]) -> None:
         file.write("\n")
 
 
-def _require_record_count_within_limit(count: int, limit: int, limit_name: str, record_name: str) -> None:
-    if count > limit:
-        raise ValueError(f"{record_name} count exceeds {limit_name} ({limit}).")
-
-
-def _require_artifact_size_within_limit(path: Path) -> None:
-    size = path.stat().st_size
-    if size > MAX_ARTIFACT_BYTES:
-        raise ValueError(f"Artifact file size exceeds MAX_ARTIFACT_BYTES ({MAX_ARTIFACT_BYTES}).")
-
-
 def _snapshot_files(paths: list[Path]) -> dict[Path, bytes | None]:
     return {path: path.read_bytes() if path.exists() else None for path in paths}
 
@@ -292,12 +347,14 @@ def _restore_files(snapshot: dict[Path, bytes | None]) -> None:
         path.write_bytes(content)
 
 
-def _read_jsonl(path: Path) -> list[dict[str, Any]]:
+def _iter_jsonl(path: Path) -> Iterator[dict[str, Any]]:
     if not path.exists():
-        return []
-    if path.stat().st_size > 0 and not path.read_bytes().endswith(b"\n"):
-        raise ValueError(f"JSONL file must end with a newline: {path}.")
-    values: list[dict[str, Any]] = []
+        return
+    if path.stat().st_size > 0:
+        with path.open("rb") as file:
+            file.seek(-1, os.SEEK_END)
+            if file.read(1) != b"\n":
+                raise ValueError(f"JSONL file must end with a newline: {path}.")
     with path.open("r", encoding="utf-8") as file:
         for line_number, line in enumerate(file, start=1):
             line = line.strip()
@@ -308,8 +365,11 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
                     raise ValueError(f"Invalid JSONL record in {path} at line {line_number}: {error}") from error
                 if not isinstance(value, dict):
                     raise ValueError(f"Expected JSON object line in {path}.")
-                values.append(value)
-    return values
+                yield value
+
+
+def _read_jsonl(path: Path) -> list[dict[str, Any]]:
+    return list(_iter_jsonl(path))
 
 
 def _sha256(path: Path) -> str:
@@ -436,7 +496,7 @@ def _validate_run_record(record: dict[str, Any], *, expected_run_id: str | None 
         raise ValueError("RunRecord.version must be 0.1.0.")
     run_id = require_string(record["runId"], "RunRecord.runId")
     if not _RUN_ID_RE.fullmatch(run_id):
-        raise ValueError("RunRecord.runId must look like OPR-YYYYMMDD-000001.")
+        raise ValueError("RunRecord.runId must look like a supported OPR id.")
     if expected_run_id is not None and run_id != expected_run_id:
         raise ValueError("RunRecord.runId must match the requested run_id.")
     if record["status"] not in {"running", "finished", "failed"}:
@@ -463,6 +523,11 @@ def _validate_run_record(record: dict[str, Any], *, expected_run_id: str | None 
     _require_readonly_source(require_mapping(record["source"], "RunRecord.source"))
     _safe_capabilities(require_mapping(record["capabilities"], "RunRecord.capabilities"))
     _validate_context_ref(record["contextRef"])
+    for field in ["storeId", "runGroupId", "machineId", "partitionId"]:
+        if record.get(field) is not None:
+            _safe_identity(str(record[field]), f"RunRecord.{field}")
+    if record.get("storeId") is not None and not _STORE_ID_RE.fullmatch(str(record["storeId"])):
+        raise ValueError("RunRecord.storeId must look like OPS-<32 lowercase hex chars>.")
     _require_int(record["artifactCount"], "RunRecord.artifactCount", nonnegative=True)
     _require_int(record["metricCount"], "RunRecord.metricCount", nonnegative=True)
     _require_string_list(record["limitations"], "RunRecord.limitations", min_items=1)
@@ -477,7 +542,7 @@ def _validate_metric_record(record: dict[str, Any], *, expected_run_id: str | No
         raise ValueError("MetricRecord.version must be 0.1.0.")
     run_id = require_string(record["runId"], "MetricRecord.runId")
     if not _RUN_ID_RE.fullmatch(run_id):
-        raise ValueError("MetricRecord.runId must look like OPR-YYYYMMDD-000001.")
+        raise ValueError("MetricRecord.runId must look like a supported OPR id.")
     if expected_run_id is not None and run_id != expected_run_id:
         raise ValueError("MetricRecord.runId must match the requested run_id.")
     require_string(record["name"], "MetricRecord.name")
@@ -503,12 +568,14 @@ def _validate_artifact_record(record: dict[str, Any], *, expected_run_id: str | 
         raise ValueError("ArtifactRecord.artifactId must look like OPA-YYYYMMDD-000001.")
     run_id = require_string(record["runId"], "ArtifactRecord.runId")
     if not _RUN_ID_RE.fullmatch(run_id):
-        raise ValueError("ArtifactRecord.runId must look like OPR-YYYYMMDD-000001.")
+        raise ValueError("ArtifactRecord.runId must look like a supported OPR id.")
     if expected_run_id is not None and run_id != expected_run_id:
         raise ValueError("ArtifactRecord.runId must match the requested run_id.")
     require_string(record["name"], "ArtifactRecord.name")
     require_string(record["type"], "ArtifactRecord.type")
     _validate_artifact_path(record["path"], "ArtifactRecord.path")
+    if record.get("byteSize") is not None:
+        _require_int(record["byteSize"], "ArtifactRecord.byteSize", nonnegative=True)
     digest = require_string(record["sha256"], "ArtifactRecord.sha256")
     if not _SHA256_RE.fullmatch(digest):
         raise ValueError("ArtifactRecord.sha256 must be a lowercase SHA-256 hex digest.")
@@ -525,11 +592,13 @@ def _validate_event_record(record: dict[str, Any], *, expected_run_id: str | Non
         raise ValueError("EventRecord.version must be 0.1.0.")
     run_id = require_string(record["runId"], "EventRecord.runId")
     if not _RUN_ID_RE.fullmatch(run_id):
-        raise ValueError("EventRecord.runId must look like OPR-YYYYMMDD-000001.")
+        raise ValueError("EventRecord.runId must look like a supported OPR id.")
     if expected_run_id is not None and run_id != expected_run_id:
         raise ValueError("EventRecord.runId must match the requested run_id.")
     if record["eventType"] not in {"run_started", "metric_logged", "artifact_logged", "run_finished", "run_failed"}:
         raise ValueError("EventRecord.eventType is not supported.")
+    if record.get("machineId") is not None:
+        _safe_identity(str(record["machineId"]), "EventRecord.machineId")
     require_iso_datetime(record["createdAt"], "EventRecord.createdAt")
     require_string(record["message"], "EventRecord.message")
     _validate_json_object(record["metadata"], "EventRecord.metadata")
@@ -544,7 +613,7 @@ def _validate_run_manifest(manifest: dict[str, Any], *, expected_run_id: str | N
         raise ValueError("RunManifest.version must be 0.1.0.")
     run_id = require_string(manifest["runId"], "RunManifest.runId")
     if not _RUN_ID_RE.fullmatch(run_id):
-        raise ValueError("RunManifest.runId must look like OPR-YYYYMMDD-000001.")
+        raise ValueError("RunManifest.runId must look like a supported OPR id.")
     if expected_run_id is not None and run_id != expected_run_id:
         raise ValueError("RunManifest.runId must match the requested run_id.")
     created_at = _parse_required_datetime(manifest["createdAt"], "RunManifest.createdAt")
@@ -553,7 +622,6 @@ def _validate_run_manifest(manifest: dict[str, Any], *, expected_run_id: str | N
     artifact_ids: set[str] = set()
     artifact_paths: set[str] = set()
     artifacts = require_list(manifest["artifacts"], "RunManifest.artifacts")
-    _require_record_count_within_limit(len(artifacts), MAX_ARTIFACTS_PER_RUN, "MAX_ARTIFACTS_PER_RUN", "ArtifactRecord")
     for index, artifact_ref in enumerate(artifacts):
         artifact = require_mapping(artifact_ref, f"RunManifest.artifacts[{index}]")
         _validate_artifact_record(artifact, expected_run_id=run_id)
@@ -580,7 +648,8 @@ def _validate_run_manifest_artifact_files(manifest: dict[str, Any], run_dir: Pat
         artifact_path = _artifact_file_path(run_dir, artifact)
         if not artifact_path.is_file():
             raise ValueError(f"Artifact file is missing: {artifact['path']}.")
-        _require_artifact_size_within_limit(artifact_path)
+        if artifact.get("byteSize") is not None and artifact_path.stat().st_size != artifact["byteSize"]:
+            raise ValueError("ArtifactRecord.byteSize must match the artifact file size.")
         if _sha256(artifact_path) != artifact["sha256"]:
             raise ValueError("ArtifactRecord.sha256 must match the artifact file digest.")
     return manifest
@@ -626,8 +695,6 @@ def _validate_run_store_consistency(
         event_created_at = _parse_required_datetime(event["createdAt"], "EventRecord.createdAt")
         _require_at_or_after(event_created_at, run_created_at, "EventRecord.createdAt", "RunRecord.createdAt")
 
-    _require_record_count_within_limit(len(metrics), MAX_METRICS_PER_RUN, "MAX_METRICS_PER_RUN", "MetricRecord")
-    _require_record_count_within_limit(len(manifest["artifacts"]), MAX_ARTIFACTS_PER_RUN, "MAX_ARTIFACTS_PER_RUN", "ArtifactRecord")
     if record["artifactCount"] != len(manifest["artifacts"]):
         raise ValueError("RunRecord.artifactCount must match RunManifest artifact count.")
     if record["metricCount"] != len(metrics):
@@ -667,8 +734,9 @@ def _require_running_run(record: dict[str, Any]) -> None:
 
 
 class Run:
-    def __init__(self, run_dir: Path) -> None:
+    def __init__(self, run_dir: Path, *, machine_id: str | None = None) -> None:
         self.run_dir = run_dir
+        self.machine_id = machine_id or _host_id()
         self.artifacts_dir = run_dir / "artifacts"
         self.run_json_path = run_dir / "run.json"
         self.manifest_path = run_dir / "manifest.json"
@@ -679,7 +747,7 @@ class Run:
     def run_id(self) -> str:
         run_id = self.run_dir.name
         if not _RUN_ID_RE.fullmatch(run_id):
-            raise ValueError("RunRecord.runId must look like OPR-YYYYMMDD-000001.")
+            raise ValueError("RunRecord.runId must look like a supported OPR id.")
         return run_id
 
     @property
@@ -715,6 +783,7 @@ class Run:
             "createdAt": _now(),
             "message": message,
             "metadata": metadata or {},
+            "machineId": self.machine_id,
         }
         _validate_event_record(record, expected_run_id=self.run_id)
         _write_jsonl(self.events_path, record)
@@ -729,12 +798,6 @@ class Run:
             raise ValueError("MetricRecord.step must be a non-negative integer when provided.")
         run_record = self.run_record
         _require_running_run(run_record)
-        _require_record_count_within_limit(
-            int(run_record.get("metricCount", 0)) + 1,
-            MAX_METRICS_PER_RUN,
-            "MAX_METRICS_PER_RUN",
-            "MetricRecord",
-        )
         record = {
             "kind": "openplazma.metric",
             "version": "0.1.0",
@@ -785,12 +848,6 @@ class Run:
         run_record = self.run_record
         _require_running_run(run_record)
         manifest = self._manifest()
-        _require_record_count_within_limit(
-            len(manifest.get("artifacts", [])) + 1,
-            MAX_ARTIFACTS_PER_RUN,
-            "MAX_ARTIFACTS_PER_RUN",
-            "ArtifactRecord",
-        )
 
         snapshot = _snapshot_files([artifact_path, self.manifest_path, self.run_json_path, self.events_path])
         self.artifacts_dir.mkdir(parents=True, exist_ok=True)
@@ -801,11 +858,9 @@ class Run:
                 source_path = Path(data)
                 if not source_path.is_file():
                     raise ValueError("Artifact source path must be an existing file.")
-                _require_artifact_size_within_limit(source_path)
                 shutil.copyfile(source_path, artifact_path)
             else:
                 raise ValueError("Artifact data must be a JSON object or file path.")
-            _require_artifact_size_within_limit(artifact_path)
 
             artifact_count = len(manifest.get("artifacts", [])) + 1
             artifact_id = f"OPA-{_today()}-{artifact_count:06d}"
@@ -819,6 +874,7 @@ class Run:
                 "type": artifact_type,
                 "path": artifact_path.relative_to(self.run_dir).as_posix(),
                 "sha256": _sha256(artifact_path),
+                "byteSize": artifact_path.stat().st_size,
                 "createdAt": created_at,
                 "metadata": metadata_value,
             }
@@ -897,6 +953,9 @@ def start_run(
     config: dict[str, Any] | None = None,
     run_store: str | Path = ".openplazma",
     capabilities: dict[str, Any] | None = None,
+    run_group_id: str | None = None,
+    machine_id: str | None = None,
+    partition_id: str | None = None,
 ) -> Run:
     with _run_store_write_lock(run_store):
         return _start_run_unlocked(
@@ -907,6 +966,9 @@ def start_run(
             config=config,
             run_store=run_store,
             capabilities=capabilities,
+            run_group_id=run_group_id,
+            machine_id=machine_id,
+            partition_id=partition_id,
         )
 
 
@@ -919,14 +981,21 @@ def _start_run_unlocked(
     config: dict[str, Any] | None = None,
     run_store: str | Path = ".openplazma",
     capabilities: dict[str, Any] | None = None,
+    run_group_id: str | None = None,
+    machine_id: str | None = None,
+    partition_id: str | None = None,
 ) -> Run:
     require_string(project, "RunRecord.project")
     require_string(campaign, "RunRecord.campaign")
     require_string(run_type, "RunRecord.runType")
     selected_config = _validate_json_object(config or {}, "RunConfig")
+    selected_machine_id = _safe_identity(machine_id or _host_id(), "RunRecord.machineId")
+    selected_run_group_id = _safe_identity(run_group_id, "RunRecord.runGroupId")
+    selected_partition_id = _safe_identity(partition_id, "RunRecord.partitionId")
 
     root = _run_store_root(run_store)
-    run_id, run_dir = _allocate_run_dir(run_store)
+    store_metadata = _load_or_create_runstore_metadata(run_store)
+    run_id, run_dir = _allocate_run_dir(run_store, machine_id=machine_id and selected_machine_id)
     (run_dir / "artifacts").mkdir(parents=True, exist_ok=True)
     (run_dir / "metrics.jsonl").touch()
     (run_dir / "events.jsonl").touch()
@@ -955,6 +1024,10 @@ def _start_run_unlocked(
         },
         "source": source,
         "capabilities": safe_capabilities,
+        "storeId": store_metadata["storeId"],
+        "machineId": selected_machine_id,
+        "runGroupId": selected_run_group_id,
+        "partitionId": selected_partition_id,
         "contextRef": None,
         "artifactCount": 0,
         "metricCount": 0,
@@ -977,21 +1050,96 @@ def _start_run_unlocked(
         run_dir / "manifest.json",
     )
 
-    run = Run(run_dir)
+    run = Run(run_dir, machine_id=selected_machine_id)
     run._event("run_started", "Run started.")
     return run
 
 
 def list_runs(run_store: str | Path = ".openplazma") -> list[dict[str, Any]]:
+    return list(iter_runs(run_store=run_store, deep=True))
+
+
+def iter_runs(run_store: str | Path = ".openplazma", *, deep: bool = False) -> Iterator[dict[str, Any]]:
     with _run_store_write_lock(run_store):
         runs_root = _runs_root(run_store)
         if not runs_root.exists():
-            return []
-        records = []
+            return
         for path in sorted(runs_root.iterdir()):
             if path.is_dir() and (path / "run.json").is_file():
-                records.append(load_run(path.name, run_store))
-        return records
+                if deep:
+                    yield load_run(path.name, run_store)
+                else:
+                    yield _validate_run_record(load_json(path / "run.json"), expected_run_id=path.name)
+
+
+def list_runs_page(
+    run_store: str | Path = ".openplazma",
+    *,
+    page_size: int = 100,
+    cursor: str | None = None,
+    deep: bool = False,
+) -> dict[str, Any]:
+    if not isinstance(page_size, int) or isinstance(page_size, bool) or page_size < 1:
+        raise ValueError("page_size must be a positive integer.")
+    if cursor is not None:
+        require_string(cursor, "cursor")
+
+    with _run_store_write_lock(run_store):
+        runs_root = _runs_root(run_store)
+        if not runs_root.exists():
+            return {"runs": [], "nextCursor": None}
+        paths = [path for path in sorted(runs_root.iterdir()) if path.is_dir() and (path / "run.json").is_file()]
+        start_index = 0
+        if cursor is not None:
+            for index, path in enumerate(paths):
+                if path.name <= cursor:
+                    start_index = index + 1
+                else:
+                    break
+        selected_paths = paths[start_index : start_index + page_size]
+        runs = [
+            load_run(path.name, run_store) if deep else _validate_run_record(load_json(path / "run.json"), expected_run_id=path.name)
+            for path in selected_paths
+        ]
+        next_cursor = selected_paths[-1].name if start_index + page_size < len(paths) and selected_paths else None
+        return {"runs": runs, "nextCursor": next_cursor}
+
+
+def list_run_group(
+    run_group_id: str,
+    run_store: str | Path = ".openplazma",
+    *,
+    deep: bool = False,
+) -> list[dict[str, Any]]:
+    selected_run_group_id = _safe_identity(run_group_id, "run_group_id")
+    if selected_run_group_id is None:
+        raise ValueError("run_group_id is required.")
+    return [
+        record
+        for record in iter_runs(run_store=run_store, deep=deep)
+        if record.get("runGroupId") == selected_run_group_id
+    ]
+
+
+def summarize_run_group(run_group_id: str, run_store: str | Path = ".openplazma") -> dict[str, Any]:
+    records = list_run_group(run_group_id, run_store=run_store)
+    status_counts: dict[str, int] = {}
+    for record in records:
+        status = record["status"]
+        status_counts[status] = status_counts.get(status, 0) + 1
+    return {
+        "kind": "openplazma.run_group_summary",
+        "version": "0.1.0",
+        "runGroupId": _safe_identity(run_group_id, "run_group_id"),
+        "runCount": len(records),
+        "statusCounts": status_counts,
+        "artifactCount": sum(record["artifactCount"] for record in records),
+        "metricCount": sum(record["metricCount"] for record in records),
+        "storeIds": sorted({record["storeId"] for record in records if record.get("storeId") is not None}),
+        "machineIds": sorted({record["machineId"] for record in records if record.get("machineId") is not None}),
+        "partitionIds": sorted({record["partitionId"] for record in records if record.get("partitionId") is not None}),
+        "runIds": [record["runId"] for record in records],
+    }
 
 
 def load_run(run_id: str, run_store: str | Path = ".openplazma") -> dict[str, Any]:
@@ -1006,22 +1154,24 @@ def load_run(run_id: str, run_store: str | Path = ".openplazma") -> dict[str, An
 
 
 def load_metrics(run_id: str, run_store: str | Path = ".openplazma") -> list[dict[str, Any]]:
+    return list(iter_metrics(run_id, run_store=run_store))
+
+
+def iter_metrics(run_id: str, run_store: str | Path = ".openplazma") -> Iterator[dict[str, Any]]:
     with _run_store_write_lock(run_store):
-        metrics = [
-            _validate_metric_record(record, expected_run_id=run_id)
-            for record in _read_jsonl(_run_dir(run_id, run_store) / "metrics.jsonl")
-        ]
-        _require_record_count_within_limit(len(metrics), MAX_METRICS_PER_RUN, "MAX_METRICS_PER_RUN", "MetricRecord")
-        return metrics
+        for record in _iter_jsonl(_run_dir(run_id, run_store) / "metrics.jsonl"):
+            yield _validate_metric_record(record, expected_run_id=run_id)
 
 
 def load_events(run_id: str, run_store: str | Path = ".openplazma") -> list[dict[str, Any]]:
+    events = list(iter_events(run_id, run_store=run_store))
+    return _validate_event_sequence(events)
+
+
+def iter_events(run_id: str, run_store: str | Path = ".openplazma") -> Iterator[dict[str, Any]]:
     with _run_store_write_lock(run_store):
-        events = [
-            _validate_event_record(record, expected_run_id=run_id)
-            for record in _read_jsonl(_run_dir(run_id, run_store) / "events.jsonl")
-        ]
-        return _validate_event_sequence(events)
+        for record in _iter_jsonl(_run_dir(run_id, run_store) / "events.jsonl"):
+            yield _validate_event_record(record, expected_run_id=run_id)
 
 
 def load_manifest(run_id: str, run_store: str | Path = ".openplazma") -> dict[str, Any]:

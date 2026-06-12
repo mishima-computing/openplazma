@@ -296,13 +296,15 @@ def build_inference_from_array(
         peak_amp = max((p["amplitude"] for p in track), default=0.0)
         mode_estimate["islandWidthM"] = estimate_ntm_island_width(peak_amp, island_width_gain)
 
+    inference_id = f"inf-{array['arrayId']}"
     return {
         "kind": "openplazma.inference",
         "version": "0.1.0",
-        "inferenceId": f"inf-{array['arrayId']}",
+        "inferenceId": inference_id,
         "label": f"Phase-fit mode estimate for {array['label']}",
         "method": "magnetic_mode_phase_fit",
         "sourceArrayId": array["arrayId"],
+        "evidenceReadoutIds": [f"{inference_id}-phase-fit-readout"],
         "modeEstimate": mode_estimate,
         "rotationTrack": track,
         "lockingDetected": locking["locked"],
@@ -311,6 +313,10 @@ def build_inference_from_array(
         "limitations": [
             f"Toroidal mode number resolved only up to |n| <= {nyquist_n} (Nyquist).",
             "Rotation frequency estimated per window.",
+        ],
+        "alternatives": [
+            "Higher toroidal mode numbers can alias onto the principal value.",
+            "Multiple simultaneous modes can bias a single-mode phase fit.",
         ],
     }
 

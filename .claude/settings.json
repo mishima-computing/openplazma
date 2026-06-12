@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "defaultMode": "plan"
+  },
+  "env": {
+    "AI_QUALITY_BOOTSTRAP": "true"
+  }
+}

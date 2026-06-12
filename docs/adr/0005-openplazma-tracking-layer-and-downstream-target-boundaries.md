@@ -135,12 +135,13 @@ Public demo contexts must keep `runSimulation` false unless a future reviewed sa
 
 Capabilities are safety and boundary metadata. They are not UI toggles.
 
-## Initial Local RunStore Direction
+## Local RunStore Direction
 
-The future RunStore should start as an inspectable local directory. A possible MVP layout is:
+The RunStore starts as an inspectable local directory:
 
 ```text
 .openplazma/
+  runstore.json
   runs/
     OPR-YYYYMMDD-000001/
       run.json
@@ -153,16 +154,30 @@ The future RunStore should start as an inspectable local directory. A possible M
         study-record.json
         plot.png
       manifest.json
+    OPR-YYYYMMDD-node-a-abcdef123456/
+      run.json
+      config.json
+      metrics.jsonl
+      events.jsonl
+      artifacts/
+      manifest.json
 ```
 
 RunStore direction:
 
 - JSON and JSONL first.
 - Inspectable by default.
-- No binary-first run format in the MVP.
-- No cloud dependency in the MVP.
-- No account required in the MVP.
+- Stable RunStore metadata including `storeId` and backend kind.
+- Collision-resistant Run IDs for machine-scoped writers.
+- Optional `runGroupId`, `machineId`, and `partitionId` metadata for logical campaigns split across machines or partitions.
+- Streaming and paged read APIs for metrics, events, and run listing.
+- No fixed default metric, artifact, or artifact-byte caps as correctness boundaries. Resource ceilings must be explicit backend or operator policy.
+- No binary-first run format in the local backend.
+- No cloud dependency in the local backend.
+- No account required in the local backend.
 - Future sync and export adapters may be discussed later, but are out of scope for ADR-0005 implementation.
+
+The local filesystem backend is not a distributed scheduler or a facility integration layer. It can preserve identity, provenance, and read-only derived artifacts from multiple machine-scoped writers, but it does not submit compute jobs, read live facility telemetry, or control devices.
 
 ## Notebook Relationship
 
