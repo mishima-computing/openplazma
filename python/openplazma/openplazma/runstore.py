@@ -167,6 +167,24 @@ def _load_or_create_runstore_metadata(run_store: str | Path) -> dict[str, Any]:
     return metadata
 
 
+def _load_runstore_metadata_if_exists(run_store: str | Path) -> dict[str, Any] | None:
+    metadata_path = _runstore_metadata_path(run_store)
+    if not metadata_path.exists():
+        return None
+    metadata = load_json(metadata_path)
+    require_keys(metadata, ["kind", "version", "layoutVersion", "storeId", "backendKind", "createdAt"], "RunStoreMetadata")
+    if metadata["kind"] != "openplazma.run_store":
+        raise ValueError("RunStoreMetadata.kind must be openplazma.run_store.")
+    if metadata["version"] != "0.1.0":
+        raise ValueError("RunStoreMetadata.version must be 0.1.0.")
+    if not _STORE_ID_RE.fullmatch(require_string(metadata["storeId"], "RunStoreMetadata.storeId")):
+        raise ValueError("RunStoreMetadata.storeId must look like OPS-<32 lowercase hex chars>.")
+    require_string(metadata["layoutVersion"], "RunStoreMetadata.layoutVersion")
+    require_string(metadata["backendKind"], "RunStoreMetadata.backendKind")
+    require_iso_datetime(metadata["createdAt"], "RunStoreMetadata.createdAt")
+    return metadata
+
+
 class _RunStoreWriteLock:
     def __init__(
         self,
@@ -488,6 +506,17 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
     return list(_iter_jsonl(path))
 
 
+def _file_tree_digest(root: Path) -> str:
+    digest = hashlib.sha256()
+    for path in sorted(item for item in root.rglob("*") if item.is_file()):
+        relative = path.relative_to(root).as_posix().encode("utf-8")
+        digest.update(relative)
+        digest.update(b"\0")
+        digest.update(_sha256(path).encode("ascii"))
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as file:
@@ -771,6 +800,15 @@ def _validate_blob_file(run_store: str | Path, blob_ref: dict[str, Any]) -> Path
     if _sha256(blob_path) != validated_ref["digest"]:
         raise ValueError("ArtifactBlobRef.digest must match the blob file digest.")
     return blob_path
+
+
+def _iter_blob_files(run_store: str | Path) -> Iterator[Path]:
+    blobs_root = _blobs_root(run_store)
+    if not blobs_root.exists():
+        return
+    for path in sorted(blobs_root.rglob("*")):
+        if path.is_file():
+            yield path
 
 
 def _validate_run_manifest_artifact_files(manifest: dict[str, Any], run_dir: Path) -> dict[str, Any]:
@@ -1389,6 +1427,88 @@ def load_artifact_blob(artifact: dict[str, Any], run_store: str | Path = ".openp
         if _sha256(artifact_path) != record["sha256"]:
             raise ValueError("ArtifactRecord.sha256 must match the artifact file digest.")
         return artifact_path
+
+
+def merge_run_store(source_run_store: str | Path, target_run_store: str | Path = ".openplazma") -> dict[str, Any]:
+    source_root = _run_store_root(source_run_store)
+    target_root = _run_store_root(target_run_store)
+    if source_root.resolve(strict=False) == target_root.resolve(strict=False):
+        raise ValueError("source_run_store and target_run_store must be different paths.")
+
+    source_metadata = _load_runstore_metadata_if_exists(source_run_store)
+    with _run_store_write_lock(target_run_store):
+        target_metadata = _load_or_create_runstore_metadata(target_run_store)
+        source_runs_root = _runs_root(source_run_store)
+        target_runs_root = _runs_root(target_run_store)
+        source_run_dirs = (
+            [path for path in sorted(source_runs_root.iterdir()) if path.is_dir() and (path / "run.json").is_file()]
+            if source_runs_root.exists()
+            else []
+        )
+
+        copied_run_dirs: list[Path] = []
+        skipped_run_ids: list[str] = []
+        collisions: list[str] = []
+        for source_run_dir in source_run_dirs:
+            run_id = source_run_dir.name
+            if not _RUN_ID_RE.fullmatch(run_id):
+                raise ValueError(f"source RunStore contains unsupported run id: {run_id}.")
+            source_record = load_run(run_id, run_store=source_run_store)
+            target_run_dir = target_runs_root / run_id
+            if target_run_dir.exists():
+                if _file_tree_digest(source_run_dir) == _file_tree_digest(target_run_dir):
+                    skipped_run_ids.append(run_id)
+                else:
+                    collisions.append(run_id)
+            else:
+                copied_run_dirs.append(source_run_dir)
+            if source_record["runId"] != run_id:
+                raise ValueError("RunRecord.runId must match the source run directory name.")
+        if collisions:
+            raise ValueError(f"RunStore merge would overwrite existing run id(s): {', '.join(collisions)}.")
+
+        blob_files = list(_iter_blob_files(source_run_store))
+        copied_blob_count = 0
+        skipped_blob_count = 0
+        for source_blob in blob_files:
+            relative = source_blob.relative_to(source_root).as_posix()
+            parts = Path(relative).parts
+            if len(parts) != 4 or parts[0] != "blobs" or parts[1] != "sha256":
+                raise ValueError(f"source RunStore contains unsupported blob path: {relative}.")
+            digest = parts[3]
+            if parts[2] != digest[:2] or not _SHA256_RE.fullmatch(digest) or _sha256(source_blob) != digest:
+                raise ValueError(f"source RunStore blob path does not match its digest: {relative}.")
+            target_blob = target_root / relative
+            if target_blob.exists():
+                if _sha256(target_blob) != digest:
+                    raise ValueError(f"target RunStore blob path has mismatched digest: {relative}.")
+                skipped_blob_count += 1
+                continue
+            target_blob.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source_blob, target_blob)
+            copied_blob_count += 1
+
+        target_runs_root.mkdir(parents=True, exist_ok=True)
+        copied_run_ids: list[str] = []
+        for source_run_dir in copied_run_dirs:
+            target_run_dir = target_runs_root / source_run_dir.name
+            shutil.copytree(source_run_dir, target_run_dir)
+            copied_run_ids.append(source_run_dir.name)
+
+        return {
+            "kind": "openplazma.run_store_merge",
+            "version": "0.1.0",
+            "sourceRunStore": str(source_root),
+            "targetRunStore": str(target_root),
+            "sourceStoreId": source_metadata.get("storeId") if source_metadata is not None else None,
+            "targetStoreId": target_metadata["storeId"],
+            "copiedRunCount": len(copied_run_ids),
+            "skippedRunCount": len(skipped_run_ids),
+            "copiedBlobCount": copied_blob_count,
+            "skippedBlobCount": skipped_blob_count,
+            "copiedRunIds": copied_run_ids,
+            "skippedRunIds": skipped_run_ids,
+        }
 
 
 def log_context_signal_and_study_record(
