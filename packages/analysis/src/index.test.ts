@@ -561,6 +561,150 @@ describe("mixed-signal diagnostic assessment", () => {
     ).toThrow("unknown diagnostic artifact");
   });
 
+  it("rejects invalid investigation session initialization contracts", () => {
+    const claim = {
+      kind: "openplazma.investigation_claim" as const,
+      version: "0.1.0" as const,
+      claimId: "claim-eye",
+      claimType: "source_identity" as const,
+      statement: "The eye report is evidence.",
+      status: "inconclusive" as const,
+      evidenceArtifactIds: ["eye-report"],
+      assumptions: [],
+      limitations: []
+    };
+    const pack = buildInvestigationPackage({
+      packageId: "session-contract-test",
+      title: "Session contract test",
+      target: {
+        kind: "openplazma.investigation_target",
+        version: "0.1.0",
+        targetId: "session-contract-target",
+        targetKind: "unknown",
+        label: "Session contract target",
+        description: "Session contract target.",
+        candidateEnergySources: ["unknown"],
+        limitations: ["Session fixture."]
+      },
+      questions: [
+        {
+          questionId: "q-source",
+          questionKind: "energy_source_classification",
+          text: "What source is supported?"
+        }
+      ],
+      artifacts: [humanEyeArtifact()],
+      claims: [claim]
+    });
+
+    expect(() =>
+      createInvestigationSession({
+        sessionId: "session-reported-without-report",
+        package: pack,
+        status: "reported",
+        createdAt: "2026-06-13T00:00:00.000Z"
+      })
+    ).toThrow("reported");
+
+    expect(() =>
+      createInvestigationSession({
+        sessionId: "session-bad-created-at",
+        package: pack,
+        createdAt: "today"
+      })
+    ).toThrow("createdAt");
+
+    expect(() =>
+      createInvestigationSession({
+        sessionId: "session-bad-updated-at",
+        package: pack,
+        createdAt: "2026-06-13T00:00:00.000Z",
+        updatedAt: "today"
+      })
+    ).toThrow("updatedAt");
+
+    expect(() =>
+      createInvestigationSession({
+        sessionId: "session-bad-initial-report",
+        package: pack,
+        createdAt: "2026-06-13T00:00:00.000Z",
+        reports: [
+          {
+            kind: "openplazma.investigation_report",
+            version: "0.1.0",
+            reportId: "bad-initial-report",
+            packageId: "session-contract-test",
+            createdAt: "today",
+            claims: [claim],
+            assumptions: [],
+            limitations: ["Report timestamp must be machine-readable."],
+            nextObservations: []
+          }
+        ]
+      })
+    ).toThrow("createdAt");
+  });
+
+  it("rejects invalid session mutation timestamps", () => {
+    const pack = buildInvestigationPackage({
+      packageId: "mutation-time-test",
+      title: "Mutation time test",
+      target: {
+        kind: "openplazma.investigation_target",
+        version: "0.1.0",
+        targetId: "mutation-time-target",
+        targetKind: "unknown",
+        label: "Mutation time target",
+        description: "Mutation time target.",
+        candidateEnergySources: ["unknown"],
+        limitations: ["Mutation fixture."]
+      },
+      questions: [
+        {
+          questionId: "q-source",
+          questionKind: "energy_source_classification",
+          text: "What source is supported?"
+        }
+      ],
+      artifacts: [humanEyeArtifact()]
+    });
+    const session = createInvestigationSession({
+      sessionId: "session-mutation-time",
+      package: pack,
+      createdAt: "2026-06-13T00:00:00.000Z"
+    });
+
+    expect(() =>
+      addDiagnosticArtifact(
+        session,
+        {
+          ...humanEyeArtifact(),
+          artifactId: "second-eye-report",
+          label: "Second human visual report"
+        },
+        "today"
+      )
+    ).toThrow("updatedAt");
+
+    expect(() =>
+      addInvestigationClaim(
+        session,
+        {
+          kind: "openplazma.investigation_claim",
+          version: "0.1.0",
+          claimId: "claim-eye-bad-time",
+          claimType: "source_identity",
+          statement: "The eye report is evidence.",
+          status: "inconclusive",
+          evidenceArtifactIds: ["eye-report"],
+          assumptions: [],
+          limitations: []
+        },
+        "today"
+      )
+    ).toThrow("updatedAt");
+  });
+
   it("rejects session claims and reports that reference the wrong evidence boundary", () => {
     const pack = buildInvestigationPackage({
       packageId: "boundary-test",

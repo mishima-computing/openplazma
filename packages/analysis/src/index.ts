@@ -927,6 +927,17 @@ function assertInvestigationReportContract(pack: InvestigationPackage, report: I
   }
 }
 
+function assertInvestigationSessionContract(session: InvestigationSession): void {
+  assertIsoDateTime(session.createdAt, "Investigation session createdAt");
+  assertIsoDateTime(session.updatedAt, "Investigation session updatedAt");
+  if (session.status === "reported" && session.reports.length === 0) {
+    throw new Error("reported investigation sessions require at least one report.");
+  }
+  for (const report of session.reports) {
+    assertInvestigationReportContract(session.package, report);
+  }
+}
+
 function deriveSessionStatus(pack: InvestigationPackage, reports: InvestigationReport[]): InvestigationSessionStatus {
   if (reports.length > 0) {
     return "reported";
@@ -969,7 +980,7 @@ export function buildInvestigationPackage(input: BuildInvestigationPackageInput)
 export function createInvestigationSession(input: CreateInvestigationSessionInput): InvestigationSession {
   const reports = input.reports ?? [];
   const createdAt = input.createdAt ?? nowIso();
-  return {
+  const session: InvestigationSession = {
     kind: "openplazma.investigation_session",
     version: "0.1.0",
     sessionId: input.sessionId,
@@ -981,6 +992,8 @@ export function createInvestigationSession(input: CreateInvestigationSessionInpu
     reports,
     limitations: input.limitations ?? ["Read-only investigation session; no facility telemetry or control path."]
   };
+  assertInvestigationSessionContract(session);
+  return session;
 }
 
 export function addDiagnosticArtifact(
@@ -993,12 +1006,14 @@ export function addDiagnosticArtifact(
     ...session.package,
     artifacts
   };
-  return {
+  const nextSession: InvestigationSession = {
     ...session,
     updatedAt,
     status: deriveSessionStatus(nextPackage, session.reports),
     package: nextPackage
   };
+  assertInvestigationSessionContract(nextSession);
+  return nextSession;
 }
 
 export function addInvestigationClaim(
@@ -1011,12 +1026,14 @@ export function addInvestigationClaim(
     ...session.package,
     claims: [...session.package.claims, claim]
   };
-  return {
+  const nextSession: InvestigationSession = {
     ...session,
     updatedAt,
     status: deriveSessionStatus(nextPackage, session.reports),
     package: nextPackage
   };
+  assertInvestigationSessionContract(nextSession);
+  return nextSession;
 }
 
 export function createInvestigationSessionReport(
@@ -1051,13 +1068,14 @@ export function recordInvestigationReport(
   updatedAt: string = nowIso()
 ): InvestigationSession {
   assertInvestigationReportContract(session.package, report);
-  assertIsoDateTime(updatedAt, "Investigation session updatedAt");
-  return {
+  const nextSession: InvestigationSession = {
     ...session,
     updatedAt,
     status: "reported",
     reports: [...session.reports, report]
   };
+  assertInvestigationSessionContract(nextSession);
+  return nextSession;
 }
 
 export function assessInvestigationSession(session: InvestigationSession): InvestigationSessionAssessment {

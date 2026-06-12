@@ -72,8 +72,12 @@ export class StaticFixtureDataSource implements FusionDataSource, InvestigationD
       this.investigationPackages.set(pack.packageId, pack);
     }
     for (const entry of this.investigationManifest.packages) {
-      if (!this.investigationPackages.has(entry.packageId)) {
+      const pack = this.investigationPackages.get(entry.packageId);
+      if (pack === undefined) {
         throw new Error(`Investigation fixture manifest references missing package '${entry.packageId}'`);
+      }
+      if (pack.title !== entry.title) {
+        throw new Error(`Investigation fixture manifest title for package '${entry.packageId}' does not match the package payload title`);
       }
     }
   }

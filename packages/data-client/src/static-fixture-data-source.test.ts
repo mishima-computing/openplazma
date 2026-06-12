@@ -162,4 +162,28 @@ describe("StaticFixtureDataSource", () => {
         )
     ).toThrow("duplicate investigation package id");
   });
+
+  it("fails fast when investigation manifest metadata drifts from the package payload", () => {
+    expect(
+      () =>
+        new StaticFixtureDataSource(
+          [],
+          undefined,
+          [willOWispInvestigationPackage],
+          {
+            kind: "openplazma.investigation_fixture_manifest",
+            version: "0.1.0",
+            provider: "STATIC_FIXTURE",
+            datasetId: "broken",
+            packages: [
+              {
+                packageId: "will-o-wisp-001",
+                title: "Wrong manifest title",
+                path: "data/fixtures/static/investigations/will-o-wisp-001/investigation-package.json"
+              }
+            ]
+          }
+        )
+    ).toThrow("manifest title");
+  });
 });
