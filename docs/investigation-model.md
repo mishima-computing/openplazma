@@ -344,3 +344,28 @@ These helpers summarize measured observables, missing observables, calibration
 state, unresolved contributions, and noise/contaminant contributions. The
 result is deliberately conservative: a mixed or uncalibrated artifact cannot
 identify an energy source by itself.
+
+## Session Boundary
+
+External applications can use `InvestigationSession` as the read-only boundary
+between their own domain state and OpenPlazma evidence contracts. The session
+wraps one `InvestigationPackage`, required observables, generated reports, and a
+small status model:
+
+```text
+collecting_evidence -> ready_for_report -> reported
+```
+
+The TypeScript API lives in `@openplazma/analysis`:
+
+```text
+buildInvestigationPackage(...)
+createInvestigationSession(...)
+addDiagnosticArtifact(...)
+addInvestigationClaim(...)
+assessInvestigationSession(...)
+createInvestigationSessionReport(...)
+recordInvestigationReport(...)
+```
+
+See [Investigation Session API](investigation-session-api.md).

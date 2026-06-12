@@ -28,6 +28,7 @@ Public readiness docs:
 - [Local signal import](docs/local-signal-import.md)
 - [Observation model direction](docs/observation-model.md)
 - [Investigation model](docs/investigation-model.md)
+- [Investigation session API](docs/investigation-session-api.md)
 - [Investigate Will-o'-the-wisp tutorial](docs/tutorials/investigate-will-o-wisp.md)
 - [Notebook tracking integration](docs/notebook-tracking-integration.md)
 - [StudyTask layer](docs/studytask_layer.md)

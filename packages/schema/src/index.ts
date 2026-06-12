@@ -375,8 +375,10 @@ export {
   investigationFixtureManifestSchema,
   investigationPackageSchema,
   investigationReportSchema,
+  investigationSessionSchema,
   parseFusionConditionAssessment,
   parseInvestigationFixtureManifest,
   parseInvestigationPackage,
-  parseInvestigationReport
+  parseInvestigationReport,
+  parseInvestigationSession
 } from "./investigation.schema";
