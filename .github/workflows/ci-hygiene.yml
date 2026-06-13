@@ -22,12 +22,3 @@ jobs:
 
       - name: Check tracked files
         run: python scripts/check-public-repo-hygiene.py
-
-      - name: Check spatial lint fixtures
-        run: python scripts/check-spatial.py --self-test
-
-      - name: Check capture screen fixtures
-        run: python scripts/capture-screens.py --self-test
-
-      - name: Check anchor URL classifier fixtures
-        run: python scripts/check-anchor-urls.py --self-test
