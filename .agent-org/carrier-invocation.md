@@ -132,14 +132,47 @@ The stdout shape, validation-error format, artifact-write contract, and read-onl
 
 Recorded gate outcome (controller verification, 2026-06-12, Claude Code CLI current): live scratch run used `claude --print --tools "Bash" --allowedTools "Bash(python3 scripts/submit-result.py *)"` with a prompt asking Claude to run plain `ls`; the off-pattern Bash command succeeded and returned the repository listing. Disposition per the gate: the proposed read-only Claude write path `Bash(python3 scripts/submit-result.py *)` is not adopted; read-only Claude roles keep the extract-then-validate path below, and the write-path question routes to #39. Until the #39 tool-I/O substrate supersedes local v1, `scripts/submit-result.py` remains documented for write-capable carriers such as Codex implementer and for controller-side validation.
 
+### Carrier Model Selection
+
+The pack is model-agnostic by design: its capability lives in the role specs,
+the schema gates, the hash-embed gate, and the aufheben synthesis — not in any
+single model. Any sufficiently capable Claude model is a valid carrier. This
+is a binding operational property, not an aspiration: a carrier model can
+vanish at any time and the cycle must continue on another.
+
+Therefore carrier calls MUST pin `--model` explicitly to a capable, currently
+available model. Do not let the headless `claude --print` carrier inherit the
+operator's interactive default:
+
+- The interactive default may be a context variant (for example a `-[1m]`
+  long-context suffix) that the headless carrier cannot resolve.
+- The default may be a model that is unavailable to the carrier for reasons
+  outside the pack — region, plan, or regulatory suspension. Field event,
+  2026-06-12: a US export-control directive suspended Fable 5 and Mythos 5;
+  carrier calls that inherited Fable failed with "model may not exist or you
+  may not have access", and the cycle continued only by repinning to an
+  available model (Opus 4.8), recorded in closeout.
+
+Selection rule: use the adapter frontmatter `model` when it names an available
+model; otherwise pick the most capable available model (preference order
+Opus → Sonnet → Haiku, reasoning-heavy roles such as `aufheben-designer` and
+`genius` favouring the top of that order). If a pinned model (including an
+adapter's `model: fable`) is unavailable, fall back down the order rather than
+failing the cycle, and record the substituted model in `carrier-status.json`
+for disclosure. `model: inherit` means "pick a capable available model at
+invocation", NOT "omit the flag".
+
 Invocation template:
 
 ```bash
 schema_path="schemas/<schema>.schema.json"
 schema_json="$(python3 -c 'import json,sys; print(json.dumps(json.load(open(sys.argv[1]))))' "$schema_path")"
+# Pin explicitly. Resolve <carrier-model> from the adapter frontmatter, or to
+# the most capable available model; never inherit the interactive default.
 
 claude --print \
   --agent "<agent>" \
+  --model "<carrier-model>" \
   --permission-mode plan \
   --tools "Read,Grep,Glob" \
   --allowedTools "Read,Grep,Glob" \
@@ -195,7 +228,14 @@ python3 scripts/validate-bootstrap-pack.py \
   --instance ".agent-runs/<run_id>/carriers/claude/<agent>/result.json"
 ```
 
-Set `<adapter-model>` from the adapter frontmatter. This passes `--model fable` for `security-ci-action-writer` and omits the model flag for adapters with `model: inherit`.
+Set `<adapter-model>` per the Carrier Model Selection rule above: use the
+adapter frontmatter `model` when it names an available model, otherwise fall
+back down the capability order. `security-ci-action-writer` declares
+`model: fable`; while Fable is suspended (2026-06-12 directive), substitute
+the most capable available model and record the substitution in
+`carrier-status.json`. The model flag is always present — there is no
+"omit the flag" path, because inheriting the interactive default is the
+failure mode this section exists to prevent.
 
 Write-capable Claude roles may write only the scope allowed by their role and input contract.
 

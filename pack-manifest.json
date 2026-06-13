@@ -240,6 +240,35 @@
       "required": false
     },
     {
+      "path": ".agent-org/knowledge/review/",
+      "type": "dir",
+      "tier": "pack_level",
+      "check_applicability": "everywhere",
+      "required": false
+    },
+    {
+      "path": ".agent-org/knowledge/review/linon-review-profile.md",
+      "type": "file",
+      "tier": "pack_level",
+      "check_applicability": "everywhere",
+      "required": false
+    },
+    {
+      "path": ".agent-org/knowledge/review/calibration/",
+      "type": "dir",
+      "tier": "pack_level",
+      "check_applicability": "everywhere",
+      "required": false
+    },
+    {
+      "path": ".agent-org/knowledge/review/calibration/c014-c016-reference-set.md",
+      "type": "file",
+      "tier": "pack_level",
+      "check_applicability": "everywhere",
+      "required": false,
+      "sha256": "c326eadedabe02f114ce5e5ae966ff70183a29d88ee98374e64e3909ce721c7f"
+    },
+    {
       "path": ".agent-org/knowledge/ecosystems/",
       "type": "dir",
       "tier": "pack_level",
@@ -656,6 +685,12 @@
       "check_applicability": "everywhere"
     },
     {
+      "path": "schemas/linon-review.schema.json",
+      "type": "file",
+      "tier": "pack_level",
+      "check_applicability": "everywhere"
+    },
+    {
       "path": "schemas/security-ci-profile-selection.schema.json",
       "type": "file",
       "tier": "pack_level",
@@ -710,6 +745,76 @@
       "tier": "pack_level",
       "check_applicability": "everywhere",
       "required": false
+    },
+    {
+      "path": "fixtures/linon-review/",
+      "type": "dir",
+      "tier": "pack_level",
+      "check_applicability": "everywhere",
+      "required": false
+    },
+    {
+      "path": "fixtures/linon-review/valid-minimal.json",
+      "type": "file",
+      "tier": "pack_level",
+      "check_applicability": "everywhere",
+      "required": false,
+      "sha256": "265371554b34cc3b3c9915b69698ddda0599c96856e41613c20bb47d2808e5d2"
+    },
+    {
+      "path": "fixtures/linon-review/invalid-missing-evidence.json",
+      "type": "file",
+      "tier": "pack_level",
+      "check_applicability": "everywhere",
+      "required": false,
+      "sha256": "e3914da9743387e26ccfc3bd7df44d5cf203f097fae22f750109ee597d60463a"
+    },
+    {
+      "path": "fixtures/linon-review/invalid-critical-missing-principle.json",
+      "type": "file",
+      "tier": "pack_level",
+      "check_applicability": "everywhere",
+      "required": false,
+      "sha256": "ee1280d6f161a557fa45ac269d5325ea38a3c9fe828e959c8e2affe864cebd79"
+    },
+    {
+      "path": "fixtures/linon-review/invalid-line-range.json",
+      "type": "file",
+      "tier": "pack_level",
+      "check_applicability": "everywhere",
+      "required": false,
+      "sha256": "c1edc5465fa92579e934e722bc79658339cd3b575c86f8fb1724cf402ce5ad5a"
+    },
+    {
+      "path": "fixtures/linon-review/packet/",
+      "type": "dir",
+      "tier": "pack_level",
+      "check_applicability": "everywhere",
+      "required": false
+    },
+    {
+      "path": "fixtures/linon-review/packet/example.diff",
+      "type": "file",
+      "tier": "pack_level",
+      "check_applicability": "everywhere",
+      "required": false,
+      "sha256": "f3c74ca8b61c990da9acd8864382fb0971dea8375e478ddaec61a9cf0c58d33a"
+    },
+    {
+      "path": "fixtures/linon-review/packet/example-contract.json",
+      "type": "file",
+      "tier": "pack_level",
+      "check_applicability": "everywhere",
+      "required": false,
+      "sha256": "932b09a220b841715bd178e70fc7fe38f9936cf567b325564465ff2d503ee33a"
+    },
+    {
+      "path": "fixtures/linon-review/packet/example-packet.json",
+      "type": "file",
+      "tier": "pack_level",
+      "check_applicability": "everywhere",
+      "required": false,
+      "sha256": "447cc42fd0b765fdd4d1ff40a3b2d6a646361788e5a5749c0d47843bc3a549bd"
     },
     {
       "path": "fixtures/merge-gate/",

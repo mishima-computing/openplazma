@@ -566,6 +566,134 @@ export interface InvestigationPackageMetadata {
   path: string;
 }
 
+export type ObservationLineageAuditStatus = "passed" | "failed";
+export type ObservationLineageTransformStatus = "computed" | "not_computed" | "carried_forward";
+export type ObservationLineageClaimAdmissibility = "admissible" | "rejected";
+
+export interface ObservationLineageRunArtifactRef {
+  artifactName: string;
+  artifactType: string;
+  path: string;
+  sha256: string;
+  runArtifactId: string;
+}
+
+export interface ObservationLineageSourceRef extends ObservationLineageRunArtifactRef {
+  sourceRefId: string;
+  sourceKind: "public_snapshot" | "source_provenance";
+  datasetId?: string | undefined;
+  shotId?: string | undefined;
+  provider?: string | undefined;
+  sourceLabel?: string | undefined;
+  recordPath?: string | undefined;
+  provenancePath?: string | undefined;
+  bundleSha256?: string | undefined;
+  rawFileRefs?: Array<{
+    name: string;
+    path: string;
+    sha256: string;
+    bytes?: number | undefined;
+  }> | undefined;
+}
+
+export interface ObservationLineageTransformRef extends ObservationLineageRunArtifactRef {
+  transformId: string;
+  transformKind: string;
+  status: ObservationLineageTransformStatus;
+  method: string;
+  sourceRefIds: string[];
+  inputSignalIds: string[];
+  limitationReasons: string[];
+}
+
+export interface ObservationLineageDiagnosticArtifactRef {
+  diagnosticArtifactId: string;
+  artifactKind: DiagnosticArtifactKind;
+  sourceKind: DiagnosticArtifactSourceKind;
+  signalIds: string[];
+  sourceRefIds: string[];
+  transformRefIds: string[];
+  calibrationStatus: CalibrationStatus;
+  calibrationResponseKnown: boolean;
+  uncertaintyStatus: string;
+  limitationReasons: string[];
+}
+
+export interface ObservationLineageReadoutRef {
+  readoutId: string;
+  diagnosticArtifactId: string;
+  signalId?: string | undefined;
+  observable: MeasuredObservable;
+  readoutKind: ObservationReadoutKind;
+  method: string;
+  status: ObservationStatementStatus;
+  transformRefIds: string[];
+  limitationReasons: string[];
+}
+
+export interface ObservationLineageSpectrumRef {
+  spectrumId: string;
+  sourceSignalId: string;
+  status: "computed" | "not_computed";
+  method: string;
+  transformRefId: string;
+  timeRange: [number, number];
+  limitationReasons: string[];
+  supportsPositiveFusionInference: boolean;
+}
+
+export interface ObservationLineageClaimAudit {
+  claimId: string;
+  claimSource: "InvestigationPackage.claims" | "InvestigationReport.claims";
+  claimType: InvestigationClaimType;
+  claimStatus: InvestigationClaimStatus;
+  statement: string;
+  positiveFusionClaim: boolean;
+  evidenceArtifactIds: string[];
+  evidenceReadoutIds: string[];
+  admissibility: ObservationLineageClaimAdmissibility;
+  failureReasons: string[];
+}
+
+export interface ObservationLineageLimitationsSummary {
+  status: string;
+  limitationReasons: string[];
+}
+
+export interface ObservationLineageCalibrationSummary extends ObservationLineageLimitationsSummary {
+  responseKnown: boolean;
+  correctionApplied: boolean;
+}
+
+export interface ObservationLineageFusionAuditSummary {
+  fusionStatus: FusionStatus;
+  positiveFusionInference: boolean;
+  missingObservables: string[];
+  requiredProductObservables: string[];
+  requiredConditionObservables: string[];
+}
+
+export interface ObservationLineageAudit {
+  kind: "openplazma.observation_lineage_audit";
+  version: "0.1.0";
+  auditId: string;
+  runId: string;
+  runGroupId: string;
+  partitionId: string;
+  timeWindow: [number, number];
+  sourceRefs: ObservationLineageSourceRef[];
+  transformRefs: ObservationLineageTransformRef[];
+  diagnosticArtifactRefs: ObservationLineageDiagnosticArtifactRef[];
+  mediatedReadoutRefs: ObservationLineageReadoutRef[];
+  spectrumLineage: ObservationLineageSpectrumRef[];
+  claimAudits: ObservationLineageClaimAudit[];
+  calibrationSummary: ObservationLineageCalibrationSummary;
+  uncertaintySummary: ObservationLineageLimitationsSummary;
+  fusionAssessment: ObservationLineageFusionAuditSummary;
+  status: ObservationLineageAuditStatus;
+  failureReasons: string[];
+}
+
 export interface InvestigationDataSource {
   listInvestigationPackages(): Promise<InvestigationPackageMetadata[]>;
   getInvestigationPackage(packageId: string): Promise<InvestigationPackage | null>;

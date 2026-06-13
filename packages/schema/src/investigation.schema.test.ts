@@ -11,7 +11,8 @@ import {
   parseInvestigationFixtureManifest,
   parseInvestigationPackage,
   parseInvestigationReport,
-  parseInvestigationSession
+  parseInvestigationSession,
+  parseObservationLineageAudit
 } from "./index";
 
 function readFixtureJson(path: string): unknown {
@@ -697,6 +698,280 @@ function organismInteriorPackage(): InvestigationPackage {
     limitations: ["Remote biological investigation package only.", "No command/control path."]
   };
 }
+
+function runStoreArtifactRef(name: string, artifactType: string, index: number): Record<string, unknown> {
+  return {
+    artifactName: name,
+    artifactType,
+    path: `artifacts/${name}.json`,
+    sha256: index.toString(16).padStart(64, "0"),
+    runArtifactId: `OPA-20260613-${index.toString().padStart(6, "0")}`
+  };
+}
+
+function observationLineageAudit(): Record<string, unknown> {
+  return {
+    kind: "openplazma.observation_lineage_audit",
+    version: "0.1.0",
+    auditId: "obs-lineage-audit-late-mixed",
+    runId: "OPR-20260613-000001",
+    runGroupId: "public-observation-lineage-audit-noaa-swpc-l1-6h-20260612",
+    partitionId: "late-mixed",
+    timeWindow: [14400, 21360],
+    sourceRefs: [
+      {
+        ...runStoreArtifactRef("public_snapshot", "public_observation_snapshot", 1),
+        sourceRefId: "public-snapshot",
+        sourceKind: "public_snapshot",
+        datasetId: "real-observation-v0",
+        shotId: "noaa-swpc-l1-6h-20260612",
+        recordPath: "data/fixtures/real/noaa-swpc-l1-6h-20260612/study-record.json",
+        bundleSha256: "4310e71e623ce08b50613f1a6e1109bbf6c9cd7609683eb62f628562c198e5e9"
+      },
+      {
+        ...runStoreArtifactRef("source_provenance", "source_provenance", 2),
+        sourceRefId: "source-provenance",
+        sourceKind: "source_provenance",
+        provider: "NOAA_SWPC",
+        sourceLabel: "NOAA SWPC RTSW and GOES X-ray 6-hour public JSON snapshot",
+        provenancePath: "data/fixtures/real/noaa-swpc-l1-6h-20260612/source-provenance.json",
+        bundleSha256: "4310e71e623ce08b50613f1a6e1109bbf6c9cd7609683eb62f628562c198e5e9",
+        rawFileRefs: [
+          {
+            name: "plasma-6-hour.json",
+            path: "data/fixtures/real/noaa-swpc-l1-6h-20260612/raw/plasma-6-hour.json",
+            sha256: "6326a9400c3abd8a27b5dd286ac35416b4f74e3d557fbe7e69b5eea428927b00",
+            bytes: 17377
+          }
+        ]
+      }
+    ],
+    transformRefs: [
+      {
+        ...runStoreArtifactRef("signal_series_solar-wind-proton-density", "signal_series", 3),
+        transformId: "signal-series:solar-wind-proton-density",
+        transformKind: "signal_series",
+        status: "carried_forward",
+        method: "frozen_public_snapshot_selection",
+        sourceRefIds: ["public-snapshot", "source-provenance"],
+        inputSignalIds: ["solar-wind-proton-density"],
+        limitationReasons: ["Signal series is copied from the frozen normalized public observation record."]
+      },
+      {
+        ...runStoreArtifactRef("signal_spectrum_solar-wind-proton-density", "signal_spectrum", 4),
+        transformId: "signal-spectrum:solar-wind-proton-density",
+        transformKind: "signal_spectrum",
+        status: "not_computed",
+        method: "unknown",
+        sourceRefIds: ["public-snapshot", "source-provenance"],
+        inputSignalIds: ["solar-wind-proton-density"],
+        limitationReasons: ["SignalSpectrum requires an evenly sampled SignalSeries."]
+      },
+      {
+        ...runStoreArtifactRef("investigation_package", "investigation_package", 5),
+        transformId: "investigation-package",
+        transformKind: "investigation_package",
+        status: "computed",
+        method: "build_public_observation_campaign",
+        sourceRefIds: ["public-snapshot", "source-provenance"],
+        inputSignalIds: ["solar-wind-proton-density"],
+        limitationReasons: ["Package is conservative evidence review, not fusion validation."]
+      }
+    ],
+    diagnosticArtifactRefs: [
+      {
+        diagnosticArtifactId: "public-signal-solar-wind-proton-density",
+        artifactKind: "signal_series",
+        sourceKind: "public_snapshot",
+        signalIds: ["solar-wind-proton-density"],
+        sourceRefIds: ["public-snapshot", "source-provenance"],
+        transformRefIds: [
+          "signal-series:solar-wind-proton-density",
+          "signal-spectrum:solar-wind-proton-density",
+          "investigation-package"
+        ],
+        calibrationStatus: "unknown",
+        calibrationResponseKnown: false,
+        uncertaintyStatus: "not_independently_quantified",
+        limitationReasons: ["This artifact cannot support a positive fusion claim by itself."]
+      }
+    ],
+    mediatedReadoutRefs: [
+      {
+        readoutId: "readout-solar-wind-proton-density",
+        diagnosticArtifactId: "public-signal-solar-wind-proton-density",
+        signalId: "solar-wind-proton-density",
+        observable: "density",
+        readoutKind: "frequency_band",
+        method: "signal_window_summary",
+        status: "inconclusive",
+        transformRefIds: [
+          "signal-series:solar-wind-proton-density",
+          "signal-spectrum:solar-wind-proton-density",
+          "investigation-package"
+        ],
+        limitationReasons: ["The readout does not support a positive fusion claim."]
+      }
+    ],
+    spectrumLineage: [
+      {
+        spectrumId: "public-spectrum-solar-wind-proton-density",
+        sourceSignalId: "solar-wind-proton-density",
+        status: "not_computed",
+        method: "unknown",
+        transformRefId: "signal-spectrum:solar-wind-proton-density",
+        timeRange: [14400, 21360],
+        limitationReasons: ["SignalSpectrum requires an evenly sampled SignalSeries."],
+        supportsPositiveFusionInference: false
+      }
+    ],
+    claimAudits: [
+      {
+        claimId: "claim-solar-wind-proton-density-fusion-unsupported",
+        claimSource: "InvestigationPackage.claims",
+        claimType: "fusion_status",
+        claimStatus: "support",
+        statement: "The public solar-wind proton-density readout does not support a fusion claim.",
+        positiveFusionClaim: false,
+        evidenceArtifactIds: ["public-signal-solar-wind-proton-density"],
+        evidenceReadoutIds: ["readout-solar-wind-proton-density"],
+        admissibility: "admissible",
+        failureReasons: []
+      }
+    ],
+    calibrationSummary: {
+      status: "unknown",
+      responseKnown: false,
+      correctionApplied: false,
+      limitationReasons: ["Frozen public products have no independent instrument response model here."]
+    },
+    uncertaintySummary: {
+      status: "limited",
+      limitationReasons: ["No independent uncertainty propagation is attached to this audit slice."]
+    },
+    fusionAssessment: {
+      fusionStatus: "unsupported",
+      positiveFusionInference: false,
+      missingObservables: ["neutron_flux", "gamma_ray", "temperature"],
+      requiredProductObservables: ["gamma_ray", "neutron_flux"],
+      requiredConditionObservables: ["confinement_time", "density", "ion_temperature", "temperature"]
+    },
+    status: "passed",
+    failureReasons: []
+  };
+}
+
+describe("ObservationLineageAudit schema", () => {
+  it("accepts public NOAA lineage with explicit not_computed spectrum state", () => {
+    const audit = parseObservationLineageAudit(observationLineageAudit());
+
+    expect(audit.kind).toBe("openplazma.observation_lineage_audit");
+    expect(audit.status).toBe("passed");
+    expect(audit.spectrumLineage[0]?.status).toBe("not_computed");
+    expect(audit.claimAudits[0]?.admissibility).toBe("admissible");
+  });
+
+  it("rejects admitted positive fusion claims from public observation windows", () => {
+    const audit = observationLineageAudit();
+    const claimAudits = audit["claimAudits"] as Array<Record<string, unknown>>;
+    claimAudits[0]!.statement = "Fusion is occurring in the public observation window.";
+    claimAudits[0]!.positiveFusionClaim = true;
+    claimAudits[0]!.admissibility = "admissible";
+
+    expect(() => parseObservationLineageAudit(audit)).toThrow(/positive fusion claim/);
+  });
+
+  it("rejects claim audit rows that omit the audited claim statement", () => {
+    const audit = observationLineageAudit();
+    const claimAudits = audit["claimAudits"] as Array<Record<string, unknown>>;
+    delete claimAudits[0]!.statement;
+
+    expect(() => parseObservationLineageAudit(audit)).toThrow(/statement/);
+  });
+
+  it("rejects claim audit rows that omit the audited claim source", () => {
+    const audit = observationLineageAudit();
+    const claimAudits = audit["claimAudits"] as Array<Record<string, unknown>>;
+    delete claimAudits[0]!.claimSource;
+
+    expect(() => parseObservationLineageAudit(audit)).toThrow(/claimSource/);
+  });
+
+  it("rejects claim audit rows whose positive fusion flag contradicts the statement", () => {
+    const audit = observationLineageAudit();
+    const claimAudits = audit["claimAudits"] as Array<Record<string, unknown>>;
+    claimAudits[0]!.statement = "Fusion is occurring in the public observation window.";
+    claimAudits[0]!.positiveFusionClaim = false;
+    claimAudits[0]!.admissibility = "admissible";
+
+    expect(() => parseObservationLineageAudit(audit)).toThrow(/positiveFusionClaim/);
+  });
+
+  it("rejects claim audit rows that cite unknown diagnostic artifact evidence", () => {
+    const audit = observationLineageAudit();
+    const claimAudits = audit["claimAudits"] as Array<Record<string, unknown>>;
+    claimAudits[0]!.evidenceArtifactIds = ["ghost-diagnostic-artifact"];
+
+    expect(() => parseObservationLineageAudit(audit)).toThrow(/unknown diagnostic artifact/);
+  });
+
+  it("rejects source and transform refs without complete RunStore artifact metadata", () => {
+    const missingPath = observationLineageAudit();
+    const sourceRefs = missingPath["sourceRefs"] as Array<Record<string, unknown>>;
+    delete sourceRefs[0]!.path;
+
+    expect(() => parseObservationLineageAudit(missingPath)).toThrow(/path/);
+
+    const nullSha = observationLineageAudit();
+    const transformRefs = nullSha["transformRefs"] as Array<Record<string, unknown>>;
+    transformRefs[0]!.sha256 = null;
+
+    expect(() => parseObservationLineageAudit(nullSha)).toThrow(/sha256/);
+  });
+
+  it("rejects RunStore artifact paths outside artifacts", () => {
+    const audit = observationLineageAudit();
+    const sourceRefs = audit["sourceRefs"] as Array<Record<string, unknown>>;
+    sourceRefs[0]!.path = "data/public_snapshot.json";
+
+    expect(() => parseObservationLineageAudit(audit)).toThrow(/artifacts/);
+  });
+
+  it("rejects ghost source and signal lineage edges", () => {
+    const ghostSource = observationLineageAudit();
+    const diagnosticRefs = ghostSource["diagnosticArtifactRefs"] as Array<Record<string, unknown>>;
+    diagnosticRefs[0]!.sourceRefIds = ["ghost-source"];
+
+    expect(() => parseObservationLineageAudit(ghostSource)).toThrow(/unknown sourceRef/);
+
+    const ghostDiagnosticSignal = observationLineageAudit();
+    const ghostDiagnosticRefs = ghostDiagnosticSignal["diagnosticArtifactRefs"] as Array<Record<string, unknown>>;
+    ghostDiagnosticRefs[0]!.signalIds = ["ghost-signal"];
+
+    expect(() => parseObservationLineageAudit(ghostDiagnosticSignal)).toThrow(/unknown signal/);
+
+    const ghostReadoutSignal = observationLineageAudit();
+    const readoutRefs = ghostReadoutSignal["mediatedReadoutRefs"] as Array<Record<string, unknown>>;
+    readoutRefs[0]!.signalId = "ghost-signal";
+
+    expect(() => parseObservationLineageAudit(ghostReadoutSignal)).toThrow(/unknown signal/);
+
+    const ghostSpectrumSignal = observationLineageAudit();
+    const spectrumLineage = ghostSpectrumSignal["spectrumLineage"] as Array<Record<string, unknown>>;
+    spectrumLineage[0]!.sourceSignalId = "ghost-signal";
+
+    expect(() => parseObservationLineageAudit(ghostSpectrumSignal)).toThrow(/unknown source signal/);
+  });
+
+  it("rejects not_computed spectra that self-report positive fusion support", () => {
+    const audit = observationLineageAudit();
+    const spectrumLineage = audit["spectrumLineage"] as Array<Record<string, unknown>>;
+    spectrumLineage[0]!.status = "not_computed";
+    spectrumLineage[0]!.supportsPositiveFusionInference = true;
+
+    expect(() => parseObservationLineageAudit(audit)).toThrow(/not_computed spectrum lineage/);
+  });
+});
 
 describe("InvestigationPackage schema", () => {
   it("keeps will-o'-the-wisp plasma and fusion as separate questions", () => {

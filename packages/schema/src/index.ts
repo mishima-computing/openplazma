@@ -423,10 +423,12 @@ export {
   investigationSessionSchema,
   instrumentResponseSchema,
   measurementUncertaintySchema,
+  observationLineageAuditSchema,
   parseFusionConditionAssessment,
   parseInvestigationFixtureManifest,
   parseInvestigationPackage,
   parseInvestigationReport,
   parseInvestigationSession,
+  parseObservationLineageAudit,
   spectralFeatureSchema
 } from "./investigation.schema";

@@ -14,9 +14,10 @@ from .investigations import (
     record_investigation_report,
     log_investigation_session,
 )
+from .observation_lineage import build_observation_lineage_audit
 from .observatory import export_observatory_html
 from .public_data import load_public_observation_snapshot
-from .runstore import Run, start_run
+from .runstore import Run, start_run, summarize_run_group
 from .signals import build_signal_channel_index, compute_signal_spectrum, summarize_signal_channel, validate_signal_series
 
 VERSION = "0.1.0"
@@ -26,6 +27,19 @@ DEFAULT_PUBLIC_OBSERVATION_SIGNAL_IDS = (
     "goes-xray-long-flux",
 )
 PRODUCT_REQUIRED_OBSERVABLES = ("neutron_flux", "gamma_ray", "temperature", "density")
+DEFAULT_PUBLIC_OBSERVATION_LINEAGE_RUN_GROUP_ID = "public-observation-lineage-audit-noaa-swpc-l1-6h-20260612"
+DEFAULT_PUBLIC_OBSERVATION_LINEAGE_PARTITIONS = (
+    {
+        "partitionId": "early-even",
+        "timeWindow": [0.0, 7200.0],
+        "description": "Early evenly sampled NOAA public observation window.",
+    },
+    {
+        "partitionId": "late-mixed",
+        "timeWindow": [14400.0, 21360.0],
+        "description": "Late mixed NOAA public observation window with explicit not_computed spectrum lineage where needed.",
+    },
+)
 
 
 def _signal_ref(signal: dict[str, Any]) -> dict[str, str]:
@@ -689,6 +703,73 @@ def log_public_observation_campaign(
     return artifacts
 
 
+def _audit_metadata(audit: dict[str, Any]) -> dict[str, Any]:
+    fusion = require_mapping(audit["fusionAssessment"], "ObservationLineageAudit.fusionAssessment")
+    calibration = require_mapping(audit["calibrationSummary"], "ObservationLineageAudit.calibrationSummary")
+    spectrum_statuses = sorted(
+        {
+            require_mapping(row, "ObservationLineageAudit.spectrumLineage[]").get("status")
+            for row in require_list(audit["spectrumLineage"], "ObservationLineageAudit.spectrumLineage")
+        }
+    )
+    return {
+        "auditId": audit["auditId"],
+        "runGroupId": audit["runGroupId"],
+        "partitionId": audit["partitionId"],
+        "auditStatus": audit["status"],
+        "calibrationStatus": calibration.get("status"),
+        "spectrumStatuses": spectrum_statuses,
+        "claimAdmissibility": sorted(
+            {
+                require_mapping(row, "ObservationLineageAudit.claimAudits[]").get("admissibility")
+                for row in require_list(audit["claimAudits"], "ObservationLineageAudit.claimAudits")
+            }
+        ),
+        "missingObservables": list(fusion.get("missingObservables") or []),
+        "failureReasons": list(audit.get("failureReasons") or []),
+    }
+
+
+def _log_campaign_metrics(run: Run, campaign: dict[str, Any], snapshot: dict[str, Any]) -> None:
+    assessment = campaign["assessment"]
+    run.log_metric("public_signal_count", len(snapshot["signals"]))
+    run.log_metric("selected_signal_count", len(campaign["signals"]))
+    run.log_metric("diagnostic_artifact_count", len(campaign["package"]["artifacts"]))
+    run.log_metric("observation_statement_count", len(campaign["package"].get("observations", [])))
+    run.log_metric("missing_required_observable_count", len(assessment["measurementAssessment"]["missingObservables"]))
+    run.log_metric("investigation_report_count", assessment["reportCount"])
+    for summary in campaign["signalSummaries"]:
+        run.log_metric(
+            f"signal_points_{summary['signalId']}",
+            summary["pointCount"],
+            metadata={
+                "signal": {
+                    "signalId": summary["signalId"],
+                    "quantity": summary["quantity"],
+                    "unit": summary["unit"],
+                }
+            },
+        )
+
+
+def _log_lineage_audit_metrics(run: Run, audit: dict[str, Any]) -> None:
+    claim_audits = require_list(audit["claimAudits"], "ObservationLineageAudit.claimAudits")
+    rejected_claims = [
+        claim
+        for claim in claim_audits
+        if require_mapping(claim, "ObservationLineageAudit.claimAudits[]").get("admissibility") == "rejected"
+    ]
+    not_computed_spectra = [
+        spectrum
+        for spectrum in require_list(audit["spectrumLineage"], "ObservationLineageAudit.spectrumLineage")
+        if require_mapping(spectrum, "ObservationLineageAudit.spectrumLineage[]").get("status") == "not_computed"
+    ]
+    run.log_metric("lineage_audit_status", audit["status"])
+    run.log_metric("lineage_audit_rejected_claim_count", len(rejected_claims))
+    run.log_metric("lineage_audit_not_computed_spectrum_count", len(not_computed_spectra))
+    run.log_metric("lineage_audit_missing_observable_count", len(audit["fusionAssessment"]["missingObservables"]))
+
+
 def run_public_observation_campaign(
     *,
     repo_root: str | Path,
@@ -723,25 +804,7 @@ def run_public_observation_campaign(
         run_store=selected_run_store,
     ) as run:
         artifacts = log_public_observation_campaign(run, campaign, snapshot)
-        assessment = campaign["assessment"]
-        run.log_metric("public_signal_count", len(snapshot["signals"]))
-        run.log_metric("selected_signal_count", len(campaign["signals"]))
-        run.log_metric("diagnostic_artifact_count", len(campaign["package"]["artifacts"]))
-        run.log_metric("observation_statement_count", len(campaign["package"].get("observations", [])))
-        run.log_metric("missing_required_observable_count", len(assessment["measurementAssessment"]["missingObservables"]))
-        run.log_metric("investigation_report_count", assessment["reportCount"])
-        for summary in campaign["signalSummaries"]:
-            run.log_metric(
-                f"signal_points_{summary['signalId']}",
-                summary["pointCount"],
-                metadata={
-                    "signal": {
-                        "signalId": summary["signalId"],
-                        "quantity": summary["quantity"],
-                        "unit": summary["unit"],
-                    }
-                },
-            )
+        _log_campaign_metrics(run, campaign, snapshot)
         run_id = run.run_id
 
     observatory_path = export_observatory_html(run_store=selected_run_store, output_dir=output_dir)
@@ -757,4 +820,92 @@ def run_public_observation_campaign(
         "reportArtifactPath": (run_path / report_artifact["path"]).as_posix(),
         "artifactRecords": artifacts,
         "campaign": campaign,
+    }
+
+
+def run_public_observation_lineage_audit_ensemble(
+    *,
+    repo_root: str | Path,
+    run_store: str | Path,
+    output_dir: str | Path | None = None,
+    shot_id: str | None = None,
+    signal_ids: Sequence[str] | None = None,
+    max_frequency_hz: float | None = None,
+    clean: bool = False,
+    run_group_id: str = DEFAULT_PUBLIC_OBSERVATION_LINEAGE_RUN_GROUP_ID,
+) -> dict[str, Any]:
+    selected_run_store = Path(run_store)
+    if clean and selected_run_store.exists():
+        shutil.rmtree(selected_run_store)
+    snapshot = load_public_observation_snapshot(repo_root, shot_id)
+    partition_results = []
+    for partition in DEFAULT_PUBLIC_OBSERVATION_LINEAGE_PARTITIONS:
+        partition_id = require_string(partition["partitionId"], "PublicObservationLineagePartition.partitionId")
+        time_window = require_list(partition["timeWindow"], "PublicObservationLineagePartition.timeWindow")
+        campaign = build_public_observation_campaign(
+            snapshot,
+            signal_ids=signal_ids,
+            time_window=time_window,
+            max_frequency_hz=max_frequency_hz,
+            session_id=f"session-public-observation-{snapshot['shotId']}-{partition_id}",
+        )
+        with start_run(
+            project="openplazma-public-observation",
+            campaign="public-observation-lineage-audit",
+            run_type="public_observation_lineage_audit",
+            context=snapshot["record"]["context"],
+            config={
+                "source": "public_observation_lineage_audit",
+                "shotId": snapshot["shotId"],
+                "signalIds": [signal["signalId"] for signal in campaign["signals"]],
+                "timeWindow": list(time_window),
+                "partitionId": partition_id,
+                "runGroupId": run_group_id,
+            },
+            run_store=selected_run_store,
+            run_group_id=run_group_id,
+            partition_id=partition_id,
+        ) as run:
+            artifacts = log_public_observation_campaign(run, campaign, snapshot)
+            audit = build_observation_lineage_audit(
+                campaign,
+                snapshot,
+                run_id=run.run_id,
+                run_group_id=run_group_id,
+                partition_id=partition_id,
+                time_window=time_window,
+                artifact_records=artifacts,
+                fail_on_error=True,
+            )
+            artifacts["observation_lineage_audit"] = run.log_artifact(
+                "observation_lineage_audit",
+                "observation_lineage_audit",
+                audit,
+                _audit_metadata(audit),
+            )
+            _log_campaign_metrics(run, campaign, snapshot)
+            _log_lineage_audit_metrics(run, audit)
+            partition_results.append(
+                {
+                    "partitionId": partition_id,
+                    "timeWindow": list(time_window),
+                    "runId": run.run_id,
+                    "auditId": audit["auditId"],
+                    "auditStatus": audit["status"],
+                    "artifactRecords": artifacts,
+                    "campaign": campaign,
+                    "audit": audit,
+                }
+            )
+
+    observatory_path = export_observatory_html(run_store=selected_run_store, output_dir=output_dir)
+    return {
+        "kind": "openplazma.public_observation_lineage_audit_ensemble_run",
+        "version": VERSION,
+        "runGroupId": run_group_id,
+        "runIds": [partition["runId"] for partition in partition_results],
+        "runStorePath": selected_run_store.as_posix(),
+        "observatoryPath": observatory_path.as_posix(),
+        "partitions": partition_results,
+        "runGroupSummary": summarize_run_group(run_group_id, run_store=selected_run_store),
     }

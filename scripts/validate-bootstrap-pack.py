@@ -48,6 +48,7 @@ REQUIRED_SCHEMAS = [
     "genius-packet.schema.json",
     "implementation-contract.schema.json",
     "implementation-result.schema.json",
+    "linon-review.schema.json",
     "aufheben-verdict.schema.json",
 ]
 
@@ -252,6 +253,41 @@ SCHEMA_SAMPLE_INSTANCES = {
         "remaining_failures": [],
         "scope_deviations": [],
         "manual_followup": [],
+    },
+    "schemas/linon-review.schema.json": {
+        "profile_id": "linon-review",
+        "findings": [
+            {
+                "file": "src/example.ts",
+                "line_range": {
+                    "start": 1,
+                    "end": 2,
+                },
+                "severity": "critical",
+                "lens": "forgeability",
+                "basis": "static-read",
+                "claim": "Client-writable evidence is accepted as authoritative.",
+                "evidence_ref": "src/example.ts:1-2",
+                "defect_locus": "implementation",
+                "principle_id": "NN2",
+            }
+        ],
+        "criterion_verdicts": [
+            {
+                "criterion_index": 0,
+                "criterion_text_echo": "Example acceptance criterion.",
+                "verdict": "refuted",
+                "evidence_ref": "src/example.ts:1",
+                "principle_id": "NN2",
+            }
+        ],
+        "gaps": [
+            {
+                "kind": "truncation",
+                "description": "No truncation applied.",
+                "severity_first_truncation_applied": False,
+            }
+        ],
     },
     "schemas/ecosystem-profile-selection.schema.json": {
         "primary_ecosystem": [
@@ -608,6 +644,11 @@ def load_pack_manifest() -> tuple[dict | None, list[str]]:
             errors.append(f"manifest_parse_error: {raw_path}: dir paths must end with /")
         if entry.get("type") == "file" and str(raw_path).endswith("/"):
             errors.append(f"manifest_parse_error: {raw_path}: file paths must not end with /")
+        if "sha256" in entry:
+            if entry.get("type") != "file":
+                errors.append(f"manifest_parse_error: {raw_path}: sha256 is valid only for file entries")
+            if not isinstance(entry.get("sha256"), str) or not re.fullmatch(r"[0-9a-f]{64}", entry["sha256"]):
+                errors.append(f"manifest_parse_error: {raw_path}: sha256 must be lowercase hex")
 
     return (None, errors) if errors else (loaded, [])
 
@@ -734,6 +775,28 @@ def check_pack_manifest_completeness_negative_fixture() -> list[str]:
     if not any("manifest_completeness_missing_file: pack/missing.txt" in item for item in errors):
         return ["pack_completeness_fixture_failed: under-listed-tree fixture did not report pack/missing.txt red"]
     return []
+
+
+def check_manifest_recorded_hashes(manifest: dict) -> list[str]:
+    errors: list[str] = []
+    for entry in manifest.get("entries", []):
+        if not isinstance(entry, dict) or "sha256" not in entry:
+            continue
+        raw_path = entry.get("path")
+        if not isinstance(raw_path, str):
+            continue
+        path = ROOT / raw_path
+        if not path.is_file():
+            errors.append(f"manifest_hash_missing_file: {raw_path}")
+            continue
+        try:
+            current_hash = sha256_file(path)
+        except ValidationReadError as exc:
+            errors.append(f"manifest_hash_read_error: {format_read_error(exc)}")
+            continue
+        if current_hash != entry["sha256"]:
+            errors.append(f"manifest_hash_mismatch: {raw_path}")
+    return errors
 
 
 def legacy_required_files() -> list[str]:
@@ -868,6 +931,17 @@ def validate_schema_instance(schema: dict, instance: object, path: str = "$") ->
                     if key not in properties:
                         errors.append(f"{path}: additional property {key} is not allowed")
 
+    if "if" in schema and isinstance(schema["if"], dict):
+        condition_errors = validate_schema_instance(schema["if"], instance, path)
+        if not condition_errors and isinstance(schema.get("then"), dict):
+            errors.extend(validate_schema_instance(schema["then"], instance, path))
+
+    all_of = schema.get("allOf")
+    if isinstance(all_of, list):
+        for index, subschema in enumerate(all_of):
+            if isinstance(subschema, dict):
+                errors.extend(validate_schema_instance(subschema, instance, f"{path}.allOf[{index}]"))
+
     if isinstance(instance, list):
         max_items = schema.get("maxItems")
         if isinstance(max_items, int) and len(instance) > max_items:
@@ -894,6 +968,15 @@ def validate_schema_instance(schema: dict, instance: object, path: str = "$") ->
         if not re.search(pattern, instance):
             errors.append(f"{path}: string does not match pattern {pattern!r}")
 
+    if isinstance(instance, (int, float)) and not isinstance(instance, bool):
+        minimum = schema.get("minimum")
+        if isinstance(minimum, (int, float)) and instance < minimum:
+            errors.append(f"{path}: expected number at least {minimum}")
+
+        maximum = schema.get("maximum")
+        if isinstance(maximum, (int, float)) and instance > maximum:
+            errors.append(f"{path}: expected number at most {maximum}")
+
     return errors
 
 
@@ -907,10 +990,160 @@ def check_design_proposal_role_conditionals(instance: object, path: str = "$") -
     return errors
 
 
+def check_linon_review_conditionals(instance: object, path: str = "$") -> list[str]:
+    if not isinstance(instance, dict):
+        return []
+
+    errors: list[str] = []
+    findings = instance.get("findings", [])
+    if isinstance(findings, list):
+        for index, finding in enumerate(findings):
+            if not isinstance(finding, dict):
+                continue
+            line_range = finding.get("line_range")
+            if not isinstance(line_range, dict):
+                continue
+            start = line_range.get("start")
+            end = line_range.get("end")
+            if (
+                isinstance(start, int)
+                and not isinstance(start, bool)
+                and isinstance(end, int)
+                and not isinstance(end, bool)
+                and end < start
+            ):
+                errors.append(f"{path}.findings[{index}].line_range: end must be >= start")
+    return errors
+
+
 def check_role_conditionals(schema_path: Path, instance: object, path: str = "$") -> list[str]:
     if rel(schema_path) == "schemas/design-proposal.schema.json":
         return check_design_proposal_role_conditionals(instance, path)
+    if rel(schema_path) == "schemas/linon-review.schema.json":
+        return check_linon_review_conditionals(instance, path)
     return []
+
+
+def check_linon_review_fixtures() -> list[str]:
+    errors: list[str] = []
+    schema_path = ROOT / "schemas/linon-review.schema.json"
+    schema, schema_error = load_json(schema_path)
+    if schema_error or not isinstance(schema, dict):
+        return [f"linon_review_fixture_schema_unavailable: {schema_error or 'schema must be object'}"]
+
+    fixture_dir = ROOT / "fixtures/linon-review"
+    expected_files = sorted(fixture_dir.glob("*.json"))
+    if not expected_files:
+        return ["linon_review_fixture_missing: no top-level fixtures/linon-review/*.json files found"]
+
+    saw_valid = False
+    saw_invalid = False
+    for path in expected_files:
+        instance, instance_error = load_json(path)
+        if instance_error:
+            errors.append(f"linon_review_fixture_parse_error: {rel(path)}: {instance_error}")
+            continue
+        validation_errors = validate_schema_instance(schema, instance)
+        validation_errors.extend(check_role_conditionals(schema_path, instance))
+        name = path.name
+        if name.startswith("valid-"):
+            saw_valid = True
+            if validation_errors:
+                errors.append(f"linon_review_fixture_expected_green_failed: {rel(path)}: {validation_errors}")
+        elif name.startswith("invalid-"):
+            saw_invalid = True
+            if not validation_errors:
+                errors.append(f"linon_review_fixture_expected_red_passed: {rel(path)}")
+        else:
+            errors.append(f"linon_review_fixture_unclassified: {rel(path)}")
+
+        if name == "invalid-critical-missing-principle.json" and not any(
+            "principle_id: missing required field" in item for item in validation_errors
+        ):
+            errors.append("linon_review_fixture_if_then_not_proven: invalid-critical-missing-principle.json")
+        if name == "invalid-missing-evidence.json" and not any(
+            "evidence_ref: missing required field" in item for item in validation_errors
+        ):
+            errors.append("linon_review_fixture_required_evidence_not_proven: invalid-missing-evidence.json")
+        if name == "invalid-line-range.json" and not any(
+            "line_range: end must be >= start" in item for item in validation_errors
+        ):
+            errors.append("linon_review_fixture_line_range_not_proven: invalid-line-range.json")
+
+    if not saw_valid:
+        errors.append("linon_review_fixture_missing_green")
+    if not saw_invalid:
+        errors.append("linon_review_fixture_missing_red")
+    return errors
+
+
+def check_linon_packet_fixture() -> list[str]:
+    errors: list[str] = []
+    packet_path = ROOT / "fixtures/linon-review/packet/example-packet.json"
+    packet, packet_error = load_json(packet_path)
+    if packet_error or not isinstance(packet, dict):
+        return [f"linon_packet_fixture_invalid: {packet_error or 'packet must be object'}"]
+
+    diff = packet.get("diff_artifact")
+    contract = packet.get("implementation_contract")
+    sha256_pair = packet.get("sha256_pair")
+    if not isinstance(diff, dict):
+        errors.append("linon_packet_fixture_invalid: diff_artifact must be object")
+        diff = {}
+    if not isinstance(contract, dict):
+        errors.append("linon_packet_fixture_invalid: implementation_contract must be object")
+        contract = {}
+    if not isinstance(sha256_pair, dict):
+        errors.append("linon_packet_fixture_invalid: sha256_pair must be object")
+        sha256_pair = {}
+
+    for label, item in [("diff_artifact", diff), ("implementation_contract", contract)]:
+        raw_path = item.get("path")
+        recorded_hash = item.get("sha256")
+        path_error = invalid_manifest_path(raw_path)
+        if path_error:
+            errors.append(f"linon_packet_fixture_invalid: {label}.path: {path_error}")
+            continue
+        if not isinstance(recorded_hash, str) or not re.fullmatch(r"[0-9a-f]{64}", recorded_hash):
+            errors.append(f"linon_packet_fixture_invalid: {label}.sha256 must be lowercase hex")
+            continue
+        current_path = ROOT / str(raw_path)
+        if not current_path.is_file():
+            errors.append(f"linon_packet_fixture_missing: {raw_path}")
+            continue
+        current_hash = sha256_file(current_path)
+        if current_hash != recorded_hash:
+            errors.append(f"linon_packet_fixture_hash_mismatch: {label}: {raw_path}")
+
+    diff_hash = diff.get("sha256")
+    contract_hash = contract.get("sha256")
+    if sha256_pair.get("diff_sha256") != diff_hash:
+        errors.append("linon_packet_fixture_invalid: sha256_pair.diff_sha256 must match diff_artifact.sha256")
+    if sha256_pair.get("contract_sha256") != contract_hash:
+        errors.append("linon_packet_fixture_invalid: sha256_pair.contract_sha256 must match implementation_contract.sha256")
+
+    embedded_contract = contract.get("embedded_contract")
+    contract_path_value = contract.get("path")
+    if isinstance(contract_path_value, str):
+        contract_instance, contract_error = load_json(ROOT / contract_path_value)
+        if contract_error:
+            errors.append(f"linon_packet_fixture_contract_parse_error: {contract_path_value}: {contract_error}")
+        else:
+            if embedded_contract != contract_instance:
+                errors.append("linon_packet_fixture_invalid: embedded_contract must equal contract file JSON")
+            contract_schema, schema_error = load_json(ROOT / "schemas/implementation-contract.schema.json")
+            if schema_error or not isinstance(contract_schema, dict):
+                errors.append(f"linon_packet_fixture_contract_schema_unavailable: {schema_error or 'schema must be object'}")
+            else:
+                contract_errors = validate_schema_instance(contract_schema, contract_instance)
+                if contract_errors:
+                    errors.append(f"linon_packet_fixture_contract_invalid: {contract_errors}")
+
+    note = packet.get("bootstrap_note")
+    if not isinstance(note, str) or "bootstrap-only" not in note or "not an activation path" not in note:
+        errors.append("linon_packet_fixture_invalid: bootstrap_note must mark inline diff review as bootstrap-only")
+
+    return errors
 
 
 def check_schema_samples() -> list[str]:
@@ -942,6 +1175,31 @@ def check_schema_samples() -> list[str]:
         ({"type": "array", "maxItems": 1}, ["one", "two"], "maxItems"),
         ({"type": "array", "minItems": 1}, [], "minItems"),
         ({"type": "string", "maxLength": 3}, "four", "maxLength"),
+        ({"type": "integer", "minimum": 2}, 1, "minimum"),
+        (
+            {
+                "if": {
+                    "properties": {
+                        "severity": {
+                            "type": "string",
+                            "const": "critical",
+                        }
+                    },
+                    "required": [
+                        "severity"
+                    ],
+                },
+                "then": {
+                    "required": [
+                        "principle_id"
+                    ],
+                },
+            },
+            {
+                "severity": "critical"
+            },
+            "if/then",
+        ),
     ]
     for schema, instance, keyword in keyword_cases:
         if not validate_schema_instance(schema, instance):
@@ -1829,12 +2087,15 @@ def main(argv: list[str] | None = None) -> int:
         errors.extend(check_pack_manifest_self_test(manifest))
         errors.extend(guarded("check_tool_io_substrate", check_tool_io_substrate))
         errors.extend(check_required_files(manifest))
+        errors.extend(guarded("check_manifest_recorded_hashes", check_manifest_recorded_hashes, manifest))
         errors.extend(guarded("check_pack_stamp", check_pack_stamp, manifest, mode, stamp_exists))
         if mode == "source":
             errors.extend(guarded("check_pack_manifest_completeness", check_pack_manifest_completeness, manifest))
             errors.extend(guarded("check_pack_manifest_completeness_negative_fixture", check_pack_manifest_completeness_negative_fixture))
     errors.extend(f"json_parse_error: {item}" for item in guarded("parse_json_files", parse_json_files))
     errors.extend(f"schema_conformance_error: {item}" for item in guarded("check_schema_samples", check_schema_samples))
+    errors.extend(guarded("check_linon_review_fixtures", check_linon_review_fixtures))
+    errors.extend(guarded("check_linon_packet_fixture", check_linon_packet_fixture))
     errors.extend(f"schema_explicit_type_error: {item}" for item in guarded("check_schema_explicit_types", check_schema_explicit_types))
     errors.extend(f"toml_parse_error: {item}" for item in toml_errors)
     errors.extend(guarded("check_knowledge_cards", check_knowledge_cards))

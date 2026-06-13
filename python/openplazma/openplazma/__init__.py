@@ -45,6 +45,7 @@ from .mhd_analysis import (
     goertzel_phase_amplitude,
     track_rotation_frequency,
 )
+from .observation_lineage import build_observation_lineage_audit, validate_observation_lineage_audit
 from .observatory import (
     compare_runs,
     export_observatory_compare_html,
@@ -70,6 +71,7 @@ from .public_data import (
 from .public_observation_campaign import (
     build_public_observation_campaign,
     log_public_observation_campaign,
+    run_public_observation_lineage_audit_ensemble,
     run_public_observation_campaign,
 )
 from .records import create_study_record, load_study_record, save_study_record, validate_study_record
@@ -130,6 +132,7 @@ __all__ = [
     "assess_investigation_session",
     "build_inference_from_array",
     "build_investigation_package",
+    "build_observation_lineage_audit",
     "build_public_observation_campaign",
     "build_signal_channel_index",
     "create_study_record",
@@ -198,6 +201,7 @@ __all__ = [
     "runstore_backend_capabilities",
     "runstore_output_hint",
     "runstore_query_capabilities",
+    "run_public_observation_lineage_audit_ensemble",
     "run_public_observation_campaign",
     "record_investigation_report",
     "save_investigation_report",
@@ -222,6 +226,7 @@ __all__ = [
     "validate_investigation_package",
     "validate_investigation_report",
     "validate_investigation_session",
+    "validate_observation_lineage_audit",
     "validate_public_observation_manifest",
     "validate_runstore_backend_descriptor",
     "validate_scenario",

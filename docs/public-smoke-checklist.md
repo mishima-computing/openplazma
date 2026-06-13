@@ -56,6 +56,15 @@ Repository documentation smoke:
 - `docs/tutorials/README.md`
 - `docs/tutorials/read-the-signal/README.md`
 - `docs/tutorials/read-the-signal/00-mission-briefing.md`
+- `docs/real-data-fixtures.md`
+- `docs/observatory-mvp.md`
+
+Local frozen public-observation smoke, outside the hosted demo:
+
+- Run `python3 scripts/run-public-observation-lineage-audit.py --run-store /tmp/openplazma-lineage-runstore --output-dir /tmp/openplazma-lineage-observatory --clean`.
+- Confirm exactly two RunStore runs are created in one run group: `early-even` and `late-mixed`.
+- Confirm each run has one `observation_lineage_audit` artifact and `fusionStatus` remains `unsupported`.
+- Confirm `/tmp/openplazma-lineage-observatory/index.html` shows `Lineage Audit`, `early-even`, `late-mixed`, and no script/form/button/external URL controls.
 
 ## Notebook Smoke
 

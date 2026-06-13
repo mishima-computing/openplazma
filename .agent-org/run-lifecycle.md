@@ -38,8 +38,21 @@ Codex main is responsible for confirming the ignore rule during approved pack ma
 2. Run designer agents when implementation design is needed.
 3. Run `aufheben-designer` to create one implementation contract.
 4. Run `implementer` only from that implementation contract.
-5. Run deterministic local tooling when configured.
-6. Report changed files, commands run, checks, gaps, and remaining work.
+5. Run Linon adversarial review from `.agent-org/knowledge/review/linon-review-profile.md` after implementer and before PR creation when an implementation diff exists.
+6. Run deterministic local tooling when configured.
+7. Report changed files, commands run, checks, gaps, and remaining work.
+
+Linon pre-PR adversarial review:
+
+- The controller composes the Linon packet with a controller-generated implementation diff artifact under `.agent-runs/<run_id>/`, the implementation contract embedded verbatim, and sha256 values recorded for both the diff artifact and embedded contract.
+- Activation requires the recorded-sha256 packet shape demonstrated by `fixtures/linon-review/packet/`: a controller-owned diff artifact plus an embedded implementation contract, with matching `diff_sha256` and `contract_sha256` values recorded in the packet and hash-listed in `pack-manifest.json`.
+- Inline diff review was a bootstrap-only path before the tracked packet fixture existed; it is not an activation path for default Linon operation.
+- Linon runs as a read-only Claude profile invocation in plan permission mode with `Read`, `Grep`, and `Glob`, then emits schema-valid `linon-review` JSON via extract-then-validate.
+- Mechanical routing is field-based: `severity=critical` AND `verdict=refuted` blocks PR creation once calibrated; `defect_locus=implementation` routes to implementer verify-fix for max 2 rounds with verbatim findings; `defect_locus=contract` or ambiguous locus routes to aufheben escalation.
+- Blocking remains pending-calibration until one calibration run against the C014-C016 reference set shows zero false-positive Criticals. Until then, Linon findings are advisory and disclosed at closeout.
+- Advisory findings and `unverifiable-static` verdicts are disclosed at closeout.
+- The profile's Non-Negotiable Principles bind Linon outputs and are outside the demotion clause's scope.
+- Every Linon output basis is `static-read`; `confirmed` may never be issued for runtime-only properties; unverified-integration findings name the live check that would resolve them; live batteries plus merge-gate remain authoritative for runtime truth.
 
 Stage-A/Stage-B for UI/UX:
 
