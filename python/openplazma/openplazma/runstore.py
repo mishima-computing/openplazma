@@ -13,7 +13,7 @@ import uuid
 from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Callable, Iterator
 
 from ._json import load_json, loads_json, save_json
 from ._validation import require_iso_datetime, require_keys, require_list, require_mapping, require_string
@@ -62,9 +62,12 @@ RUNSTORE_BACKEND_CAPABILITIES = {
 
 RUNSTORE_QUERY_CAPABILITIES = {
     "listRuns": True,
+    "pageRuns": True,
     "loadRun": True,
     "loadMetrics": True,
+    "pageMetrics": True,
     "loadEvents": True,
+    "pageEvents": True,
     "loadManifest": True,
     "loadArtifactBlob": True,
     "mutatesRunStore": False,
@@ -172,11 +175,14 @@ def _validate_capability_flags(
     capabilities: dict[str, Any],
     expected: dict[str, bool],
     name: str,
+    *,
+    compatibility_defaults: set[str] | None = None,
 ) -> dict[str, bool]:
-    require_keys(capabilities, list(expected), name)
+    optional_fields = compatibility_defaults or set()
+    require_keys(capabilities, [key for key in expected if key not in optional_fields], name)
     selected: dict[str, bool] = {}
     for field, expected_value in expected.items():
-        actual = capabilities.get(field)
+        actual = capabilities.get(field, expected_value) if field in optional_fields else capabilities.get(field)
         if actual is not expected_value:
             raise ValueError(f"{name}.{field} must be {str(expected_value).lower()}.")
         selected[field] = actual
@@ -256,6 +262,7 @@ def _validate_runstore_backend_descriptor(descriptor: dict[str, Any]) -> dict[st
         require_mapping(descriptor["queryCapabilities"], "RunStoreBackendDescriptor.queryCapabilities"),
         RUNSTORE_QUERY_CAPABILITIES,
         "RunStoreBackendDescriptor.queryCapabilities",
+        compatibility_defaults={"pageRuns", "pageMetrics", "pageEvents"},
     )
 
     policy = require_mapping(descriptor["policy"], "RunStoreBackendDescriptor.policy")
@@ -1592,6 +1599,43 @@ def list_runs_page(
         return {"runs": runs, "nextCursor": next_cursor}
 
 
+def _parse_record_page_cursor(cursor: str | None) -> int:
+    if cursor is None:
+        return 0
+    selected = require_string(cursor, "cursor")
+    if not selected.isdigit():
+        raise ValueError("cursor must be a nonnegative record offset.")
+    return int(selected)
+
+
+def _validate_page_size(page_size: int) -> int:
+    if not isinstance(page_size, int) or isinstance(page_size, bool) or page_size < 1:
+        raise ValueError("page_size must be a positive integer.")
+    return page_size
+
+
+def _list_jsonl_page(
+    path: Path,
+    *,
+    item_key: str,
+    page_size: int,
+    cursor: str | None,
+    validator: Callable[[dict[str, Any]], dict[str, Any]],
+) -> dict[str, Any]:
+    selected_page_size = _validate_page_size(page_size)
+    start_index = _parse_record_page_cursor(cursor)
+    records: list[dict[str, Any]] = []
+    next_cursor: str | None = None
+    for index, record in enumerate(_iter_jsonl(path)):
+        if index < start_index:
+            continue
+        if len(records) >= selected_page_size:
+            next_cursor = str(index)
+            break
+        records.append(validator(record))
+    return {item_key: records, "nextCursor": next_cursor}
+
+
 def list_run_group(
     run_group_id: str,
     run_store: str | Path = ".openplazma",
@@ -1644,6 +1688,23 @@ def load_metrics(run_id: str, run_store: str | Path = ".openplazma") -> list[dic
     return list(iter_metrics(run_id, run_store=run_store))
 
 
+def list_metrics_page(
+    run_id: str,
+    run_store: str | Path = ".openplazma",
+    *,
+    page_size: int = 100,
+    cursor: str | None = None,
+) -> dict[str, Any]:
+    with _run_store_write_lock(run_store):
+        return _list_jsonl_page(
+            _run_dir(run_id, run_store) / "metrics.jsonl",
+            item_key="metrics",
+            page_size=page_size,
+            cursor=cursor,
+            validator=lambda record: _validate_metric_record(record, expected_run_id=run_id),
+        )
+
+
 def iter_metrics(run_id: str, run_store: str | Path = ".openplazma") -> Iterator[dict[str, Any]]:
     with _run_store_write_lock(run_store):
         for record in _iter_jsonl(_run_dir(run_id, run_store) / "metrics.jsonl"):
@@ -1653,6 +1714,23 @@ def iter_metrics(run_id: str, run_store: str | Path = ".openplazma") -> Iterator
 def load_events(run_id: str, run_store: str | Path = ".openplazma") -> list[dict[str, Any]]:
     events = list(iter_events(run_id, run_store=run_store))
     return _validate_event_sequence(events)
+
+
+def list_events_page(
+    run_id: str,
+    run_store: str | Path = ".openplazma",
+    *,
+    page_size: int = 100,
+    cursor: str | None = None,
+) -> dict[str, Any]:
+    with _run_store_write_lock(run_store):
+        return _list_jsonl_page(
+            _run_dir(run_id, run_store) / "events.jsonl",
+            item_key="events",
+            page_size=page_size,
+            cursor=cursor,
+            validator=lambda record: _validate_event_record(record, expected_run_id=run_id),
+        )
 
 
 def iter_events(run_id: str, run_store: str | Path = ".openplazma") -> Iterator[dict[str, Any]]:

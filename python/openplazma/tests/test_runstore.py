@@ -483,6 +483,119 @@ def test_list_runs_page_and_run_group_summary(tmp_path: Path):
     assert summary["partitionIds"] == ["partition-000", "partition-001", "partition-002"]
 
 
+def test_metrics_and_events_pages_read_bounded_records(tmp_path: Path):
+    run_store = run_store_path(tmp_path)
+    run = op.start_run(
+        project="openplazma-demo",
+        campaign="scale-out",
+        run_type="notebook_analysis",
+        context=sample_context(),
+        run_store=run_store,
+        machine_id="node-a",
+        partition_id="window-000",
+    )
+    for index in range(5):
+        run.log_metric(f"sample_{index}", index)
+
+    first_metrics = op.list_metrics_page(run.run_id, run_store=run_store, page_size=2)
+    assert [metric["name"] for metric in first_metrics["metrics"]] == ["sample_0", "sample_1"]
+    assert first_metrics["nextCursor"] == "2"
+
+    second_metrics = op.list_metrics_page(
+        run.run_id,
+        run_store=run_store,
+        page_size=2,
+        cursor=first_metrics["nextCursor"],
+    )
+    assert [metric["name"] for metric in second_metrics["metrics"]] == ["sample_2", "sample_3"]
+    assert second_metrics["nextCursor"] == "4"
+
+    final_metrics = op.list_metrics_page(
+        run.run_id,
+        run_store=run_store,
+        page_size=2,
+        cursor=second_metrics["nextCursor"],
+    )
+    assert [metric["name"] for metric in final_metrics["metrics"]] == ["sample_4"]
+    assert final_metrics["nextCursor"] is None
+
+    first_events = op.list_events_page(run.run_id, run_store=run_store, page_size=3)
+    assert [event["eventType"] for event in first_events["events"]] == [
+        "run_started",
+        "metric_logged",
+        "metric_logged",
+    ]
+    assert first_events["nextCursor"] == "3"
+    second_events = op.list_events_page(
+        run.run_id,
+        run_store=run_store,
+        page_size=3,
+        cursor=first_events["nextCursor"],
+    )
+    assert [event["eventType"] for event in second_events["events"]] == [
+        "metric_logged",
+        "metric_logged",
+        "metric_logged",
+    ]
+    assert second_events["nextCursor"] is None
+
+
+def test_record_page_inputs_are_validated(tmp_path: Path):
+    run_store = run_store_path(tmp_path)
+    run = op.start_run(
+        project="openplazma-demo",
+        campaign="scale-out",
+        run_type="notebook_analysis",
+        context=sample_context(),
+        run_store=run_store,
+    )
+
+    with pytest.raises(ValueError, match="page_size"):
+        op.list_metrics_page(run.run_id, run_store=run_store, page_size=0)
+    with pytest.raises(ValueError, match="cursor"):
+        op.list_events_page(run.run_id, run_store=run_store, cursor="after-start")
+
+
+def test_runstore_query_capabilities_fill_paged_read_defaults_for_existing_metadata(tmp_path: Path):
+    run_store = run_store_path(tmp_path)
+    op.start_run(
+        project="openplazma-demo",
+        campaign="scale-out",
+        run_type="notebook_analysis",
+        context=sample_context(),
+        run_store=run_store,
+    )
+    metadata_path = run_store / "runstore.json"
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    for key in ["pageRuns", "pageMetrics", "pageEvents"]:
+        metadata["backend"]["queryCapabilities"].pop(key, None)
+    metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+
+    capabilities = op.runstore_query_capabilities(run_store=run_store)
+
+    assert capabilities["pageRuns"] is True
+    assert capabilities["pageMetrics"] is True
+    assert capabilities["pageEvents"] is True
+
+
+def test_runstore_query_capabilities_still_require_existing_safety_fields(tmp_path: Path):
+    run_store = run_store_path(tmp_path)
+    op.start_run(
+        project="openplazma-demo",
+        campaign="scale-out",
+        run_type="notebook_analysis",
+        context=sample_context(),
+        run_store=run_store,
+    )
+    metadata_path = run_store / "runstore.json"
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    metadata["backend"]["queryCapabilities"].pop("controlsFacility")
+    metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="controlsFacility"):
+        op.runstore_query_capabilities(run_store=run_store)
+
+
 def test_path_traversal_artifact_name_is_rejected(tmp_path: Path):
     run = op.start_run(
         project="openplazma-demo",
