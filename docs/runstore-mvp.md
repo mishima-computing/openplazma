@@ -45,6 +45,7 @@ OpenPlazma no longer treats fixed metric-count, artifact-count, or artifact-byte
 - `iter_metrics` and `iter_events` stream JSONL records.
 - `iter_runs` scans runs without forcing a full-store materialization.
 - `list_runs_page` returns stable cursor pages.
+- `list_metrics_page` and `list_events_page` return bounded cursor pages for long Runs.
 - `list_run_group` and `summarize_run_group` group machine or partition runs for one logical campaign.
 - content-addressed artifact blobs store large payload bytes once under `.openplazma/blobs/sha256/...`, while Run manifests keep small artifact records and pointer files.
 - `merge_run_store` imports another local RunStore without overwriting colliding Run IDs; identical run trees are skipped, different run trees fail closed.
@@ -128,6 +129,8 @@ for metric in op.iter_metrics(runs[0]["runId"]):
     ...
 
 page = op.list_runs_page(page_size=100)
+metric_page = op.list_metrics_page(runs[0]["runId"], page_size=1000)
+event_page = op.list_events_page(runs[0]["runId"], page_size=1000)
 group_summary = op.summarize_run_group("will-o-wisp-campaign")
 
 artifact = run.log_artifact(
