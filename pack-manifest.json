@@ -304,6 +304,30 @@
       "required": false
     },
     {
+      "path": ".agent-org/knowledge/ecosystems/python.md",
+      "type": "file",
+      "tier": "pack_level",
+      "check_applicability": "everywhere",
+      "required": false,
+      "sha256": "796fb8518953b329f0f4791a37aaf331ed7c1fbd928b464ada17c4d94bd174d2"
+    },
+    {
+      "path": ".agent-org/knowledge/ecosystems/python-testing.md",
+      "type": "file",
+      "tier": "pack_level",
+      "check_applicability": "everywhere",
+      "required": false,
+      "sha256": "c505aae04001a28ad905a1949ffa2a348cc9e560b644be5772a40467c83b71ca"
+    },
+    {
+      "path": ".agent-org/knowledge/ecosystems/rust.md",
+      "type": "file",
+      "tier": "pack_level",
+      "check_applicability": "everywhere",
+      "required": false,
+      "sha256": "009594fa3eb75f6515b8c15ca913251dd3c50d48e31601866016e43a91f20fab"
+    },
+    {
       "path": ".agent-org/knowledge/domains/",
       "type": "dir",
       "tier": "pack_level",

@@ -1506,6 +1506,9 @@ def check_ecosystem_profile_cards() -> list[str]:
         "htmlcss-computable-spatial.md",
         "htmlcss-modern-layout.md",
         "htmlcss-motion-implementation.md",
+        "python.md",
+        "python-testing.md",
+        "rust.md",
     ]
     for filename in required_cards:
         path = ecosystems_dir / filename
@@ -1970,6 +1973,23 @@ def check_mode_detection_samples() -> list[str]:
     return errors
 
 
+def check_detect_ecosystem_profiles_self_test() -> list[str]:
+    try:
+        result = subprocess.run(
+            [sys.executable, str(ROOT / "scripts/detect-ecosystem-profiles.py"), "--self-test"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return [f"detect_ecosystem_profiles_self_test_error: {exc}"]
+    if result.returncode == 0:
+        return []
+    detail = " ".join((result.stdout + " " + result.stderr).split())
+    return [f"detect_ecosystem_profiles_self_test_failed: {detail}"]
+
+
 def is_source_repo() -> bool:
     try:
         result = subprocess.run(
@@ -2083,6 +2103,7 @@ def main(argv: list[str] | None = None) -> int:
     errors.extend(manifest_errors)
     errors.extend(check_mode(mode, stamp_exists))
     errors.extend(check_mode_detection_samples())
+    errors.extend(check_detect_ecosystem_profiles_self_test())
     if manifest is not None:
         errors.extend(check_pack_manifest_self_test(manifest))
         errors.extend(guarded("check_tool_io_substrate", check_tool_io_substrate))

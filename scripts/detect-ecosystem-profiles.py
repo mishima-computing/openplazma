@@ -17,6 +17,8 @@ CAPS = {
     "selection_warnings": 6,
     "knowledge_gaps": 6,
 }
+ROOT = Path(__file__).resolve().parents[1]
+ECOSYSTEM_CARDS_DIR = ROOT / ".agent-org/knowledge/ecosystems"
 
 PROFILE_TABLE = {
     "manifest:node-package-manifest": [{"profile_id": "node-js", "priority": 10}],
@@ -160,11 +162,113 @@ def detect(facts: dict) -> dict:
     return output
 
 
+def pack_ecosystem_cards() -> list[str]:
+    if not ECOSYSTEM_CARDS_DIR.is_dir():
+        return []
+    return [
+        path.relative_to(ROOT).as_posix()
+        for path in sorted(ECOSYSTEM_CARDS_DIR.glob("*.md"))
+        if path.name != "README.md"
+    ]
+
+
+def profile_table_ids() -> list[str]:
+    profile_ids = [
+        str(row["profile_id"])
+        for rows in PROFILE_TABLE.values()
+        for row in rows
+    ]
+    return unique_sorted(profile_ids)
+
+
+def self_test_facts(seed: dict) -> dict:
+    payload = dict(seed)
+    payload["knowledge_cards"] = {
+        "pack_ecosystem_cards": pack_ecosystem_cards(),
+        "pack_domain_cards": [],
+        "repo_local_cards": [],
+    }
+    return payload
+
+
+def run_self_test() -> int:
+    expected_cards = {
+        "python": ".agent-org/knowledge/ecosystems/python.md",
+        "python-testing": ".agent-org/knowledge/ecosystems/python-testing.md",
+        "rust": ".agent-org/knowledge/ecosystems/rust.md",
+    }
+    cases = [
+        (
+            "rust-cargo-manifest",
+            {
+                "manifests": [
+                    {"kind": "rust-cargo-manifest", "path": "Cargo.toml", "version_pins": []}
+                ],
+                "framework_configs": [],
+                "runtime_versions": [],
+            },
+            {"rust"},
+        ),
+        (
+            "python-runtime-and-project",
+            {
+                "manifests": [
+                    {"kind": "python-project-manifest", "path": "pyproject.toml", "version_pins": []}
+                ],
+                "framework_configs": [],
+                "runtime_versions": [
+                    {"kind": "python-version-file", "path": ".python-version"}
+                ],
+            },
+            {"python"},
+        ),
+        (
+            "pytest-config",
+            {
+                "manifests": [],
+                "framework_configs": [
+                    {"kind": "pytest-config", "path": "pytest.ini"}
+                ],
+                "runtime_versions": [],
+            },
+            {"python-testing"},
+        ),
+    ]
+
+    errors: list[str] = []
+    for name, facts, expected_profile_ids in cases:
+        result = detect(self_test_facts(facts))
+        selected = set(result["selected_profile_cards"])
+        expected = {expected_cards[profile_id] for profile_id in expected_profile_ids}
+        if selected != expected:
+            errors.append(
+                clean_string(
+                    f"{name}: selected_profile_cards expected {sorted(expected)} got {sorted(selected)}"
+                )
+            )
+
+    card_stems = {Path(card).stem for card in pack_ecosystem_cards()}
+    uncarded = [profile_id for profile_id in profile_table_ids() if profile_id not in card_stems]
+    payload = {
+        "status": "pass" if not errors else "fail",
+        "errors": errors,
+        "advisory_uncarded_profile_ids": uncarded,
+    }
+    sys.stdout.write(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
+    return 0 if not errors else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Select ecosystem profiles from collected repository facts.")
-    parser.add_argument("--facts", required=True, help="Facts JSON from collect-repo-evidence.py.")
+    parser.add_argument("--facts", help="Facts JSON from collect-repo-evidence.py.")
     parser.add_argument("--output", help="Write selector JSON to this path instead of stdout.")
+    parser.add_argument("--self-test", action="store_true", help="Run offline deterministic selector self-test.")
     args = parser.parse_args(argv)
+
+    if args.self_test:
+        return run_self_test()
+    if not args.facts:
+        parser.error("--facts is required unless --self-test is used")
 
     payload = json.dumps(detect(facts_from(args.facts)), ensure_ascii=False, indent=2, sort_keys=True) + "\n"
     if args.output:
