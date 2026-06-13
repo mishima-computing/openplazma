@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { organismInteriorInvestigationPackage, StaticFixtureDataSource, willOWispInvestigationPackage } from "./index";
+import {
+  organismInteriorInvestigationPackage,
+  RealFixtureDataSource,
+  StaticFixtureDataSource,
+  willOWispInvestigationPackage
+} from "./index";
 
 describe("StaticFixtureDataSource", () => {
   it("loads the bundled manifest and sample shot", async () => {
@@ -209,5 +214,55 @@ describe("StaticFixtureDataSource", () => {
           }
         )
     ).toThrow("unregistered investigation package");
+  });
+});
+
+describe("RealFixtureDataSource", () => {
+  it("loads the bundled NOAA SWPC public observation snapshot", async () => {
+    const dataSource = new RealFixtureDataSource();
+
+    await expect(dataSource.listShots()).resolves.toHaveLength(1);
+    await expect(dataSource.getStudyRecord("noaa-swpc-l1-6h-20260612")).resolves.toMatchObject({
+      context: {
+        datasetId: "real-observation-v0",
+        safetyClassification: "public-web-observation",
+        target: {
+          type: "public_observation_dataset"
+        },
+        capabilities: {
+          readFacilityTelemetry: false,
+          controlFacility: false
+        }
+      },
+      source: {
+        provider: "NOAA_SWPC",
+        validationStatus: "schema_validated"
+      }
+    });
+    expect(dataSource.manifest.provider).toBe("NOAA_SWPC");
+  });
+
+  it("returns null for an unknown real shot", async () => {
+    const dataSource = new RealFixtureDataSource();
+
+    await expect(dataSource.getStudyRecord("missing-real-shot")).resolves.toBeNull();
+  });
+
+  it("fails fast when the real manifest references a missing shot", () => {
+    expect(
+      () =>
+        new RealFixtureDataSource([], {
+          kind: "openplazma.fixture_manifest",
+          version: "0.1.0",
+          provider: "NOAA_SWPC",
+          datasetId: "broken",
+          shots: [
+            {
+              shotId: "missing-real-shot",
+              path: "data/fixtures/real/missing/study-record.json"
+            }
+          ]
+        })
+    ).toThrow("missing-real-shot");
   });
 });

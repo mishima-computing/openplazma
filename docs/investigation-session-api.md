@@ -142,6 +142,29 @@ The example builds a generic local session, adds one visible-light artifact, one
 mediated readout, one conservative evidence-gap claim, creates a report, and
 writes the package, session, assessment, and report to the local RunStore.
 
+## Public Observation Snapshot Flow
+
+For frozen public web snapshots, `build_public_observation_campaign(snapshot)`
+creates a generic investigation package, session, assessment, and report from an
+already-loaded `load_public_observation_snapshot(...)` result. It adds selected
+signal windows, spectrum/frequency metadata, mediated observation statements,
+and conservative fusion-status claims.
+
+The helper `run_public_observation_campaign(...)` runs the full local path:
+
+```python
+result = op.run_public_observation_campaign(
+    repo_root=repo_root,
+    shot_id="noaa-swpc-l1-6h-20260612",
+    run_store=".openplazma/public-observation",
+)
+```
+
+This logs public snapshot, provenance, signals, spectra, session, assessment,
+and report artifacts to RunStore, exports Observatory HTML, and returns the run,
+report, and Observatory paths. The NOAA fixture remains `unsupported` for fusion
+unless calibrated product or condition evidence is added.
+
 ## Boundary Rules
 
 - The external application supplies target semantics and converts data into
