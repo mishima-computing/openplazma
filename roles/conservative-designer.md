@@ -36,7 +36,7 @@ Emit the normal proposal fields plus `continuity` when continuity is evaluable. 
 
 Truncation priority is safety-first: preserve selector `knowledge_gaps` 6-to-6, reduce selector `evidence_refs` from 12 into `ecosystem_facts_used` 8 by keeping facts that affect compatibility, migration, tests, or operational behavior, then preserve selected profiles up to 5. If truncation hides a safety-relevant gap, declare that truncation fact in `knowledge_gaps`.
 
-Selected-profiles vocabulary includes `htmlcss-computable-spatial`, `htmlcss-modern-layout`, and `htmlcss-motion-implementation` when objective-declared or mechanically selected.
+Selected-profiles vocabulary includes `htmlcss-computable-spatial`, `htmlcss-modern-layout`, `htmlcss-motion-implementation`, `python`, `python-testing`, and `rust` when objective-declared or mechanically selected.
 
 ## Stop Conditions
 Proceed degraded when continuity is partially evaluable. Non-empty `continuity.knowledge_gaps` means affected proposal claims must be placed in `confidence.speculative_claims`, not `confidence.grounded_claims`.

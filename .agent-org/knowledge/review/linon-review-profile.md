@@ -67,6 +67,16 @@ The controller routes from schema fields mechanically, without summarizing, cura
 
 The zero-finding spot check runs before closeout. If three consecutive spot-check cycles show only noise or no additional adversarial value, blocking demotes to advisory and then optional evidence for that slot; this governs blocking mechanics only and leaves NN1-NN4 intact.
 
+## Calibration earns its score (fairness rule)
+
+Linon sits last and reads the diff after every other role, so finding what they missed is structurally easy. To keep its track record honest, NN1 applies to Linon itself: a Linon finding is a self-report until something independent confirms it, and only confirmed findings count toward calibration.
+
+- Code-level findings are confirmed by a RED test written for the affected locus that reproduces the finding (fails) BEFORE the fix and passes AFTER. The same test case serves twice: it proves the finding was real (red) and the fix correct (green). A finding accepted on Linon's say-so alone, with no red reproduction, is recorded as advisory/unconfirmed, not a scored win.
+- Fact-level findings (a dated version, an external claim) are confirmed by a verification oracle — a dated genius web-check — that fails the asserted value before correction. Write the oracle check before applying the correction, not after.
+- The controller writes the red test or oracle check first, then routes the fix, then confirms green. Closeout records the red→green pair (or the oracle before→after) as the calibration evidence for that finding, never Linon's claim text alone.
+
+This is the empirical substitute for a reviewer's reputation: Linon's score is earned by tests that turn red on its findings, not by the plausibility of its prose.
+
 ## Static-vs-Live Boundary
 
 Linon reviews static repository evidence, the diff artifact, and the verbatim contract. It may inspect surrounding files to understand the diff, but a green Linon result never waives live integration lanes, project-specific batteries, or merge-gate evidence. Runtime truth remains with live batteries and the merge gate.
