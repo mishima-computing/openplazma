@@ -1172,6 +1172,9 @@ class Run:
     def run_record(self) -> dict[str, Any]:
         return load_run(self.run_id, run_store=self.run_dir.parent.parent)
 
+    def _load_run_record(self) -> dict[str, Any]:
+        return _validate_run_record(load_json(self.run_json_path), expected_run_id=self.run_id)
+
     def __enter__(self) -> "Run":
         return self
 
@@ -1227,7 +1230,7 @@ class Run:
         if step is not None and (not isinstance(step, int) or isinstance(step, bool) or step < 0):
             raise ValueError("MetricRecord.step must be a non-negative integer when provided.")
         metadata_value = _validate_json_object(metadata, "MetricRecord.metadata") if metadata is not None else None
-        run_record = self.run_record
+        run_record = self._load_run_record()
         _require_running_run(run_record)
         record = {
             "kind": "openplazma.metric",
@@ -1291,7 +1294,7 @@ class Run:
         if artifact_path.exists():
             raise ValueError(f"Artifact '{name}' already exists for run {self.run_id}.")
 
-        run_record = self.run_record
+        run_record = self._load_run_record()
         _require_running_run(run_record)
         manifest = self._manifest()
 
@@ -1396,7 +1399,7 @@ class Run:
             return self._finish_unlocked()
 
     def _finish_unlocked(self) -> dict[str, Any]:
-        record = self.run_record
+        record = self._load_run_record()
         if record["status"] == "finished":
             return record
         if record["status"] == "failed":
@@ -1419,7 +1422,7 @@ class Run:
             return self._fail_unlocked(message)
 
     def _fail_unlocked(self, message: str = "Run failed.") -> dict[str, Any]:
-        record = self.run_record
+        record = self._load_run_record()
         if record["status"] == "failed":
             return record
         if record["status"] == "finished":
