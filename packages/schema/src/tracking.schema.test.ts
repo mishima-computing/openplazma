@@ -5,6 +5,7 @@ import {
   eventRecordSchema,
   metricRecordSchema,
   runManifestSchema,
+  runStoreBackendDescriptorSchema,
   runRecordSchema,
   runStoreMetadataSchema
 } from "./index";
@@ -185,6 +186,65 @@ describe("tracking schemas", () => {
       message: "Run started.",
       metadata: {}
     })).not.toThrow();
+  });
+
+  it("validates fail-closed RunStore backend and observatory descriptors", () => {
+    const backend = {
+      backendKind: "readonly_observatory_snapshot",
+      accessMode: "read_only_snapshot",
+      rootUri: "observatory-snapshot:local",
+      observatory: {
+        observatoryId: "local-observatory",
+        label: "Local Observatory Snapshot",
+        dataScope: "local_snapshot",
+        liveFetch: false,
+        remoteTelemetry: false,
+        limitations: ["Snapshot metadata only."]
+      },
+      liveFetch: false,
+      remoteTelemetry: false,
+      controlPlane: false,
+      description: "Read-only local observatory snapshot backend.",
+      limitations: ["No live fetch or remote telemetry access."]
+    };
+
+    expect(() => runStoreBackendDescriptorSchema.parse(backend)).not.toThrow();
+    expect(() => runStoreMetadataSchema.parse({
+      kind: "openplazma.run_store",
+      version: "0.1.0",
+      layoutVersion: "0.2.0",
+      storeId: `OPS-${"b".repeat(32)}`,
+      backendKind: "readonly_observatory_snapshot",
+      backend,
+      createdAt: "2026-05-24T00:00:00.000Z",
+      limitations: ["Read-only metadata fixture."]
+    })).not.toThrow();
+  });
+
+  it("rejects RunStore descriptors that declare live access or mismatched backend identity", () => {
+    const backend = {
+      backendKind: "readonly_observatory_snapshot",
+      accessMode: "read_only_snapshot",
+      liveFetch: false,
+      remoteTelemetry: false,
+      controlPlane: false,
+      description: "Read-only local observatory snapshot backend.",
+      limitations: ["No live fetch or remote telemetry access."]
+    };
+
+    expect(() => runStoreBackendDescriptorSchema.parse({
+      ...backend,
+      liveFetch: true
+    })).toThrow();
+    expect(() => runStoreMetadataSchema.parse({
+      kind: "openplazma.run_store",
+      version: "0.1.0",
+      layoutVersion: "0.2.0",
+      storeId: `OPS-${"c".repeat(32)}`,
+      backendKind: "local_filesystem",
+      backend,
+      createdAt: "2026-05-24T00:00:00.000Z"
+    })).toThrow("must match backendKind");
   });
 
   it("rejects unsafe capabilities", () => {

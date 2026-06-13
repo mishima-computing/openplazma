@@ -384,11 +384,14 @@ export {
   parseArtifactRecord,
   parseEventRecord,
   parseMetricRecord,
+  parseRunStoreBackendDescriptor,
   parseRunManifest,
   parseRunRecord,
   parseRunStoreMetadata,
+  runStoreBackendDescriptorSchema,
   runManifestSchema,
   runRecordSchema,
+  runStoreObservatoryDescriptorSchema,
   runStoreMetadataSchema
 } from "./tracking.schema";
 
@@ -411,14 +414,19 @@ export {
 export { mhdAnalysisBundleSchema, parseMhdAnalysisBundle } from "./mhd.schema";
 
 export {
+  companionSignalChannelSchema,
+  companionSignalWindowSchema,
   fusionConditionAssessmentSchema,
   investigationFixtureManifestSchema,
   investigationPackageSchema,
   investigationReportSchema,
   investigationSessionSchema,
+  instrumentResponseSchema,
+  measurementUncertaintySchema,
   parseFusionConditionAssessment,
   parseInvestigationFixtureManifest,
   parseInvestigationPackage,
   parseInvestigationReport,
-  parseInvestigationSession
+  parseInvestigationSession,
+  spectralFeatureSchema
 } from "./investigation.schema";

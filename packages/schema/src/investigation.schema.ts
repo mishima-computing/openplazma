@@ -9,6 +9,17 @@ import type {
 
 const versionSchema = z.literal("0.1.0");
 const isoDateTimeSchema = z.string().datetime({ offset: true });
+const timeRangeSchema = z
+  .tuple([z.number().finite(), z.number().finite()])
+  .superRefine((range, ctx) => {
+    if (range[1] < range[0]) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "time range end must be greater than or equal to start",
+        path: [1]
+      });
+    }
+  });
 
 const targetKindSchema = z.enum([
   "lab_plasma",
@@ -91,10 +102,61 @@ const investigationQuestionSchema = z.object({
   text: z.string().min(1)
 });
 
+export const measurementUncertaintySchema = z
+  .object({
+    uncertaintyId: z.string().min(1).optional(),
+    value: z.number().finite().nonnegative().optional(),
+    lowerBound: z.number().finite().optional(),
+    upperBound: z.number().finite().optional(),
+    unit: z.string().min(1).optional(),
+    confidenceLevel: z.number().finite().positive().max(1).optional(),
+    coverageFactor: z.number().finite().positive().optional(),
+    description: z.string().min(1),
+    limitations: z.array(z.string().min(1)).min(1)
+  })
+  .superRefine((uncertainty, ctx) => {
+    if (
+      uncertainty.lowerBound !== undefined &&
+      uncertainty.upperBound !== undefined &&
+      uncertainty.upperBound < uncertainty.lowerBound
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "uncertainty upper bound must be greater than or equal to lower bound",
+        path: ["upperBound"]
+      });
+    }
+  });
+
+export const instrumentResponseSchema = z
+  .object({
+    responseKind: z.enum(["measured", "modeled", "estimated", "unknown"]),
+    responseQuantity: z.string().min(1),
+    transferFunction: z.string().min(1).optional(),
+    validFrequencyRangeHz: z.tuple([z.number().finite().nonnegative(), z.number().finite().positive()]).optional(),
+    validTimeRange: timeRangeSchema.optional(),
+    uncertainty: measurementUncertaintySchema.optional(),
+    description: z.string().min(1),
+    limitations: z.array(z.string().min(1)).min(1)
+  })
+  .superRefine((response, ctx) => {
+    if (
+      response.validFrequencyRangeHz !== undefined &&
+      response.validFrequencyRangeHz[1] < response.validFrequencyRangeHz[0]
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "instrument response frequency range upper bound must be greater than or equal to lower bound",
+        path: ["validFrequencyRangeHz", 1]
+      });
+    }
+  });
+
 const diagnosticCalibrationSchema = z.object({
   status: z.enum(["calibrated", "estimated", "uncalibrated", "unknown"]),
   responseKnown: z.boolean(),
   correctionApplied: z.boolean(),
+  response: instrumentResponseSchema.optional(),
   description: z.string().min(1),
   limitations: z.array(z.string().min(1)).min(1)
 });
@@ -260,44 +322,179 @@ const frequencyAnalysisSchema = z
     }
   });
 
-const diagnosticArtifactSchema = z.object({
-  kind: z.literal("openplazma.diagnostic_artifact"),
-  version: versionSchema,
-  artifactId: z.string().min(1),
-  artifactKind: z.enum([
-    "signal_series",
-    "spectrum",
-    "image_frame",
-    "thermal_map",
-    "tomographic_volume",
-    "field_map",
-    "magnetogram",
-    "particle_flux",
-    "neutron_flux",
-    "gamma_spectrum",
-    "neutrino_flux",
-    "gravity_trace",
-    "pressure_trace",
-    "acoustic_trace",
-    "helioseismic_trace",
-    "composition_profile",
-    "event_log",
-    "motion_track"
-  ]),
+const companionSignalRoleSchema = z.enum([
+  "primary",
+  "companion",
+  "reference",
+  "background",
+  "control",
+  "calibration",
+  "unknown"
+]);
+
+export const companionSignalChannelSchema = z.object({
+  channelId: z.string().min(1),
+  signalId: z.string().min(1),
   label: z.string().min(1),
-  provenanceKind: z.enum(["measured", "derived", "synthetic", "testimony", "unknown"]),
-  targetRegionId: z.string().min(1).optional(),
-  instrument: diagnosticInstrumentRefSchema.optional(),
-  contributions: z.array(diagnosticContributionSchema).optional(),
-  frequencyAnalyses: z.array(frequencyAnalysisSchema).optional(),
-  source: diagnosticArtifactSourceSchema.optional(),
-  sourceUri: z.string().min(1).optional(),
-  signalIds: z.array(z.string().min(1)).optional(),
+  role: companionSignalRoleSchema,
+  observable: measuredObservableSchema,
   quantity: z.string().min(1).optional(),
   unit: z.string().min(1).optional(),
+  instrument: diagnosticInstrumentRefSchema.optional(),
+  limitations: z.array(z.string().min(1)).min(1)
+});
+
+export const companionSignalWindowSchema = z.object({
+  windowId: z.string().min(1),
+  signalId: z.string().min(1),
+  channelId: z.string().min(1).optional(),
+  role: companionSignalRoleSchema,
+  timeRange: timeRangeSchema,
+  sampleCount: z.number().int().positive().optional(),
   description: z.string().min(1),
   limitations: z.array(z.string().min(1)).min(1)
 });
+
+export const spectralFeatureSchema = z
+  .object({
+    featureId: z.string().min(1),
+    observable: measuredObservableSchema,
+    status: z.enum(["detected", "candidate", "not_detected", "inconclusive", "unknown"]),
+    wavelengthMeters: z.number().finite().positive().optional(),
+    frequencyHz: z.number().finite().positive().optional(),
+    energyEv: z.number().finite().positive().optional(),
+    amplitude: z.number().finite().optional(),
+    lineWidthHz: z.number().finite().positive().optional(),
+    signalToNoiseRatio: z.number().finite().optional(),
+    identification: z.string().min(1).optional(),
+    uncertainty: measurementUncertaintySchema.optional(),
+    instrumentResponse: instrumentResponseSchema.optional(),
+    description: z.string().min(1),
+    limitations: z.array(z.string().min(1)).min(1),
+    alternatives: z.array(z.string().min(1))
+  })
+  .superRefine((feature, ctx) => {
+    if (
+      feature.wavelengthMeters === undefined &&
+      feature.frequencyHz === undefined &&
+      feature.energyEv === undefined
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "spectral feature requires wavelength, frequency, or energy",
+        path: ["frequencyHz"]
+      });
+    }
+  });
+
+const diagnosticArtifactSchema = z
+  .object({
+    kind: z.literal("openplazma.diagnostic_artifact"),
+    version: versionSchema,
+    artifactId: z.string().min(1),
+    artifactKind: z.enum([
+      "signal_series",
+      "spectrum",
+      "image_frame",
+      "thermal_map",
+      "tomographic_volume",
+      "field_map",
+      "magnetogram",
+      "particle_flux",
+      "neutron_flux",
+      "gamma_spectrum",
+      "neutrino_flux",
+      "gravity_trace",
+      "pressure_trace",
+      "acoustic_trace",
+      "helioseismic_trace",
+      "composition_profile",
+      "event_log",
+      "motion_track"
+    ]),
+    label: z.string().min(1),
+    provenanceKind: z.enum(["measured", "derived", "synthetic", "testimony", "unknown"]),
+    targetRegionId: z.string().min(1).optional(),
+    instrument: diagnosticInstrumentRefSchema.optional(),
+    contributions: z.array(diagnosticContributionSchema).optional(),
+    companionChannels: z.array(companionSignalChannelSchema).optional(),
+    signalWindows: z.array(companionSignalWindowSchema).optional(),
+    spectralFeatures: z.array(spectralFeatureSchema).optional(),
+    frequencyAnalyses: z.array(frequencyAnalysisSchema).optional(),
+    source: diagnosticArtifactSourceSchema.optional(),
+    sourceUri: z.string().min(1).optional(),
+    signalIds: z.array(z.string().min(1)).optional(),
+    quantity: z.string().min(1).optional(),
+    unit: z.string().min(1).optional(),
+    description: z.string().min(1),
+    limitations: z.array(z.string().min(1)).min(1)
+  })
+  .superRefine((artifact, ctx) => {
+    const channelIds = new Set<string>();
+    const exposedSignalIds = new Set(artifact.signalIds ?? []);
+    for (const [index, channel] of (artifact.companionChannels ?? []).entries()) {
+      if (channelIds.has(channel.channelId)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `duplicate companion channel id '${channel.channelId}'`,
+          path: ["companionChannels", index, "channelId"]
+        });
+      }
+      channelIds.add(channel.channelId);
+      exposedSignalIds.add(channel.signalId);
+    }
+
+    const windowIds = new Set<string>();
+    for (const [index, window] of (artifact.signalWindows ?? []).entries()) {
+      if (windowIds.has(window.windowId)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `duplicate signal window id '${window.windowId}'`,
+          path: ["signalWindows", index, "windowId"]
+        });
+      }
+      windowIds.add(window.windowId);
+      if (window.channelId !== undefined && !channelIds.has(window.channelId)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `signal window '${window.windowId}' references unknown companion channel '${window.channelId}'`,
+          path: ["signalWindows", index, "channelId"]
+        });
+      }
+      if (exposedSignalIds.size > 0 && !exposedSignalIds.has(window.signalId)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `signal window '${window.windowId}' references signal '${window.signalId}' outside artifact '${artifact.artifactId}'`,
+          path: ["signalWindows", index, "signalId"]
+        });
+      }
+    }
+
+    if (
+      artifact.spectralFeatures !== undefined &&
+      !["spectrum", "gamma_spectrum"].includes(artifact.artifactKind)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "spectral features are only valid on spectrum artifacts",
+        path: ["spectralFeatures"]
+      });
+    }
+
+    for (const [index, feature] of (artifact.spectralFeatures ?? []).entries()) {
+      if (
+        artifact.instrument !== undefined &&
+        feature.observable !== "unknown" &&
+        !artifact.instrument.observables.includes(feature.observable)
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `spectral feature '${feature.featureId}' observable is not measured by artifact instrument`,
+          path: ["spectralFeatures", index, "observable"]
+        });
+      }
+    }
+  });
 
 const observationStatementSchema = z.object({
   kind: z.literal("openplazma.observation_statement"),
@@ -324,12 +521,13 @@ const observationStatementSchema = z.object({
   ]),
   method: z.string().min(1),
   selector: z.string().min(1).optional(),
-  timeRange: z.tuple([z.number().finite(), z.number().finite()]).optional(),
+  timeRange: timeRangeSchema.optional(),
   value: z.number().finite().optional(),
   textValue: z.string().min(1).optional(),
   unit: z.string().min(1).optional(),
   status: z.enum(["detected", "not_detected", "candidate", "inconclusive", "unknown"]),
   uncertainty: z.string().min(1).optional(),
+  uncertaintyEstimate: measurementUncertaintySchema.optional(),
   assumptions: z.array(z.string().min(1)),
   limitations: z.array(z.string().min(1)).min(1),
   alternatives: z.array(z.string().min(1))
@@ -351,51 +549,66 @@ const conditionModeSchema = z.enum([
   "inverse_from_fusion_condition"
 ]);
 
-const conditionEstimateSchema = z.object({
-  parameter: z.enum([
-    "ion_temperature",
-    "electron_temperature",
-    "density",
-    "pressure",
-    "confinement_time",
-    "triple_product",
-    "fuel_mix",
-    "composition",
-    "ionization_fraction",
-    "confinement_mechanism",
-    "confinement_geometry",
-    "plasma_volume",
-    "energy_input",
-    "alpha_heating",
-    "ash_fraction",
-    "gravity",
-    "magnetic_field",
-    "electric_field",
-    "impurity_fraction",
-    "radiative_loss",
-    "bremsstrahlung_loss",
-    "line_radiation_loss",
-    "heat_loss",
-    "thermal_conduction_loss",
-    "particle_loss",
-    "neutral_density",
-    "material_interaction",
-    "plasma_rotation",
-    "turbulence_level"
-  ]),
-  status: z.enum(["measured", "inferred", "required", "bounded", "unknown", "contradicted"]),
-  logicalRole: z.enum(["necessary", "supporting", "contradicting", "unknown"]),
-  value: z.number().finite().optional(),
-  lowerBound: z.number().finite().optional(),
-  upperBound: z.number().finite().optional(),
-  unit: z.string().min(1).optional(),
-  method: z.string().min(1).optional(),
-  evidenceArtifactIds: z.array(z.string().min(1)),
-  evidenceReadoutIds: z.array(z.string().min(1)).optional(),
-  assumptions: z.array(z.string().min(1)),
-  limitations: z.array(z.string().min(1)),
-  alternatives: z.array(z.string().min(1)).optional()
-});
+const conditionEstimateSchema = z
+  .object({
+    parameter: z.enum([
+      "ion_temperature",
+      "electron_temperature",
+      "density",
+      "pressure",
+      "confinement_time",
+      "triple_product",
+      "fuel_mix",
+      "composition",
+      "ionization_fraction",
+      "confinement_mechanism",
+      "confinement_geometry",
+      "plasma_volume",
+      "energy_input",
+      "alpha_heating",
+      "ash_fraction",
+      "gravity",
+      "magnetic_field",
+      "electric_field",
+      "impurity_fraction",
+      "radiative_loss",
+      "bremsstrahlung_loss",
+      "line_radiation_loss",
+      "heat_loss",
+      "thermal_conduction_loss",
+      "particle_loss",
+      "neutral_density",
+      "material_interaction",
+      "plasma_rotation",
+      "turbulence_level"
+    ]),
+    status: z.enum(["measured", "inferred", "required", "bounded", "unknown", "contradicted"]),
+    logicalRole: z.enum(["necessary", "supporting", "contradicting", "unknown"]),
+    value: z.number().finite().optional(),
+    lowerBound: z.number().finite().optional(),
+    upperBound: z.number().finite().optional(),
+    unit: z.string().min(1).optional(),
+    uncertaintyEstimate: measurementUncertaintySchema.optional(),
+    method: z.string().min(1).optional(),
+    evidenceArtifactIds: z.array(z.string().min(1)),
+    evidenceReadoutIds: z.array(z.string().min(1)).optional(),
+    assumptions: z.array(z.string().min(1)),
+    limitations: z.array(z.string().min(1)),
+    alternatives: z.array(z.string().min(1)).optional()
+  })
+  .superRefine((condition, ctx) => {
+    if (
+      condition.lowerBound !== undefined &&
+      condition.upperBound !== undefined &&
+      condition.upperBound < condition.lowerBound
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "condition upper bound must be greater than or equal to lower bound",
+        path: ["upperBound"]
+      });
+    }
+  });
 
 export const fusionConditionAssessmentSchema = z
   .object({
@@ -495,6 +708,96 @@ function readsAsPositiveIdentityClaim(claim: z.infer<typeof investigationClaimSc
     return true;
   }
   return claim.claimType === "plasma_presence" || claim.claimType === "source_identity";
+}
+
+function checkClaimInterpretationContract(
+  claim: z.infer<typeof investigationClaimSchema>,
+  path: Array<string | number>,
+  ctx: z.RefinementCtx
+): void {
+  if (["support", "contradict"].includes(claim.status) && (claim.evidenceReadoutIds ?? []).length === 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `claim '${claim.claimId}' requires mediated readout evidence`,
+      path: [...path, "evidenceReadoutIds"]
+    });
+  }
+  if (["support", "contradict"].includes(claim.status) && claim.method === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `claim '${claim.claimId}' requires an interpretation method`,
+      path: [...path, "method"]
+    });
+  }
+  if (["support", "contradict"].includes(claim.status) && claim.alternatives === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `claim '${claim.claimId}' requires alternatives`,
+      path: [...path, "alternatives"]
+    });
+  }
+
+  const statement = normalizedStatement(claim.statement);
+  if (
+    /(\bno\b|\bnot\b).*(observed|detected).*(therefore|so).*(absent|no fusion|not fusion)/.test(statement) ||
+    /no .* (observed|detected).*therefore/.test(statement)
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "absence-only reasoning cannot establish absence without diagnostic adequacy",
+      path: [...path, "statement"]
+    });
+  }
+}
+
+function checkClaimEvidenceQuality(
+  claim: z.infer<typeof investigationClaimSchema>,
+  artifactById: Map<string, z.infer<typeof diagnosticArtifactSchema>>,
+  readoutById: Map<string, z.infer<typeof observationStatementSchema>>,
+  path: Array<string | number>,
+  ctx: z.RefinementCtx
+): void {
+  if (!readsAsPositiveIdentityClaim(claim)) {
+    return;
+  }
+  const readouts = (claim.evidenceReadoutIds ?? []).map((readoutId) => readoutById.get(readoutId)).filter((value) => value !== undefined);
+  const evidenceArtifacts = new Set<string>(claim.evidenceArtifactIds);
+  for (const readout of readouts) {
+    evidenceArtifacts.add(readout.artifactId);
+  }
+  const artifacts = [...evidenceArtifacts].map((artifactId) => artifactById.get(artifactId)).filter((value) => value !== undefined);
+  const allHumanEye = artifacts.length > 0 && artifacts.every((artifact) => artifact.instrument?.instrumentKind === "human_eye");
+  const allVisibleOnly =
+    readouts.length > 0 &&
+    readouts.every((readout) => readout.observable === "visible_light") &&
+    artifacts.every((artifact) => (artifact.instrument?.observables ?? ["visible_light"]).every((observable) => observable === "visible_light"));
+  const allSynthetic =
+    artifacts.length > 0 &&
+    artifacts.every(
+      (artifact) => artifact.provenanceKind === "synthetic" || artifact.instrument?.instrumentKind === "simulation_diagnostic"
+    );
+  const statement = normalizedStatement(claim.statement);
+  if (allHumanEye) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "human-eye evidence alone cannot support a positive plasma, fusion, or source-identity claim",
+      path: [...path, "evidenceReadoutIds"]
+    });
+  }
+  if (allSynthetic || statement.includes("simulation observed")) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "simulation output cannot be treated as direct observation of a physical phenomenon",
+      path: [...path, "evidenceReadoutIds"]
+    });
+  }
+  if (allVisibleOnly) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "visible light alone cannot support a positive plasma, fusion, or source-identity claim",
+      path: [...path, "evidenceReadoutIds"]
+    });
+  }
 }
 
 function checkReadoutRefs(
@@ -666,77 +969,8 @@ export const investigationPackageSchema = z
     for (const [index, claim] of pack.claims.entries()) {
       checkArtifactRefs(artifactIds, claim.evidenceArtifactIds, ["claims", index, "evidenceArtifactIds"], ctx);
       checkReadoutRefs(readoutIds, claim.evidenceReadoutIds, ["claims", index, "evidenceReadoutIds"], ctx);
-      if (["support", "contradict"].includes(claim.status) && (claim.evidenceReadoutIds ?? []).length === 0) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `claim '${claim.claimId}' requires mediated readout evidence`,
-          path: ["claims", index, "evidenceReadoutIds"]
-        });
-      }
-      if (["support", "contradict"].includes(claim.status) && claim.method === undefined) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `claim '${claim.claimId}' requires an interpretation method`,
-          path: ["claims", index, "method"]
-        });
-      }
-      if (["support", "contradict"].includes(claim.status) && claim.alternatives === undefined) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `claim '${claim.claimId}' requires alternatives`,
-          path: ["claims", index, "alternatives"]
-        });
-      }
-      const statement = normalizedStatement(claim.statement);
-      if (
-        /(\bno\b|\bnot\b).*(observed|detected).*(therefore|so).*(absent|no fusion|not fusion)/.test(statement) ||
-        /no .* (observed|detected).*therefore/.test(statement)
-      ) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "absence-only reasoning cannot establish absence without diagnostic adequacy",
-          path: ["claims", index, "statement"]
-        });
-      }
-      if (readsAsPositiveIdentityClaim(claim)) {
-        const readouts = (claim.evidenceReadoutIds ?? []).map((readoutId) => readoutById.get(readoutId)).filter((value) => value !== undefined);
-        const evidenceArtifacts = new Set<string>(claim.evidenceArtifactIds);
-        for (const readout of readouts) {
-          evidenceArtifacts.add(readout.artifactId);
-        }
-        const artifacts = [...evidenceArtifacts].map((artifactId) => artifactById.get(artifactId)).filter((value) => value !== undefined);
-        const allHumanEye = artifacts.length > 0 && artifacts.every((artifact) => artifact.instrument?.instrumentKind === "human_eye");
-        const allVisibleOnly =
-          readouts.length > 0 &&
-          readouts.every((readout) => readout.observable === "visible_light") &&
-          artifacts.every((artifact) => (artifact.instrument?.observables ?? ["visible_light"]).every((observable) => observable === "visible_light"));
-        const allSynthetic =
-          artifacts.length > 0 &&
-          artifacts.every(
-            (artifact) => artifact.provenanceKind === "synthetic" || artifact.instrument?.instrumentKind === "simulation_diagnostic"
-          );
-        if (allHumanEye) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "human-eye evidence alone cannot support a positive plasma, fusion, or source-identity claim",
-            path: ["claims", index, "evidenceReadoutIds"]
-          });
-        }
-        if (allSynthetic || statement.includes("simulation observed")) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "simulation output cannot be treated as direct observation of a physical phenomenon",
-            path: ["claims", index, "evidenceReadoutIds"]
-          });
-        }
-        if (allVisibleOnly) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "visible light alone cannot support a positive plasma, fusion, or source-identity claim",
-            path: ["claims", index, "evidenceReadoutIds"]
-          });
-        }
-      }
+      checkClaimInterpretationContract(claim, ["claims", index], ctx);
+      checkClaimEvidenceQuality(claim, artifactById, readoutById, ["claims", index], ctx);
     }
   });
 
@@ -770,17 +1004,23 @@ export const investigationFixtureManifestSchema = z
     }
   });
 
-export const investigationReportSchema = z.object({
-  kind: z.literal("openplazma.investigation_report"),
-  version: versionSchema,
-  reportId: z.string().min(1),
-  packageId: z.string().min(1),
-  createdAt: isoDateTimeSchema,
-  claims: z.array(investigationClaimSchema).min(1),
-  assumptions: z.array(z.string().min(1)),
-  limitations: z.array(z.string().min(1)).min(1),
-  nextObservations: z.array(z.string().min(1))
-});
+export const investigationReportSchema = z
+  .object({
+    kind: z.literal("openplazma.investigation_report"),
+    version: versionSchema,
+    reportId: z.string().min(1),
+    packageId: z.string().min(1),
+    createdAt: isoDateTimeSchema,
+    claims: z.array(investigationClaimSchema).min(1),
+    assumptions: z.array(z.string().min(1)),
+    limitations: z.array(z.string().min(1)).min(1),
+    nextObservations: z.array(z.string().min(1))
+  })
+  .superRefine((report, ctx) => {
+    for (const [index, claim] of report.claims.entries()) {
+      checkClaimInterpretationContract(claim, ["claims", index], ctx);
+    }
+  });
 
 export const investigationSessionSchema = z
   .object({
@@ -824,6 +1064,13 @@ export const investigationSessionSchema = z
           sessionReadoutIds,
           claim.evidenceReadoutIds,
           ["reports", index, "claims", claimIndex, "evidenceReadoutIds"],
+          ctx
+        );
+        checkClaimEvidenceQuality(
+          claim,
+          new Map(session.package.artifacts.map((artifact) => [artifact.artifactId, artifact])),
+          new Map((session.package.observations ?? []).map((readout) => [readout.readoutId, readout])),
+          ["reports", index, "claims", claimIndex],
           ctx
         );
       }

@@ -10,6 +10,7 @@ import socket
 import threading
 import time
 import uuid
+from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
@@ -36,6 +37,42 @@ DEFAULT_LIMITATIONS = [
     "No command/control path or hazardous operating procedure.",
     "Not a standalone authority for safety-critical operation or reactor design decisions.",
 ]
+
+LOCAL_BACKEND_KIND = "local_filesystem"
+RUNSTORE_BACKEND_CAPABILITIES = {
+    "queryRuns": True,
+    "queryRunGroups": True,
+    "queryMetrics": True,
+    "queryEvents": True,
+    "queryManifests": True,
+    "readArtifacts": True,
+    "writeRuns": True,
+    "writeArtifacts": True,
+    "mergeRunStores": True,
+    "contentAddressedBlobs": True,
+    "objectStore": True,
+    "indexDb": True,
+    "scheduler": False,
+    "remoteExecution": False,
+    "runSimulation": False,
+    "submitComputeJob": False,
+    "readFacilityTelemetry": False,
+    "controlFacility": False,
+}
+
+RUNSTORE_QUERY_CAPABILITIES = {
+    "listRuns": True,
+    "loadRun": True,
+    "loadMetrics": True,
+    "loadEvents": True,
+    "loadManifest": True,
+    "loadArtifactBlob": True,
+    "mutatesRunStore": False,
+    "executesCode": False,
+    "usesExternalNetwork": False,
+    "readsFacilityTelemetry": False,
+    "controlsFacility": False,
+}
 
 _SAFE_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 _RUN_ID_RE = re.compile(r"^OPR-\d{8}(?:-\d{6,}|-[A-Za-z0-9_.-]+-[a-f0-9]{12})$")
@@ -131,37 +168,223 @@ def _runstore_metadata_path(run_store: str | Path) -> Path:
     return _run_store_root(run_store) / "runstore.json"
 
 
+def _validate_capability_flags(
+    capabilities: dict[str, Any],
+    expected: dict[str, bool],
+    name: str,
+) -> dict[str, bool]:
+    require_keys(capabilities, list(expected), name)
+    selected: dict[str, bool] = {}
+    for field, expected_value in expected.items():
+        actual = capabilities.get(field)
+        if actual is not expected_value:
+            raise ValueError(f"{name}.{field} must be {str(expected_value).lower()}.")
+        selected[field] = actual
+    return selected
+
+
+def _validate_runstore_backend_descriptor(descriptor: dict[str, Any]) -> dict[str, Any]:
+    require_keys(
+        descriptor,
+        [
+            "kind",
+            "version",
+            "backendKind",
+            "displayName",
+            "rootPath",
+            "objectStore",
+            "indexDb",
+            "scheduler",
+            "capabilities",
+            "queryCapabilities",
+            "policy",
+        ],
+        "RunStoreBackendDescriptor",
+    )
+    if descriptor["kind"] != "openplazma.run_store_backend":
+        raise ValueError("RunStoreBackendDescriptor.kind must be openplazma.run_store_backend.")
+    if descriptor["version"] != "0.1.0":
+        raise ValueError("RunStoreBackendDescriptor.version must be 0.1.0.")
+    if descriptor["backendKind"] != LOCAL_BACKEND_KIND:
+        raise ValueError("RunStoreBackendDescriptor.backendKind must be local_filesystem.")
+    require_string(descriptor["displayName"], "RunStoreBackendDescriptor.displayName")
+    require_string(descriptor["rootPath"], "RunStoreBackendDescriptor.rootPath")
+
+    object_store = require_mapping(descriptor["objectStore"], "RunStoreBackendDescriptor.objectStore")
+    require_keys(object_store, ["kind", "status", "path", "addressing"], "RunStoreBackendDescriptor.objectStore")
+    if object_store["kind"] != "local_content_addressed_blobs":
+        raise ValueError("RunStoreBackendDescriptor.objectStore.kind must be local_content_addressed_blobs.")
+    if object_store["status"] != "available":
+        raise ValueError("RunStoreBackendDescriptor.objectStore.status must be available.")
+    if object_store["path"] != "blobs/sha256":
+        raise ValueError("RunStoreBackendDescriptor.objectStore.path must be blobs/sha256.")
+    if object_store["addressing"] != "sha256":
+        raise ValueError("RunStoreBackendDescriptor.objectStore.addressing must be sha256.")
+
+    index_db = require_mapping(descriptor["indexDb"], "RunStoreBackendDescriptor.indexDb")
+    require_keys(index_db, ["kind", "status", "runsPath", "metadataPath"], "RunStoreBackendDescriptor.indexDb")
+    if index_db["kind"] != "json_file_index":
+        raise ValueError("RunStoreBackendDescriptor.indexDb.kind must be json_file_index.")
+    if index_db["status"] != "available":
+        raise ValueError("RunStoreBackendDescriptor.indexDb.status must be available.")
+    if index_db["runsPath"] != "runs":
+        raise ValueError("RunStoreBackendDescriptor.indexDb.runsPath must be runs.")
+    if index_db["metadataPath"] != "runstore.json":
+        raise ValueError("RunStoreBackendDescriptor.indexDb.metadataPath must be runstore.json.")
+
+    scheduler = require_mapping(descriptor["scheduler"], "RunStoreBackendDescriptor.scheduler")
+    require_keys(
+        scheduler,
+        ["kind", "status", "remoteExecution", "submitComputeJob"],
+        "RunStoreBackendDescriptor.scheduler",
+    )
+    if scheduler["kind"] != "none":
+        raise ValueError("RunStoreBackendDescriptor.scheduler.kind must be none.")
+    if scheduler["status"] != "not_configured":
+        raise ValueError("RunStoreBackendDescriptor.scheduler.status must be not_configured.")
+    if scheduler["remoteExecution"] is not False:
+        raise ValueError("RunStoreBackendDescriptor.scheduler.remoteExecution must be false.")
+    if scheduler["submitComputeJob"] is not False:
+        raise ValueError("RunStoreBackendDescriptor.scheduler.submitComputeJob must be false.")
+
+    descriptor["capabilities"] = _validate_capability_flags(
+        require_mapping(descriptor["capabilities"], "RunStoreBackendDescriptor.capabilities"),
+        RUNSTORE_BACKEND_CAPABILITIES,
+        "RunStoreBackendDescriptor.capabilities",
+    )
+    descriptor["queryCapabilities"] = _validate_capability_flags(
+        require_mapping(descriptor["queryCapabilities"], "RunStoreBackendDescriptor.queryCapabilities"),
+        RUNSTORE_QUERY_CAPABILITIES,
+        "RunStoreBackendDescriptor.queryCapabilities",
+    )
+
+    policy = require_mapping(descriptor["policy"], "RunStoreBackendDescriptor.policy")
+    require_keys(
+        policy,
+        ["dataPlane", "execution", "remoteExecution", "facilityTelemetry", "facilityControl", "externalScripts"],
+        "RunStoreBackendDescriptor.policy",
+    )
+    expected_policy = {
+        "dataPlane": "local_filesystem_only",
+        "execution": "not_supported",
+        "remoteExecution": "not_implemented",
+        "facilityTelemetry": "forbidden",
+        "facilityControl": "forbidden",
+        "externalScripts": "forbidden",
+    }
+    for field, expected_value in expected_policy.items():
+        if policy.get(field) != expected_value:
+            raise ValueError(f"RunStoreBackendDescriptor.policy.{field} must be {expected_value}.")
+    descriptor["policy"] = {field: policy[field] for field in expected_policy}
+    descriptor["objectStore"] = {field: object_store[field] for field in ["kind", "status", "path", "addressing"]}
+    descriptor["indexDb"] = {field: index_db[field] for field in ["kind", "status", "runsPath", "metadataPath"]}
+    descriptor["scheduler"] = {
+        field: scheduler[field] for field in ["kind", "status", "remoteExecution", "submitComputeJob"]
+    }
+    return descriptor
+
+
+def _local_backend_descriptor(run_store: str | Path) -> dict[str, Any]:
+    return _validate_runstore_backend_descriptor(
+        {
+            "kind": "openplazma.run_store_backend",
+            "version": "0.1.0",
+            "backendKind": LOCAL_BACKEND_KIND,
+            "displayName": "Local filesystem RunStore",
+            "rootPath": str(_run_store_root(run_store)),
+            "objectStore": {
+                "kind": "local_content_addressed_blobs",
+                "status": "available",
+                "path": "blobs/sha256",
+                "addressing": "sha256",
+            },
+            "indexDb": {
+                "kind": "json_file_index",
+                "status": "available",
+                "runsPath": "runs",
+                "metadataPath": "runstore.json",
+            },
+            "scheduler": {
+                "kind": "none",
+                "status": "not_configured",
+                "remoteExecution": False,
+                "submitComputeJob": False,
+            },
+            "capabilities": dict(RUNSTORE_BACKEND_CAPABILITIES),
+            "queryCapabilities": dict(RUNSTORE_QUERY_CAPABILITIES),
+            "policy": {
+                "dataPlane": "local_filesystem_only",
+                "execution": "not_supported",
+                "remoteExecution": "not_implemented",
+                "facilityTelemetry": "forbidden",
+                "facilityControl": "forbidden",
+                "externalScripts": "forbidden",
+            },
+        }
+    )
+
+
+def _validate_runstore_metadata(metadata: dict[str, Any], run_store: str | Path) -> dict[str, Any]:
+    require_keys(metadata, ["kind", "version", "layoutVersion", "storeId", "backendKind", "createdAt"], "RunStoreMetadata")
+    if metadata["kind"] != "openplazma.run_store":
+        raise ValueError("RunStoreMetadata.kind must be openplazma.run_store.")
+    if metadata["version"] != "0.1.0":
+        raise ValueError("RunStoreMetadata.version must be 0.1.0.")
+    if not _STORE_ID_RE.fullmatch(require_string(metadata["storeId"], "RunStoreMetadata.storeId")):
+        raise ValueError("RunStoreMetadata.storeId must look like OPS-<32 lowercase hex chars>.")
+    require_string(metadata["layoutVersion"], "RunStoreMetadata.layoutVersion")
+    if metadata["backendKind"] != LOCAL_BACKEND_KIND:
+        raise ValueError("RunStoreMetadata.backendKind must be local_filesystem.")
+    require_iso_datetime(metadata["createdAt"], "RunStoreMetadata.createdAt")
+    if metadata.get("machineId") is not None:
+        _safe_identity(str(metadata["machineId"]), "RunStoreMetadata.machineId")
+    if metadata.get("limitations") is not None:
+        _require_string_list(metadata["limitations"], "RunStoreMetadata.limitations", min_items=1)
+    if metadata.get("backend") is None:
+        metadata["backend"] = _local_backend_descriptor(run_store)
+    else:
+        backend = _validate_runstore_backend_descriptor(
+            require_mapping(metadata["backend"], "RunStoreMetadata.backend")
+        )
+        if backend["backendKind"] != metadata["backendKind"]:
+            raise ValueError("RunStoreMetadata.backend.backendKind must match RunStoreMetadata.backendKind.")
+        metadata["backend"] = backend
+    return metadata
+
+
+def _new_runstore_metadata(run_store: str | Path) -> dict[str, Any]:
+    created_at = _now()
+    return _validate_runstore_metadata(
+        {
+            "kind": "openplazma.run_store",
+            "version": "0.1.0",
+            "layoutVersion": "0.2.0",
+            "storeId": f"OPS-{uuid.uuid4().hex}",
+            "backendKind": LOCAL_BACKEND_KIND,
+            "backend": _local_backend_descriptor(run_store),
+            "createdAt": created_at,
+            "machineId": _host_id(),
+            "limitations": [
+                "Local filesystem RunStore backend.",
+                "Read-only analysis artifacts only; no facility telemetry or control path.",
+            ],
+        },
+        run_store,
+    )
+
+
 def _load_or_create_runstore_metadata(run_store: str | Path) -> dict[str, Any]:
     root = _run_store_root(run_store)
     metadata_path = _runstore_metadata_path(run_store)
     if metadata_path.exists():
-        metadata = load_json(metadata_path)
-        require_keys(metadata, ["kind", "version", "layoutVersion", "storeId", "backendKind", "createdAt"], "RunStoreMetadata")
-        if metadata["kind"] != "openplazma.run_store":
-            raise ValueError("RunStoreMetadata.kind must be openplazma.run_store.")
-        if metadata["version"] != "0.1.0":
-            raise ValueError("RunStoreMetadata.version must be 0.1.0.")
-        if not _STORE_ID_RE.fullmatch(require_string(metadata["storeId"], "RunStoreMetadata.storeId")):
-            raise ValueError("RunStoreMetadata.storeId must look like OPS-<32 lowercase hex chars>.")
-        require_string(metadata["layoutVersion"], "RunStoreMetadata.layoutVersion")
-        require_string(metadata["backendKind"], "RunStoreMetadata.backendKind")
-        require_iso_datetime(metadata["createdAt"], "RunStoreMetadata.createdAt")
+        raw_metadata = load_json(metadata_path)
+        missing_backend_descriptor = raw_metadata.get("backend") is None
+        metadata = _validate_runstore_metadata(raw_metadata, run_store)
+        if missing_backend_descriptor:
+            save_json(metadata, metadata_path)
         return metadata
 
-    created_at = _now()
-    metadata = {
-        "kind": "openplazma.run_store",
-        "version": "0.1.0",
-        "layoutVersion": "0.2.0",
-        "storeId": f"OPS-{uuid.uuid4().hex}",
-        "backendKind": "local_filesystem",
-        "createdAt": created_at,
-        "machineId": _host_id(),
-        "limitations": [
-            "Local filesystem RunStore backend.",
-            "Read-only analysis artifacts only; no facility telemetry or control path.",
-        ],
-    }
+    metadata = _new_runstore_metadata(run_store)
     root.mkdir(parents=True, exist_ok=True)
     save_json(metadata, metadata_path)
     return metadata
@@ -171,18 +394,33 @@ def _load_runstore_metadata_if_exists(run_store: str | Path) -> dict[str, Any] |
     metadata_path = _runstore_metadata_path(run_store)
     if not metadata_path.exists():
         return None
-    metadata = load_json(metadata_path)
-    require_keys(metadata, ["kind", "version", "layoutVersion", "storeId", "backendKind", "createdAt"], "RunStoreMetadata")
-    if metadata["kind"] != "openplazma.run_store":
-        raise ValueError("RunStoreMetadata.kind must be openplazma.run_store.")
-    if metadata["version"] != "0.1.0":
-        raise ValueError("RunStoreMetadata.version must be 0.1.0.")
-    if not _STORE_ID_RE.fullmatch(require_string(metadata["storeId"], "RunStoreMetadata.storeId")):
-        raise ValueError("RunStoreMetadata.storeId must look like OPS-<32 lowercase hex chars>.")
-    require_string(metadata["layoutVersion"], "RunStoreMetadata.layoutVersion")
-    require_string(metadata["backendKind"], "RunStoreMetadata.backendKind")
-    require_iso_datetime(metadata["createdAt"], "RunStoreMetadata.createdAt")
-    return metadata
+    return _validate_runstore_metadata(load_json(metadata_path), run_store)
+
+
+def load_runstore_metadata(run_store: str | Path = ".openplazma") -> dict[str, Any]:
+    metadata = _load_runstore_metadata_if_exists(run_store)
+    if metadata is None:
+        raise FileNotFoundError(f"No RunStore metadata found at {_runstore_metadata_path(run_store)}.")
+    return deepcopy(metadata)
+
+
+def validate_runstore_backend_descriptor(descriptor: dict[str, Any]) -> dict[str, Any]:
+    return deepcopy(_validate_runstore_backend_descriptor(require_mapping(descriptor, "RunStoreBackendDescriptor")))
+
+
+def describe_runstore_backend(run_store: str | Path = ".openplazma") -> dict[str, Any]:
+    metadata = _load_runstore_metadata_if_exists(run_store)
+    if metadata is None:
+        return deepcopy(_local_backend_descriptor(run_store))
+    return deepcopy(metadata["backend"])
+
+
+def runstore_backend_capabilities(run_store: str | Path = ".openplazma") -> dict[str, bool]:
+    return deepcopy(describe_runstore_backend(run_store)["capabilities"])
+
+
+def runstore_query_capabilities(run_store: str | Path = ".openplazma") -> dict[str, bool]:
+    return deepcopy(describe_runstore_backend(run_store)["queryCapabilities"])
 
 
 class _RunStoreWriteLock:
@@ -694,6 +932,8 @@ def _validate_metric_record(record: dict[str, Any], *, expected_run_id: str | No
     _validate_metric_value(record["value"])
     if record.get("step") is not None:
         _require_int(record["step"], "MetricRecord.step", nonnegative=True)
+    if record.get("metadata") is not None:
+        _validate_json_object(record["metadata"], "MetricRecord.metadata")
     require_iso_datetime(record["createdAt"], "MetricRecord.createdAt")
     return record
 
@@ -959,14 +1199,27 @@ class Run:
         _validate_event_record(record, expected_run_id=self.run_id)
         _write_jsonl(self.events_path, record)
 
-    def log_metric(self, name: str, value: Any, step: int | None = None) -> dict[str, Any]:
+    def log_metric(
+        self,
+        name: str,
+        value: Any,
+        step: int | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         with _run_store_write_lock(self.run_dir.parent.parent):
-            return self._log_metric_unlocked(name, value, step)
+            return self._log_metric_unlocked(name, value, step, metadata)
 
-    def _log_metric_unlocked(self, name: str, value: Any, step: int | None = None) -> dict[str, Any]:
+    def _log_metric_unlocked(
+        self,
+        name: str,
+        value: Any,
+        step: int | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         require_string(name, "MetricRecord.name")
         if step is not None and (not isinstance(step, int) or isinstance(step, bool) or step < 0):
             raise ValueError("MetricRecord.step must be a non-negative integer when provided.")
+        metadata_value = _validate_json_object(metadata, "MetricRecord.metadata") if metadata is not None else None
         run_record = self.run_record
         _require_running_run(run_record)
         record = {
@@ -978,6 +1231,8 @@ class Run:
             "step": step,
             "createdAt": _now(),
         }
+        if metadata_value is not None:
+            record["metadata"] = metadata_value
         _validate_metric_record(record, expected_run_id=self.run_id)
         snapshot = _snapshot_files([self.metrics_path, self.run_json_path, self.events_path])
         try:

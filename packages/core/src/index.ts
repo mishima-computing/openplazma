@@ -155,7 +155,11 @@ export type {
   MetricValue,
   RunManifest,
   RunRecord,
+  RunStoreBackendAccessMode,
+  RunStoreBackendDescriptor,
+  RunStoreBackendKind,
   RunStoreMetadata,
+  RunStoreObservatoryDescriptor,
   RunStatus,
   RunType
 } from "./tracking";
@@ -211,6 +215,9 @@ export type {
 export type {
   ArtifactProvenanceKind,
   CandidateEnergySource,
+  CompanionSignalChannel,
+  CompanionSignalRole,
+  CompanionSignalWindow,
   ConditionEstimateStatus,
   ConditionLogicalRole,
   ContributionRole,
@@ -250,9 +257,14 @@ export type {
   InvestigationSessionStatus,
   InvestigationTarget,
   InvestigationTargetKind,
+  InstrumentResponse,
+  InstrumentResponseKind,
+  MeasurementUncertainty,
   MeasuredObservable,
   ObservationReadoutKind,
   ObservationRegion,
   ObservationStatement,
-  ObservationStatementStatus
+  ObservationStatementStatus,
+  SpectralFeature,
+  SpectralFeatureStatus
 } from "./investigation";

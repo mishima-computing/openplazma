@@ -147,6 +147,30 @@ export type DiagnosticContributionKind =
 export type ContributionRole = "primary" | "contaminant" | "noise" | "candidate" | "unknown";
 export type ContributionStatus = "measured" | "inferred" | "modeled" | "unresolved" | "rejected";
 export type CalibrationStatus = "calibrated" | "estimated" | "uncalibrated" | "unknown";
+export type InstrumentResponseKind = "measured" | "modeled" | "estimated" | "unknown";
+
+export interface MeasurementUncertainty {
+  uncertaintyId?: string | undefined;
+  value?: number | undefined;
+  lowerBound?: number | undefined;
+  upperBound?: number | undefined;
+  unit?: string | undefined;
+  confidenceLevel?: number | undefined;
+  coverageFactor?: number | undefined;
+  description: string;
+  limitations: string[];
+}
+
+export interface InstrumentResponse {
+  responseKind: InstrumentResponseKind;
+  responseQuantity: string;
+  transferFunction?: string | undefined;
+  validFrequencyRangeHz?: [number, number] | undefined;
+  validTimeRange?: [number, number] | undefined;
+  uncertainty?: MeasurementUncertainty | undefined;
+  description: string;
+  limitations: string[];
+}
 
 export interface DiagnosticContribution {
   contributionKind: DiagnosticContributionKind;
@@ -160,6 +184,7 @@ export interface DiagnosticCalibration {
   status: CalibrationStatus;
   responseKnown: boolean;
   correctionApplied: boolean;
+  response?: InstrumentResponse | undefined;
   description: string;
   limitations: string[];
 }
@@ -187,6 +212,58 @@ export interface DiagnosticArtifactSource {
   signalIds?: string[] | undefined;
   sha256?: string | undefined;
   limitations: string[];
+}
+
+export type CompanionSignalRole =
+  | "primary"
+  | "companion"
+  | "reference"
+  | "background"
+  | "control"
+  | "calibration"
+  | "unknown";
+
+export interface CompanionSignalChannel {
+  channelId: string;
+  signalId: string;
+  label: string;
+  role: CompanionSignalRole;
+  observable: MeasuredObservable;
+  quantity?: string | undefined;
+  unit?: string | undefined;
+  instrument?: DiagnosticInstrumentRef | undefined;
+  limitations: string[];
+}
+
+export interface CompanionSignalWindow {
+  windowId: string;
+  signalId: string;
+  channelId?: string | undefined;
+  role: CompanionSignalRole;
+  timeRange: [number, number];
+  sampleCount?: number | undefined;
+  description: string;
+  limitations: string[];
+}
+
+export type SpectralFeatureStatus = "detected" | "candidate" | "not_detected" | "inconclusive" | "unknown";
+
+export interface SpectralFeature {
+  featureId: string;
+  observable: MeasuredObservable;
+  status: SpectralFeatureStatus;
+  wavelengthMeters?: number | undefined;
+  frequencyHz?: number | undefined;
+  energyEv?: number | undefined;
+  amplitude?: number | undefined;
+  lineWidthHz?: number | undefined;
+  signalToNoiseRatio?: number | undefined;
+  identification?: string | undefined;
+  uncertainty?: MeasurementUncertainty | undefined;
+  instrumentResponse?: InstrumentResponse | undefined;
+  description: string;
+  limitations: string[];
+  alternatives: string[];
 }
 
 export type FrequencyDomain =
@@ -261,6 +338,9 @@ export interface DiagnosticArtifact {
   targetRegionId?: string | undefined;
   instrument?: DiagnosticInstrumentRef | undefined;
   contributions?: DiagnosticContribution[] | undefined;
+  companionChannels?: CompanionSignalChannel[] | undefined;
+  signalWindows?: CompanionSignalWindow[] | undefined;
+  spectralFeatures?: SpectralFeature[] | undefined;
   frequencyAnalyses?: FrequencyAnalysis[] | undefined;
   source?: DiagnosticArtifactSource | undefined;
   sourceUri?: string | undefined;
@@ -305,6 +385,7 @@ export interface ObservationStatement {
   unit?: string | undefined;
   status: ObservationStatementStatus;
   uncertainty?: string | undefined;
+  uncertaintyEstimate?: MeasurementUncertainty | undefined;
   assumptions: string[];
   limitations: string[];
   alternatives: string[];
@@ -383,6 +464,7 @@ export interface FusionConditionEstimate {
   lowerBound?: number | undefined;
   upperBound?: number | undefined;
   unit?: string | undefined;
+  uncertaintyEstimate?: MeasurementUncertainty | undefined;
   method?: string | undefined;
   evidenceArtifactIds: string[];
   evidenceReadoutIds?: string[] | undefined;

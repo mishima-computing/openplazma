@@ -725,6 +725,91 @@ describe("InvestigationPackage schema", () => {
     expect(spectrum?.contributions?.map((contribution) => contribution.contributionKind)).toContain("background");
   });
 
+  it("validates companion signal windows, spectral features, and structured response uncertainty", () => {
+    const pack = willOWispPackage();
+    pack.artifacts[1]!.companionChannels = [
+      {
+        channelId: "visible-camera-brightness",
+        signalId: "emission-intensity",
+        label: "Visible camera brightness channel",
+        role: "primary",
+        observable: "visible_light",
+        quantity: "brightness",
+        unit: "a.u.",
+        limitations: ["Camera brightness is not source identity."]
+      }
+    ];
+    pack.artifacts[1]!.signalWindows = [
+      {
+        windowId: "brightness-analysis-window",
+        signalId: "emission-intensity",
+        channelId: "visible-camera-brightness",
+        role: "primary",
+        timeRange: [0, 12],
+        sampleCount: 240,
+        description: "Window used for brightness modulation analysis.",
+        limitations: ["Window choice can smear transient behavior."]
+      }
+    ];
+    pack.artifacts[2]!.instrument!.calibration.response = {
+      responseKind: "estimated",
+      responseQuantity: "spectral_radiance",
+      validFrequencyRangeHz: [4.0e14, 7.9e14],
+      uncertainty: {
+        value: 0.08,
+        unit: "a.u.",
+        confidenceLevel: 0.95,
+        description: "Estimated response uncertainty for the coarse visible band.",
+        limitations: ["Field calibration only."]
+      },
+      description: "Coarse visible-band response estimate.",
+      limitations: ["Not adequate for fusion-product discrimination."]
+    };
+    pack.artifacts[2]!.spectralFeatures = [
+      {
+        featureId: "green-line-feature",
+        observable: "visible_light",
+        status: "candidate",
+        frequencyHz: 5.45e14,
+        wavelengthMeters: 550e-9,
+        amplitude: 0.4,
+        signalToNoiseRatio: 3.1,
+        identification: "candidate visible emission line",
+        uncertainty: {
+          value: 0.02e14,
+          unit: "Hz",
+          description: "Coarse frequency uncertainty from spectral binning.",
+          limitations: ["Line fit is not high resolution."]
+        },
+        description: "Candidate visible spectral feature.",
+        limitations: ["Visible spectral features are not fusion-product evidence."],
+        alternatives: ["chemical emission", "thermal emission", "background reflection"]
+      }
+    ];
+
+    const parsed = parseInvestigationPackage(pack);
+
+    expect(parsed.artifacts[1]?.signalWindows?.[0]?.windowId).toBe("brightness-analysis-window");
+    expect(parsed.artifacts[2]?.spectralFeatures?.[0]?.featureId).toBe("green-line-feature");
+    expect(parsed.artifacts[2]?.instrument?.calibration.response?.uncertainty?.confidenceLevel).toBe(0.95);
+  });
+
+  it("rejects signal windows that point outside the artifact signal index", () => {
+    const pack = willOWispPackage();
+    pack.artifacts[1]!.signalWindows = [
+      {
+        windowId: "bad-window",
+        signalId: "missing-signal",
+        role: "companion",
+        timeRange: [0, 1],
+        description: "Invalid signal window.",
+        limitations: ["The signal is not exposed by the artifact."]
+      }
+    ];
+
+    expect(() => investigationPackageSchema.parse(pack)).toThrow("outside artifact");
+  });
+
   it("allows inverse reasoning from a fusion-holds premise", () => {
     const assessment = fusionConditionAssessmentSchema.parse(inverseFusionAssessment());
 
@@ -1074,8 +1159,11 @@ describe("InvestigationPackage schema", () => {
           statement: "Visible light and flicker do not support a fusion claim.",
           status: "support",
           evidenceArtifactIds: ["visible-spectrum", "emission-timeseries"],
+          evidenceReadoutIds: ["visible-spectrum-readout"],
+          method: "evidence_gap_review",
           assumptions: ["The package is complete for this report step."],
-          limitations: ["The report does not prove that no fusion source exists."]
+          limitations: ["The report does not prove that no fusion source exists."],
+          alternatives: ["chemical emission", "thermal emission", "sensor artifact"]
         }
       ],
       assumptions: ["The supplied static fixture is the evidence set under review."],
@@ -1101,6 +1189,36 @@ describe("InvestigationPackage schema", () => {
         nextObservations: []
       })
     ).toThrow();
+  });
+
+  it("rejects report support claims that skip mediated readouts", () => {
+    expect(() =>
+      investigationReportSchema.parse({
+        kind: "openplazma.investigation_report",
+        version: "0.1.0",
+        reportId: "artifact-only-report",
+        packageId: "will-o-wisp-001",
+        createdAt: "2026-06-12T00:00:00.000Z",
+        claims: [
+          {
+            kind: "openplazma.investigation_claim",
+            version: "0.1.0",
+            claimId: "claim-artifact-only",
+            claimType: "fusion_status",
+            statement: "A diagnostic artifact supports this fusion claim.",
+            status: "support",
+            evidenceArtifactIds: ["visible-spectrum"],
+            method: "artifact_shortcut",
+            assumptions: [],
+            limitations: ["The mediated readout is missing."],
+            alternatives: ["chemical emission"]
+          }
+        ],
+        assumptions: [],
+        limitations: ["Reports require mediated claims."],
+        nextObservations: []
+      })
+    ).toThrow("mediated readout");
   });
 
   it("rejects investigation reports with invalid timestamps", () => {
@@ -1157,8 +1275,11 @@ describe("InvestigationPackage schema", () => {
               statement: "Visible light and flicker do not support a fusion claim.",
               status: "support",
               evidenceArtifactIds: ["visible-spectrum", "emission-timeseries"],
+              evidenceReadoutIds: ["visible-spectrum-readout"],
+              method: "evidence_gap_review",
               assumptions: [],
-              limitations: ["The report does not prove that no fusion source exists."]
+              limitations: ["The report does not prove that no fusion source exists."],
+              alternatives: ["chemical emission", "thermal emission", "sensor artifact"]
             }
           ],
           assumptions: [],
@@ -1292,8 +1413,11 @@ describe("InvestigationPackage schema", () => {
               statement: "The report references evidence that is not in the package.",
               status: "support",
               evidenceArtifactIds: ["missing-artifact"],
+              evidenceReadoutIds: ["brightness-flicker-readout"],
+              method: "boundary_review",
               assumptions: [],
-              limitations: ["This claim is outside the evidence boundary."]
+              limitations: ["This claim is outside the evidence boundary."],
+              alternatives: ["unknown source"]
             }
           ],
           assumptions: [],

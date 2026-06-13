@@ -5,6 +5,7 @@ import type {
   MetricRecord,
   RunManifest,
   RunRecord,
+  RunStoreBackendDescriptor,
   RunStoreMetadata
 } from "@openplazma/core";
 
@@ -251,16 +252,48 @@ export const runManifestSchema = z
     });
   });
 
-export const runStoreMetadataSchema = z.object({
-  kind: z.literal("openplazma.run_store"),
-  version: versionSchema,
-  layoutVersion: z.string().min(1),
-  storeId: storeIdSchema,
-  backendKind: z.string().min(1),
-  createdAt: isoDateTimeSchema,
-  machineId: safeIdentitySchema.optional(),
-  limitations: z.array(z.string().min(1)).optional()
+export const runStoreObservatoryDescriptorSchema = z.object({
+  observatoryId: safeIdentitySchema,
+  label: z.string().min(1),
+  dataScope: z.enum(["local_snapshot", "public_snapshot", "unknown"]),
+  liveFetch: z.literal(false),
+  remoteTelemetry: z.literal(false),
+  limitations: z.array(z.string().min(1)).min(1)
 });
+
+export const runStoreBackendDescriptorSchema = z.object({
+  backendKind: z.string().min(1),
+  accessMode: z.enum(["read_write_artifacts", "read_only_snapshot"]),
+  rootUri: z.string().min(1).optional(),
+  observatory: runStoreObservatoryDescriptorSchema.optional(),
+  liveFetch: z.literal(false),
+  remoteTelemetry: z.literal(false),
+  controlPlane: z.literal(false),
+  description: z.string().min(1),
+  limitations: z.array(z.string().min(1)).min(1)
+});
+
+export const runStoreMetadataSchema = z
+  .object({
+    kind: z.literal("openplazma.run_store"),
+    version: versionSchema,
+    layoutVersion: z.string().min(1),
+    storeId: storeIdSchema,
+    backendKind: z.string().min(1),
+    backend: runStoreBackendDescriptorSchema.optional(),
+    createdAt: isoDateTimeSchema,
+    machineId: safeIdentitySchema.optional(),
+    limitations: z.array(z.string().min(1)).optional()
+  })
+  .superRefine((metadata, ctx) => {
+    if (metadata.backend !== undefined && metadata.backend.backendKind !== metadata.backendKind) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "RunStore backend descriptor kind must match backendKind",
+        path: ["backend", "backendKind"]
+      });
+    }
+  });
 
 export function parseRunRecord(input: unknown): RunRecord {
   return runRecordSchema.parse(input) as RunRecord;
@@ -284,4 +317,8 @@ export function parseRunManifest(input: unknown): RunManifest {
 
 export function parseRunStoreMetadata(input: unknown): RunStoreMetadata {
   return runStoreMetadataSchema.parse(input) as RunStoreMetadata;
+}
+
+export function parseRunStoreBackendDescriptor(input: unknown): RunStoreBackendDescriptor {
+  return runStoreBackendDescriptorSchema.parse(input) as RunStoreBackendDescriptor;
 }
