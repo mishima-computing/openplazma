@@ -101,6 +101,31 @@ def test_log_metric_has_no_fixed_metric_count_cap(tmp_path: Path):
     ]
 
 
+def test_log_metric_uses_shallow_run_record_instead_of_deep_run_load(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    run_store = run_store_path(tmp_path)
+    run = op.start_run(
+        project="openplazma-demo",
+        campaign="scale-out",
+        run_type="notebook_analysis",
+        context=sample_context(),
+        run_store=run_store,
+    )
+
+    def fail_deep_metric_load(run_id: str, run_store: str | Path = ".openplazma") -> list[dict]:
+        raise AssertionError("log_metric must not materialize prior metrics")
+
+    monkeypatch.setattr(runstore_module, "load_metrics", fail_deep_metric_load)
+
+    metric = run.log_metric("streamed_metric", 1)
+
+    assert metric["name"] == "streamed_metric"
+    run_record = json.loads((run_store / "runs" / run.run_id / "run.json").read_text(encoding="utf-8"))
+    assert run_record["metricCount"] == 1
+
+
 def test_log_metric_accepts_nested_json_values(tmp_path: Path):
     run = op.start_run(
         project="openplazma-demo",
@@ -185,6 +210,75 @@ def test_log_artifact_records_json_byte_size_without_fixed_cap(tmp_path: Path):
     assert artifact["byteSize"] == artifact_path.stat().st_size
     assert op.load_manifest(run.run_id, run_store=run_store)["artifacts"] == [artifact]
     assert op.load_run(run.run_id, run_store=run_store)["artifactCount"] == 1
+
+
+def test_log_artifact_uses_shallow_run_record_instead_of_deep_run_load(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    run_store = run_store_path(tmp_path)
+    run = op.start_run(
+        project="openplazma-demo",
+        campaign="scale-out",
+        run_type="notebook_analysis",
+        context=sample_context(),
+        run_store=run_store,
+    )
+
+    def fail_deep_metric_load(run_id: str, run_store: str | Path = ".openplazma") -> list[dict]:
+        raise AssertionError("log_artifact must not materialize prior metrics")
+
+    def fail_deep_event_load(run_id: str, run_store: str | Path = ".openplazma") -> list[dict]:
+        raise AssertionError("log_artifact must not materialize prior events")
+
+    monkeypatch.setattr(runstore_module, "load_metrics", fail_deep_metric_load)
+    monkeypatch.setattr(runstore_module, "load_events", fail_deep_event_load)
+
+    artifact = run.log_artifact("shallow_artifact", "note", {"ok": True})
+
+    assert artifact["name"] == "shallow_artifact"
+    run_record = json.loads((run_store / "runs" / run.run_id / "run.json").read_text(encoding="utf-8"))
+    assert run_record["artifactCount"] == 1
+
+
+def test_terminal_state_updates_use_shallow_run_record_instead_of_deep_run_load(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    run_store = run_store_path(tmp_path)
+    finishing_run = op.start_run(
+        project="openplazma-demo",
+        campaign="scale-out",
+        run_type="notebook_analysis",
+        context=sample_context(),
+        run_store=run_store,
+    )
+    failing_run = op.start_run(
+        project="openplazma-demo",
+        campaign="scale-out",
+        run_type="notebook_analysis",
+        context=sample_context(),
+        run_store=run_store,
+    )
+
+    def fail_deep_metric_load(run_id: str, run_store: str | Path = ".openplazma") -> list[dict]:
+        raise AssertionError("terminal state updates must not materialize prior metrics")
+
+    def fail_deep_event_load(run_id: str, run_store: str | Path = ".openplazma") -> list[dict]:
+        raise AssertionError("terminal state updates must not materialize prior events")
+
+    monkeypatch.setattr(runstore_module, "load_metrics", fail_deep_metric_load)
+    monkeypatch.setattr(runstore_module, "load_events", fail_deep_event_load)
+
+    finishing_run.finish()
+    failing_run.fail("failed")
+
+    finishing_record = json.loads(
+        (run_store / "runs" / finishing_run.run_id / "run.json").read_text(encoding="utf-8")
+    )
+    failing_record = json.loads((run_store / "runs" / failing_run.run_id / "run.json").read_text(encoding="utf-8"))
+    assert finishing_record["status"] == "finished"
+    assert failing_record["status"] == "failed"
 
 
 def test_log_content_addressed_source_file_writes_pointer_and_blob(tmp_path: Path):

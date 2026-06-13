@@ -52,6 +52,8 @@ OpenPlazma no longer treats fixed metric-count, artifact-count, or artifact-byte
 
 JSON files are written through atomic replace. Multi-file Run mutations such as `log_metric`, `log_artifact`, `finish`, and `fail` snapshot the affected files and roll back if a later write step fails. JSONL files must end with a newline, malformed or truncated JSONL records are rejected with an explicit validation error, and artifact byte size plus SHA-256 metadata is validated on read.
 
+Write paths update `run.json` through shallow RunRecord validation instead of calling the deep `load_run` consistency path. Deep validation still remains available through explicit read APIs, but logging one more metric or closing a Run does not materialize all prior metrics, events, and artifacts.
+
 ## Directory Layout
 
 Each Run is written as inspectable files:
