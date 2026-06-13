@@ -33,6 +33,7 @@ def test_all_static_investigation_packages_validate():
         assert summary["packageId"] == entry["packageId"]
         assert summary["artifactCount"] == len(package["artifacts"])
         assert summary["candidateEnergySources"]
+        assert summary["interpretationRiskCount"] > 0
 
 
 def test_draft_investigation_package_allows_empty_artifacts():
@@ -41,6 +42,7 @@ def test_draft_investigation_package_allows_empty_artifacts():
     package["artifacts"] = []
     package["observations"] = []
     package["claims"] = []
+    package["interpretationRisks"] = []
     package["fusionAssessment"]["assessmentId"] = "draft-empty-artifacts-fusion-assessment"
     package["fusionAssessment"]["observedOrInferredConditions"] = []
     package["fusionAssessment"]["requiredConditions"] = []
@@ -98,6 +100,33 @@ def test_will_o_wisp_package_exposes_frequency_and_measurement_gaps():
     assert emission["frequencyAnalyses"][0]["domain"] == "intensity_modulation"
     assert spectrum["frequencyAnalyses"][0]["domain"] == "electromagnetic_carrier"
     assert "particle products" in package["fusionAssessment"]["unknowns"]
+    assert "overinterpretation" in op.summarize_investigation_package(package)["openInterpretationRiskKinds"]
+
+
+def test_interpretation_risk_references_are_validated():
+    package = copy.deepcopy(op.load_static_investigation_package(REPO_ROOT, "will-o-wisp-001"))
+    package["interpretationRisks"][0]["relatedQuestionIds"] = ["missing-question"]
+
+    with pytest.raises(ValueError, match="unknown question"):
+        op.validate_investigation_package(package)
+
+    package = copy.deepcopy(op.load_static_investigation_package(REPO_ROOT, "will-o-wisp-001"))
+    package["interpretationRisks"][0]["evidenceArtifactIds"] = ["missing-artifact"]
+
+    with pytest.raises(ValueError, match="unknown diagnostic artifact"):
+        op.validate_investigation_package(package)
+
+    package = copy.deepcopy(op.load_static_investigation_package(REPO_ROOT, "will-o-wisp-001"))
+    package["interpretationRisks"][0]["evidenceReadoutIds"] = ["missing-readout"]
+
+    with pytest.raises(ValueError, match="unknown mediated readout"):
+        op.validate_investigation_package(package)
+
+    package = copy.deepcopy(op.load_static_investigation_package(REPO_ROOT, "will-o-wisp-001"))
+    package["interpretationRisks"][1]["riskId"] = package["interpretationRisks"][0]["riskId"]
+
+    with pytest.raises(ValueError, match="duplicate interpretation risk"):
+        op.validate_investigation_package(package)
 
 
 def test_unknown_artifact_refs_are_rejected():

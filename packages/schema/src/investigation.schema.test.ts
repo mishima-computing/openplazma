@@ -1000,6 +1000,36 @@ describe("InvestigationPackage schema", () => {
     expect(spectrum?.contributions?.map((contribution) => contribution.contributionKind)).toContain("background");
   });
 
+  it("tracks interpretation risks with checked package references", () => {
+    const pack = willOWispPackage();
+    pack.interpretationRisks = [
+      {
+        riskId: "interp-visible-fusion-overclaim",
+        riskKind: "overinterpretation",
+        status: "open",
+        description: "Visible spectral structure can be overread as fusion evidence.",
+        mitigation: "Require product diagnostics before accepting a fusion claim.",
+        relatedQuestionIds: ["q-fusion"],
+        evidenceArtifactIds: ["visible-spectrum"],
+        evidenceReadoutIds: ["visible-spectrum-readout"],
+        limitations: ["The visible spectrum is not a fusion-product diagnostic."]
+      }
+    ];
+
+    expect(parseInvestigationPackage(pack).interpretationRisks?.[0]?.riskKind).toBe("overinterpretation");
+
+    pack.interpretationRisks[0]!.relatedQuestionIds = ["missing-question"];
+    expect(() => parseInvestigationPackage(pack)).toThrow(/unknown question/);
+
+    pack.interpretationRisks[0]!.relatedQuestionIds = ["q-fusion"];
+    pack.interpretationRisks[0]!.evidenceArtifactIds = ["missing-artifact"];
+    expect(() => parseInvestigationPackage(pack)).toThrow(/unknown diagnostic artifact/);
+
+    pack.interpretationRisks[0]!.evidenceArtifactIds = ["visible-spectrum"];
+    pack.interpretationRisks[0]!.evidenceReadoutIds = ["missing-readout"];
+    expect(() => parseInvestigationPackage(pack)).toThrow(/unknown mediated readout/);
+  });
+
   it("validates companion signal windows, spectral features, and structured response uncertainty", () => {
     const pack = willOWispPackage();
     pack.artifacts[1]!.companionChannels = [
@@ -1405,6 +1435,7 @@ describe("InvestigationPackage schema", () => {
       const pack = parseInvestigationPackage(readFixtureJson(entry.path));
       expect(pack.packageId).toBe(entry.packageId);
       expect(pack.title).toBe(entry.title);
+      expect(pack.interpretationRisks?.length).toBeGreaterThan(0);
       expect(pack.limitations.join(" ")).toContain("No");
     }
   });
