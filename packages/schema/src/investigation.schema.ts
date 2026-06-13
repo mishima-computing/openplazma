@@ -679,6 +679,30 @@ const investigationClaimSchema = z.object({
   alternatives: z.array(z.string().min(1)).optional()
 });
 
+const interpretationRiskSchema = z.object({
+  riskId: z.string().min(1),
+  riskKind: z.enum([
+    "misidentification",
+    "overinterpretation",
+    "sensor_artifact",
+    "calibration_gap",
+    "provenance_gap",
+    "model_mismatch",
+    "synthetic_physical_confusion",
+    "correlation_causation_confusion",
+    "anthropomorphic_inference",
+    "source_mixture",
+    "unknown"
+  ]),
+  status: z.enum(["open", "mitigated", "accepted", "rejected"]),
+  description: z.string().min(1),
+  mitigation: z.string().min(1),
+  relatedQuestionIds: z.array(z.string().min(1)).optional(),
+  evidenceArtifactIds: z.array(z.string().min(1)).optional(),
+  evidenceReadoutIds: z.array(z.string().min(1)).optional(),
+  limitations: z.array(z.string().min(1)).min(1)
+});
+
 function normalizedStatement(statement: string): string {
   return statement.toLowerCase().replace(/\s+/g, " ").trim();
 }
@@ -886,6 +910,7 @@ export const investigationPackageSchema = z
     observations: z.array(observationStatementSchema).optional(),
     fusionAssessment: fusionConditionAssessmentSchema,
     claims: z.array(investigationClaimSchema),
+    interpretationRisks: z.array(interpretationRiskSchema).optional(),
     limitations: z.array(z.string().min(1)).min(1)
   })
   .superRefine((pack, ctx) => {
@@ -893,6 +918,7 @@ export const investigationPackageSchema = z
     const artifactById = new Map<string, (typeof pack.artifacts)[number]>();
     const readoutIds = new Set<string>();
     const readoutById = new Map<string, NonNullable<typeof pack.observations>[number]>();
+    const questionIds = new Set(pack.questions.map((question) => question.questionId));
     const regionIds = new Set((pack.target.regions ?? []).map((region) => region.regionId));
     for (const [index, region] of (pack.target.regions ?? []).entries()) {
       if (region.parentRegionId !== undefined && !regionIds.has(region.parentRegionId)) {
@@ -1011,6 +1037,38 @@ export const investigationPackageSchema = z
       checkReadoutRefs(readoutIds, claim.evidenceReadoutIds, ["claims", index, "evidenceReadoutIds"], ctx);
       checkClaimInterpretationContract(claim, ["claims", index], ctx);
       checkClaimEvidenceQuality(claim, artifactById, readoutById, ["claims", index], ctx);
+    }
+    const riskIds = new Set<string>();
+    for (const [index, risk] of (pack.interpretationRisks ?? []).entries()) {
+      if (riskIds.has(risk.riskId)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `duplicate interpretation risk id '${risk.riskId}'`,
+          path: ["interpretationRisks", index, "riskId"]
+        });
+      }
+      riskIds.add(risk.riskId);
+      for (const questionId of risk.relatedQuestionIds ?? []) {
+        if (!questionIds.has(questionId)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `interpretation risk '${risk.riskId}' references unknown question '${questionId}'`,
+            path: ["interpretationRisks", index, "relatedQuestionIds"]
+          });
+        }
+      }
+      checkArtifactRefs(
+        artifactIds,
+        risk.evidenceArtifactIds ?? [],
+        ["interpretationRisks", index, "evidenceArtifactIds"],
+        ctx
+      );
+      checkReadoutRefs(
+        readoutIds,
+        risk.evidenceReadoutIds,
+        ["interpretationRisks", index, "evidenceReadoutIds"],
+        ctx
+      );
     }
   });
 

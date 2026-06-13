@@ -511,6 +511,33 @@ export interface InvestigationClaim {
   alternatives?: string[] | undefined;
 }
 
+export type InterpretationRiskKind =
+  | "misidentification"
+  | "overinterpretation"
+  | "sensor_artifact"
+  | "calibration_gap"
+  | "provenance_gap"
+  | "model_mismatch"
+  | "synthetic_physical_confusion"
+  | "correlation_causation_confusion"
+  | "anthropomorphic_inference"
+  | "source_mixture"
+  | "unknown";
+
+export type InterpretationRiskStatus = "open" | "mitigated" | "accepted" | "rejected";
+
+export interface InterpretationRisk {
+  riskId: string;
+  riskKind: InterpretationRiskKind;
+  status: InterpretationRiskStatus;
+  description: string;
+  mitigation: string;
+  relatedQuestionIds?: string[] | undefined;
+  evidenceArtifactIds?: string[] | undefined;
+  evidenceReadoutIds?: string[] | undefined;
+  limitations: string[];
+}
+
 export interface InvestigationPackage {
   kind: "openplazma.investigation_package";
   version: "0.1.0";
@@ -522,6 +549,7 @@ export interface InvestigationPackage {
   observations?: ObservationStatement[] | undefined;
   fusionAssessment: FusionConditionAssessment;
   claims: InvestigationClaim[];
+  interpretationRisks?: InterpretationRisk[] | undefined;
   limitations: string[];
 }
 

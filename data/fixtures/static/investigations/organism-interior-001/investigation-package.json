@@ -59,6 +59,51 @@
       "text": "Does the internal evidence support a fusion claim?"
     }
   ],
+  "interpretationRisks": [
+    {
+      "riskId": "interp-behavior-causation-shortcut",
+      "riskKind": "correlation_causation_confusion",
+      "status": "open",
+      "description": "Organism movement, acoustic pulses, heat, and current modulation can correlate without sharing a single cause.",
+      "mitigation": "Keep behavior, thermal response, acoustic response, and current response as separate mediated readouts.",
+      "relatedQuestionIds": [
+        "q-source",
+        "q-maintenance"
+      ],
+      "evidenceArtifactIds": [
+        "acoustic-trace",
+        "mixed-current-trace"
+      ],
+      "evidenceReadoutIds": [
+        "acoustic-trace-readout",
+        "mixed-current-trace-readout"
+      ],
+      "limitations": [
+        "The fixture has no direct internal intervention or independent timing reference."
+      ]
+    },
+    {
+      "riskId": "interp-biological-energy-overclaim",
+      "riskKind": "misidentification",
+      "status": "open",
+      "description": "A biological luminous region can be misidentified as a plasma organ or fusion source from heat and light alone.",
+      "mitigation": "Require particle, magnetic, composition, and condition evidence before accepting a plasma or fusion interpretation.",
+      "relatedQuestionIds": [
+        "q-fusion"
+      ],
+      "evidenceArtifactIds": [
+        "thermal-map",
+        "composition-profile"
+      ],
+      "evidenceReadoutIds": [
+        "thermal-map-readout",
+        "composition-profile-readout"
+      ],
+      "limitations": [
+        "Remote derived artifacts do not directly sample the luminous region."
+      ]
+    }
+  ],
   "artifacts": [
     {
       "kind": "openplazma.diagnostic_artifact",

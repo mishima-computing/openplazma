@@ -58,7 +58,7 @@ camelCase field names used by the TypeScript schema, such as `packageId`,
 
 - `build_investigation_package(...)` creates an `InvestigationPackage` from a
   target, questions, optional artifacts, optional observations, optional claims,
-  and an optional `FusionConditionAssessment`.
+  optional interpretation risks, and an optional `FusionConditionAssessment`.
 - `default_fusion_assessment(package_id)` returns a conservative unresolved
   fusion assessment for draft packages.
 - `create_investigation_session(...)` wraps a package with required observables,
@@ -170,8 +170,14 @@ unless calibrated product or condition evidence is added.
 - The external application supplies target semantics and converts data into
   `InvestigationTarget`, `DiagnosticArtifact`, `ObservationStatement`, and
   `InvestigationClaim`.
+- External applications may also supply `interpretationRisks` to mark known
+  failure modes such as overinterpretation, sensor artifacts, calibration gaps,
+  model mismatch, source mixtures, or correlation/causation confusion.
 - OpenPlazma does not infer source identity from a single artifact.
 - Missing observables remain measurement gaps, not proof of absence.
 - Claims keep evidence artifact IDs and mediated readout IDs explicit.
+- Interpretation risks keep question, artifact, and readout references
+  explicit; they do not create game progression, rewards, or product-specific
+  mission state inside OpenPlazma.
 - Reports are JSON artifacts suitable for local storage and inspection.
 - The local RunStore path remains inspectable and file-based.

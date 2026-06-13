@@ -214,6 +214,20 @@ CONDITION_STATUSES = {"measured", "inferred", "required", "bounded", "unknown", 
 CONDITION_ROLES = {"necessary", "supporting", "contradicting", "unknown"}
 CLAIM_TYPES = {"plasma_presence", "fusion_status", "fusion_conditions", "plasma_maintenance", "source_identity"}
 CLAIM_STATUSES = {"support", "contradict", "inconclusive", "untested"}
+INTERPRETATION_RISK_KINDS = {
+    "misidentification",
+    "overinterpretation",
+    "sensor_artifact",
+    "calibration_gap",
+    "provenance_gap",
+    "model_mismatch",
+    "synthetic_physical_confusion",
+    "correlation_causation_confusion",
+    "anthropomorphic_inference",
+    "source_mixture",
+    "unknown",
+}
+INTERPRETATION_RISK_STATUSES = {"open", "mitigated", "accepted", "rejected"}
 READOUT_KINDS = {
     "raw_sample",
     "summary_statistic",
@@ -635,6 +649,22 @@ def _validate_claim(claim: dict[str, Any], name: str) -> None:
         _require_string_list(claim["alternatives"], f"{name}.alternatives")
 
 
+def _validate_interpretation_risk(risk: dict[str, Any], name: str) -> None:
+    require_keys(risk, ["riskId", "riskKind", "status", "description", "mitigation", "limitations"], name)
+    require_string(risk["riskId"], f"{name}.riskId")
+    _require_enum(risk["riskKind"], INTERPRETATION_RISK_KINDS, f"{name}.riskKind")
+    _require_enum(risk["status"], INTERPRETATION_RISK_STATUSES, f"{name}.status")
+    require_string(risk["description"], f"{name}.description")
+    require_string(risk["mitigation"], f"{name}.mitigation")
+    if risk.get("relatedQuestionIds") is not None:
+        _require_string_list(risk["relatedQuestionIds"], f"{name}.relatedQuestionIds")
+    if risk.get("evidenceArtifactIds") is not None:
+        _require_string_list(risk["evidenceArtifactIds"], f"{name}.evidenceArtifactIds")
+    if risk.get("evidenceReadoutIds") is not None:
+        _require_string_list(risk["evidenceReadoutIds"], f"{name}.evidenceReadoutIds")
+    _require_string_list(risk["limitations"], f"{name}.limitations", min_items=1)
+
+
 def _check_artifact_refs(artifact_ids: set[str], ids: list[str], name: str) -> None:
     for artifact_id in ids:
         if artifact_id not in artifact_ids:
@@ -683,11 +713,14 @@ def validate_investigation_package(package: dict[str, Any]) -> dict[str, Any]:
     require_string(package["title"], "InvestigationPackage.title")
     region_ids = _validate_target(require_mapping(package["target"], "InvestigationPackage.target"))
 
+    question_ids: set[str] = set()
     for index, question_ref in enumerate(_require_nonempty_list(package["questions"], "InvestigationPackage.questions")):
+        question = require_mapping(question_ref, f"InvestigationPackage.questions[{index}]")
         _validate_question(
-            require_mapping(question_ref, f"InvestigationPackage.questions[{index}]"),
+            question,
             f"InvestigationPackage.questions[{index}]",
         )
+        question_ids.add(question["questionId"])
 
     artifacts = require_list(package["artifacts"], "InvestigationPackage.artifacts")
     artifact_ids: set[str] = set()
@@ -797,6 +830,28 @@ def validate_investigation_package(package: dict[str, Any]) -> dict[str, Any]:
                 raise ValueError("simulation output cannot be treated as direct observation of a physical phenomenon.")
             if all_visible:
                 raise ValueError("visible light alone cannot support a positive plasma, fusion, or source-identity claim.")
+
+    risk_ids: set[str] = set()
+    risks = require_list(package["interpretationRisks"], "InvestigationPackage.interpretationRisks") if package.get("interpretationRisks") is not None else []
+    for index, risk_ref in enumerate(risks):
+        risk = require_mapping(risk_ref, f"InvestigationPackage.interpretationRisks[{index}]")
+        _validate_interpretation_risk(risk, f"InvestigationPackage.interpretationRisks[{index}]")
+        if risk["riskId"] in risk_ids:
+            raise ValueError(f"duplicate interpretation risk id '{risk['riskId']}'.")
+        risk_ids.add(risk["riskId"])
+        for question_id in risk.get("relatedQuestionIds", []):
+            if question_id not in question_ids:
+                raise ValueError(f"interpretation risk '{risk['riskId']}' references unknown question '{question_id}'.")
+        _check_artifact_refs(
+            artifact_ids,
+            risk.get("evidenceArtifactIds", []),
+            f"interpretationRisks[{index}].evidenceArtifactIds",
+        )
+        _check_readout_refs(
+            readout_ids,
+            risk.get("evidenceReadoutIds"),
+            f"interpretationRisks[{index}].evidenceReadoutIds",
+        )
 
     _require_string_list(package["limitations"], "InvestigationPackage.limitations", min_items=1)
     return package
@@ -970,6 +1025,7 @@ def build_investigation_package(
     observations: list[dict[str, Any]] | None = None,
     fusion_assessment: dict[str, Any] | None = None,
     claims: list[dict[str, Any]] | None = None,
+    interpretation_risks: list[dict[str, Any]] | None = None,
     limitations: list[str] | None = None,
 ) -> dict[str, Any]:
     selected_package_id = require_string(package_id, "package_id")
@@ -992,6 +1048,8 @@ def build_investigation_package(
     }
     if observations is not None:
         package["observations"] = _require_unique_observations(deepcopy(require_list(observations, "observations")), "observations")
+    if interpretation_risks is not None:
+        package["interpretationRisks"] = deepcopy(require_list(interpretation_risks, "interpretation_risks"))
     for claim in package["claims"]:
         _assert_claim_artifact_refs(package, require_mapping(claim, "InvestigationClaim"))
     return validate_investigation_package(package)
@@ -1444,6 +1502,12 @@ def summarize_investigation_package(package: dict[str, Any]) -> dict[str, Any]:
         "artifactCount": len(validated_package["artifacts"]),
         "artifactIds": [artifact["artifactId"] for artifact in validated_package["artifacts"]],
         "questionKinds": [question["questionKind"] for question in validated_package["questions"]],
+        "interpretationRiskCount": len(validated_package.get("interpretationRisks", [])),
+        "openInterpretationRiskKinds": [
+            risk["riskKind"]
+            for risk in validated_package.get("interpretationRisks", [])
+            if risk["status"] == "open"
+        ],
         "unknowns": list(validated_package["fusionAssessment"]["unknowns"]),
         "limitations": list(validated_package["limitations"]),
     }

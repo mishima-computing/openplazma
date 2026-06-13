@@ -233,6 +233,42 @@ visible carrier lines -/-> fusion products
 Fusion-relevant claims still need the right product diagnostics, condition
 checks, and calibration story.
 
+## Interpretation Risks
+
+`InvestigationPackage.interpretationRisks[]` records the ways an investigation
+can be misread before a final report is written. This is not game progression
+state and it is not a scoring model. It is a neutral evidence contract for
+keeping known failure modes visible:
+
+- misidentification
+- overinterpretation
+- sensor artifact
+- calibration gap
+- provenance gap
+- model mismatch
+- synthetic/physical source confusion
+- correlation mistaken for causation
+- anthropomorphic inference
+- unresolved source mixture
+
+Each risk can point to `relatedQuestionIds`, `evidenceArtifactIds`, and
+`evidenceReadoutIds`. Those references are schema-checked against the package,
+so a downstream product can render risks without inventing hidden context.
+
+Examples:
+
+```text
+visible glow -> risk: overinterpretation
+brightness FFT peak -> risk: source_mixture
+organism movement + magnetic spike -> risk: correlation_causation_confusion
+synthetic solar inverse stage -> risk: inverse premise overreach
+```
+
+The intended use is conservative. A risk says what could go wrong in the
+interpretation, how to mitigate it, and whether the risk is still open,
+accepted, mitigated, or rejected. It does not by itself prove or disprove any
+plasma or fusion claim.
+
 ## Organism Interiors
 
 Large-organism and anomalous-organism investigations are neutral core-model
@@ -278,6 +314,8 @@ necessary fusion diagnostics are missing
   plausible, supported, or still unknown, plus condition reasoning
 - `InvestigationClaim`: claim statements tied to artifact provenance and
   mediated readout evidence
+- `InterpretationRisk`: known ways the package can be overread, misread, or
+  confused, with checked references to questions, artifacts, and readouts
 
 These contracts are core infrastructure. They do not implement product-specific
 progression, hosted service features, facility telemetry, or control.

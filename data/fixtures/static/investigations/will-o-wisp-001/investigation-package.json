@@ -40,6 +40,49 @@
       "text": "Is the fusion claim supported or contradicted?"
     }
   ],
+  "interpretationRisks": [
+    {
+      "riskId": "interp-visible-glow-overclaim",
+      "riskKind": "overinterpretation",
+      "status": "open",
+      "description": "A visible glow can be mistaken for plasma or fusion before calibrated diagnostics are available.",
+      "mitigation": "Keep plasma and fusion as claims to test, and require mediated readouts beyond human vision.",
+      "relatedQuestionIds": [
+        "q-plasma",
+        "q-fusion"
+      ],
+      "evidenceArtifactIds": [
+        "witness-eye-report",
+        "visible-spectrum"
+      ],
+      "evidenceReadoutIds": [
+        "witness-eye-report-readout",
+        "visible-spectrum-readout"
+      ],
+      "limitations": [
+        "The risk remains open because no particle-product diagnostic is present."
+      ]
+    },
+    {
+      "riskId": "interp-brightness-modulation-source-mixture",
+      "riskKind": "source_mixture",
+      "status": "open",
+      "description": "Brightness modulation can combine source behavior, motion, background, and instrument response.",
+      "mitigation": "Treat the FFT peak as a modulation readout only, not as an energy-source identity.",
+      "relatedQuestionIds": [
+        "q-source"
+      ],
+      "evidenceArtifactIds": [
+        "emission-timeseries"
+      ],
+      "evidenceReadoutIds": [
+        "emission-timeseries-readout"
+      ],
+      "limitations": [
+        "The fixture has no independent motion or background channel."
+      ]
+    }
+  ],
   "artifacts": [
     {
       "kind": "openplazma.diagnostic_artifact",

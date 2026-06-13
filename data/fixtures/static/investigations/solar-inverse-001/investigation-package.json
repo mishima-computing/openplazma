@@ -50,6 +50,48 @@
       "text": "What maintains the plasma state under the inverse premise?"
     }
   ],
+  "interpretationRisks": [
+    {
+      "riskId": "interp-inverse-premise-overreach",
+      "riskKind": "overinterpretation",
+      "status": "accepted",
+      "description": "The inverse stage starts from an assumed fusion premise, which can be mistaken for direct proof.",
+      "mitigation": "Label required core conditions as necessary under the premise, not as observations that prove the premise.",
+      "relatedQuestionIds": [
+        "q-inverse"
+      ],
+      "evidenceArtifactIds": [
+        "helioseismic-trace",
+        "neutrino-flux"
+      ],
+      "evidenceReadoutIds": [
+        "helioseismic-trace-readout",
+        "neutrino-flux-readout"
+      ],
+      "limitations": [
+        "The fixture is synthetic and educational; it is not live solar verification."
+      ]
+    },
+    {
+      "riskId": "interp-surface-core-confusion",
+      "riskKind": "model_mismatch",
+      "status": "open",
+      "description": "Surface imagery can be confused with direct evidence about core fusion conditions.",
+      "mitigation": "Keep photosphere image readouts separate from core-condition estimates and cite model limitations.",
+      "relatedQuestionIds": [
+        "q-maintenance"
+      ],
+      "evidenceArtifactIds": [
+        "visible-solar-image"
+      ],
+      "evidenceReadoutIds": [
+        "visible-solar-image-readout"
+      ],
+      "limitations": [
+        "The surface image does not directly measure the core."
+      ]
+    }
+  ],
   "artifacts": [
     {
       "kind": "openplazma.diagnostic_artifact",
