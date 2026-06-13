@@ -28,6 +28,27 @@ The normalized record preserves:
 
 This deliberately keeps light as a time-varying spectral measurement instead of collapsing it into a binary light/no-light flag.
 
+## Public Observation Campaign
+
+The NOAA snapshot can now be run through a read-only investigation session,
+RunStore logging, and static Observatory export:
+
+```sh
+python3 scripts/run-public-observation-campaign.py --run-store .openplazma/public-observation --clean
+```
+
+The campaign loads only the frozen local fixture. It does not fetch live NOAA
+data, read facility telemetry, or expose facility control. It logs the public
+snapshot, source provenance, selected signals, spectrum/frequency artifacts,
+investigation package, session, assessment, and report to RunStore before
+exporting the local Observatory.
+
+The default NOAA evidence package is intentionally conservative: the fusion
+disposition is `unsupported` because the public snapshot has useful signal and
+frequency metadata but no calibrated fusion-product or fusion-condition
+evidence. The generated report lists calibrated product and condition
+measurements as next observations.
+
 ## Refreshing
 
 To fetch a fresh NOAA SWPC 6-hour snapshot and regenerate the normalized fixture:

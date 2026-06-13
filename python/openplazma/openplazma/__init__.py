@@ -67,6 +67,11 @@ from .public_data import (
     validate_public_observation_manifest,
     validate_source_provenance,
 )
+from .public_observation_campaign import (
+    build_public_observation_campaign,
+    log_public_observation_campaign,
+    run_public_observation_campaign,
+)
 from .records import create_study_record, load_study_record, save_study_record, validate_study_record
 from .runstore import (
     describe_runstore_backend,
@@ -125,6 +130,7 @@ __all__ = [
     "assess_investigation_session",
     "build_inference_from_array",
     "build_investigation_package",
+    "build_public_observation_campaign",
     "build_signal_channel_index",
     "create_study_record",
     "compare_runs",
@@ -185,12 +191,14 @@ __all__ = [
     "list_study_tasks",
     "log_context_signal_and_study_record",
     "log_investigation_session",
+    "log_public_observation_campaign",
     "merge_run_store",
     "plot_signal",
     "list_public_observation_snapshots",
     "runstore_backend_capabilities",
     "runstore_output_hint",
     "runstore_query_capabilities",
+    "run_public_observation_campaign",
     "record_investigation_report",
     "save_investigation_report",
     "save_investigation_session",
