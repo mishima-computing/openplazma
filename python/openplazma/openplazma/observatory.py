@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from ._json import loads_json
+from .observation_lineage import validate_observation_lineage_audit
 from .runstore import describe_runstore_backend, load_events, load_manifest, load_metrics, load_run
 
 _RUN_ID_RE = re.compile(r"^OPR-\d{8}(?:-\d{6,}|-[A-Za-z0-9_.-]+-[a-f0-9]{12})$")
@@ -18,6 +19,8 @@ _UNSAFE_CAPABILITY_FIELDS = {
     "readFacilityTelemetry",
     "controlFacility",
 }
+_LINEAGE_AUDIT_ARTIFACT_TYPE = "observation_lineage_audit"
+_LINEAGE_AUDIT_KIND = "openplazma.observation_lineage_audit"
 
 
 def _run_store_root(run_store: str | Path) -> Path:
@@ -198,6 +201,63 @@ def _load_json_artifact_payload(run_id: str, artifact: dict[str, Any], run_store
     except (OSError, UnicodeDecodeError, ValueError):
         return None
     return payload if isinstance(payload, dict) else None
+
+
+def _json_type_name(value: Any) -> str:
+    if isinstance(value, dict):
+        return "object"
+    if isinstance(value, list):
+        return "array"
+    if isinstance(value, str):
+        return "string"
+    if isinstance(value, bool):
+        return "boolean"
+    if value is None:
+        return "null"
+    if isinstance(value, (int, float)):
+        return "number"
+    return type(value).__name__
+
+
+def _load_lineage_audit_payload(
+    run_id: str,
+    artifact: dict[str, Any],
+    run_store: str | Path,
+) -> tuple[dict[str, Any] | None, str | None]:
+    artifact_path = _artifact_file_for_read(run_id, artifact, run_store)
+    try:
+        raw_payload = artifact_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as error:
+        return None, (
+            "Invalid observation_lineage_audit artifact payload: "
+            f"artifact file is unreadable ({error.__class__.__name__})."
+        )
+    try:
+        payload = loads_json(raw_payload)
+    except ValueError as error:
+        return None, (
+            "Invalid observation_lineage_audit artifact payload: "
+            f"malformed JSON ({error.__class__.__name__})."
+        )
+    if not isinstance(payload, dict):
+        return None, (
+            "Invalid observation_lineage_audit artifact payload: "
+            f"expected JSON object, found {_json_type_name(payload)}."
+        )
+    if payload.get("kind") != _LINEAGE_AUDIT_KIND:
+        found_kind = payload.get("kind")
+        found = f"{found_kind!r}" if found_kind is not None else "missing"
+        return None, (
+            "Invalid observation_lineage_audit artifact kind: "
+            f"expected {_LINEAGE_AUDIT_KIND}, found {found}."
+        )
+    try:
+        return validate_observation_lineage_audit(payload, require_passed=False), None
+    except ValueError as error:
+        return None, (
+            "Invalid observation_lineage_audit artifact payload: "
+            f"schema validation failed ({error})."
+        )
 
 
 def _validate_run_exists(run_id: str, run_store: str | Path) -> Path:
@@ -589,6 +649,86 @@ def _evidence_spine_summary(
     return rows
 
 
+def _lineage_audit_row_from_payload(run_id: str, artifact: dict[str, Any], payload: dict[str, Any] | None) -> dict[str, Any] | None:
+    if payload is None or payload.get("kind") != _LINEAGE_AUDIT_KIND:
+        return None
+    calibration = _metadata_mapping(payload.get("calibrationSummary"))
+    fusion = _metadata_mapping(payload.get("fusionAssessment"))
+    spectrum_statuses = sorted(
+        {
+            row.get("status")
+            for row in payload.get("spectrumLineage", [])
+            if isinstance(row, dict) and row.get("status") is not None
+        }
+    )
+    claim_admissibility = sorted(
+        {
+            row.get("admissibility")
+            for row in payload.get("claimAudits", [])
+            if isinstance(row, dict) and row.get("admissibility") is not None
+        }
+    )
+    return {
+        "runId": run_id,
+        "artifactName": artifact.get("name"),
+        "artifactType": artifact.get("type"),
+        "artifactPath": artifact.get("path"),
+        "partitionId": payload.get("partitionId"),
+        "auditStatus": payload.get("status"),
+        "calibrationStatus": calibration.get("status"),
+        "spectrumStatuses": spectrum_statuses,
+        "claimAdmissibility": claim_admissibility,
+        "missingObservables": fusion.get("missingObservables", []),
+        "failureReasons": payload.get("failureReasons", []),
+    }
+
+
+def _failed_lineage_audit_row(run_id: str, artifact: dict[str, Any], failure_reason: str) -> dict[str, Any]:
+    return {
+        "runId": run_id,
+        "artifactName": artifact.get("name"),
+        "artifactType": artifact.get("type"),
+        "artifactPath": artifact.get("path"),
+        "partitionId": None,
+        "auditStatus": "failed",
+        "calibrationStatus": None,
+        "spectrumStatuses": [],
+        "claimAdmissibility": [],
+        "missingObservables": [],
+        "failureReasons": [failure_reason],
+    }
+
+
+def _lineage_audit_summary(
+    run_pages: list[tuple[str, dict[str, Any], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]],
+    run_store: str | Path,
+) -> list[dict[str, Any]]:
+    rows = []
+    for run_id, _run, _metrics, artifacts, _events in run_pages:
+        for artifact in artifacts:
+            if artifact.get("type") == _LINEAGE_AUDIT_ARTIFACT_TYPE:
+                payload, failure_reason = _load_lineage_audit_payload(run_id, artifact, run_store)
+                if failure_reason is not None:
+                    rows.append(_failed_lineage_audit_row(run_id, artifact, failure_reason))
+                    continue
+            else:
+                payload = _load_json_artifact_payload(run_id, artifact, run_store)
+                if payload is not None and payload.get("kind") == _LINEAGE_AUDIT_KIND:
+                    rows.append(
+                        _failed_lineage_audit_row(
+                            run_id,
+                            artifact,
+                            "Invalid observation_lineage_audit artifact manifest type: "
+                            f"expected {_LINEAGE_AUDIT_ARTIFACT_TYPE}, found {artifact.get('type')!r}.",
+                        )
+                    )
+                    continue
+            row = _lineage_audit_row_from_payload(run_id, artifact, payload)
+            if row is not None:
+                rows.append(row)
+    return rows
+
+
 def _build_multirun_summary(
     summaries: list[dict[str, Any]],
     run_pages: list[tuple[str, dict[str, Any], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]],
@@ -603,6 +743,7 @@ def _build_multirun_summary(
         "metricSeries": _metric_series_summary(run_pages),
         "spectralRows": _spectral_rows_summary(run_pages, run_store),
         "evidenceSpines": _evidence_spine_summary(run_pages, run_store),
+        "lineageAudits": _lineage_audit_summary(run_pages, run_store),
     }
 
 
@@ -919,6 +1060,32 @@ def _evidence_spines_html(rows: list[dict[str, Any]]) -> str:
     )
 
 
+def _lineage_audits_html(rows: list[dict[str, Any]]) -> str:
+    if not rows:
+        return ""
+    html_rows = "\n".join(
+        "<tr>"
+        + _cell(row.get("runId"))
+        + _cell(row.get("partitionId"))
+        + _cell(row.get("auditStatus"))
+        + _cell(row.get("calibrationStatus"))
+        + f"<td>{_compact_list_html(row.get('spectrumStatuses'))}</td>"
+        + f"<td>{_compact_list_html(row.get('claimAdmissibility'))}</td>"
+        + f"<td>{_compact_list_html(row.get('missingObservables'))}</td>"
+        + f"<td>{_compact_list_html(row.get('failureReasons'))}</td>"
+        + "</tr>"
+        for row in rows
+    )
+    return (
+        "<h2>Lineage Audit</h2><table><thead><tr>"
+        "<th>Run</th><th>Partition</th><th>Audit</th><th>Calibration</th><th>Spectrum</th>"
+        "<th>Claim Admissibility</th><th>Missing Observables</th><th>Failure Reasons</th>"
+        "</tr></thead><tbody>"
+        + html_rows
+        + "</tbody></table>\n"
+    )
+
+
 def _index_html(multirun_summary: dict[str, Any]) -> str:
     summaries = multirun_summary["runs"]
     rows = "\n".join(
@@ -949,6 +1116,7 @@ def _index_html(multirun_summary: dict[str, Any]) -> str:
         "</tbody></table>"
         + _metric_series_html(multirun_summary["metricSeries"])
         + _spectral_rows_html(multirun_summary["spectralRows"])
+        + _lineage_audits_html(multirun_summary["lineageAudits"])
         + _evidence_spines_html(multirun_summary["evidenceSpines"])
     )
     return _page("OpenPlazma Observatory", body, "assets/observatory.css")
@@ -969,6 +1137,7 @@ def _run_detail_html(
     run_pages = [(run["runId"], run, metrics, artifacts, events)]
     spectral_rows = _spectral_rows_summary(run_pages, run_store) if run_store is not None else []
     evidence_spines = _evidence_spine_summary(run_pages, run_store) if run_store is not None else []
+    lineage_audits = _lineage_audit_summary(run_pages, run_store) if run_store is not None else []
     capabilities_rows = "\n".join(
         f'<tr><th>{_html(key)}</th><td class="{_capability_class(key, value)}">{_html(value)}</td></tr>'
         for key, value in run["capabilities"].items()
@@ -1037,6 +1206,7 @@ def _run_detail_html(
         + artifact_rows
         + "</tbody></table>\n"
         + _spectral_rows_html(spectral_rows)
+        + _lineage_audits_html(lineage_audits)
         + _evidence_spines_html(evidence_spines)
         + "<h2>Events</h2><table><thead><tr><th>Type</th><th>Created</th><th>Message</th><th>Metadata</th></tr></thead><tbody>"
         + event_rows

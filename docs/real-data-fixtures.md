@@ -49,6 +49,32 @@ frequency metadata but no calibrated fusion-product or fusion-condition
 evidence. The generated report lists calibrated product and condition
 measurements as next observations.
 
+## Public Observation Lineage Audit
+
+The frozen NOAA snapshot can also be reviewed as a two-partition lineage audit:
+
+```sh
+python3 scripts/run-public-observation-lineage-audit.py --run-store .openplazma/public-observation-lineage --clean
+```
+
+This runner uses one RunStore `runGroupId` and two deterministic partitions:
+
+- `early-even`: `[0.0, 7200.0]`
+- `late-mixed`: `[14400.0, 21360.0]`
+
+Each partition logs the same public snapshot, provenance, signal, spectrum,
+investigation package/session/assessment/report artifacts as the campaign, plus
+one `openplazma.observation_lineage_audit` artifact. The audit records compact
+refs from frozen raw/provenance inputs through signal series, computed or
+`not_computed` spectra, diagnostic artifacts, mediated readouts, and claims.
+
+Passing the audit means the conservative report is admissible as an evidence-gap
+review. It is not calibration proof, live NOAA ingestion, facility telemetry,
+hardware control, or fusion validation. Public windows and spectra must keep
+`fusionStatus` as `unsupported`; positive fusion support from this fixture is
+rejected unless calibrated product and condition readouts are present, which
+this slice does not add.
+
 ## Refreshing
 
 To fetch a fresh NOAA SWPC 6-hour snapshot and regenerate the normalized fixture:

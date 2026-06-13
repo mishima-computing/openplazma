@@ -75,6 +75,15 @@ A mediated readout extracted from an artifact. It records method,
 assumptions, limitations, alternatives, and optional signal/region references.
 Claims should cite these readouts instead of relying on bare artifact IDs.
 
+ObservationLineageAudit:
+A compact audit artifact for frozen public observation evidence. It records
+source refs, transform refs, diagnostic artifact refs, mediated readout refs,
+computed and `not_computed` spectrum states, claim admissibility, calibration
+limitations, uncertainty limitations, and failure reasons. It does not certify
+calibration or validate fusion; it only checks that conservative claims are
+traceable through the evidence chain and rejects unsupported positive fusion
+claims from public fixture windows.
+
 ObservationModel:
 A model that describes how a theory-side state should appear in one or more diagnostic channels. It may be analytical, empirical, synthetic, simulator-backed, or approximate.
 

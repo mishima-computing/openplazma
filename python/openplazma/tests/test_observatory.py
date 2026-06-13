@@ -155,6 +155,59 @@ def add_manifest_artifact(run_store: Path, run_id: str, name: str, artifact_type
     )
 
 
+def add_raw_manifest_artifact(
+    run_store: Path,
+    run_id: str,
+    name: str,
+    artifact_type: str,
+    raw_payload: bytes | None,
+) -> None:
+    run_dir = run_store / "runs" / run_id
+    run_path = run_dir / "run.json"
+    run_record = json.loads(run_path.read_text(encoding="utf-8"))
+    created_at = run_record.get("finishedAt") or run_record["updatedAt"]
+    artifact_path = run_dir / "artifacts" / f"{name}.json"
+    payload_for_hash = raw_payload if raw_payload is not None else b""
+    if raw_payload is not None:
+        artifact_path.write_bytes(raw_payload)
+    relative_path = artifact_path.relative_to(run_dir).as_posix()
+    manifest_path = run_dir / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    artifact_count = len(manifest["artifacts"]) + 1
+    manifest["artifacts"].append(
+        {
+            "kind": "openplazma.artifact",
+            "version": "0.1.0",
+            "artifactId": f"OPA-20260524-{artifact_count:06d}",
+            "runId": run_id,
+            "name": name,
+            "type": artifact_type,
+            "path": relative_path,
+            "sha256": hashlib.sha256(payload_for_hash).hexdigest(),
+            "createdAt": created_at,
+            "metadata": {},
+        }
+    )
+    manifest["updatedAt"] = created_at
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    run_record["artifactCount"] = len(manifest["artifacts"])
+    run_record["updatedAt"] = created_at
+    run_path.write_text(json.dumps(run_record, indent=2) + "\n", encoding="utf-8")
+    insert_run_event_before_terminal(
+        run_store,
+        run_id,
+        {
+            "kind": "openplazma.event",
+            "version": "0.1.0",
+            "runId": run_id,
+            "eventType": "artifact_logged",
+            "createdAt": created_at,
+            "message": f"Logged artifact {name}",
+            "metadata": {"artifactId": f"OPA-20260524-{artifact_count:06d}"},
+        },
+    )
+
+
 def assert_no_external_references(output_dir: Path) -> None:
     combined = "\n".join(path.read_text(encoding="utf-8") for path in output_dir.rglob("*") if path.is_file())
     lowered = combined.lower()
@@ -163,6 +216,84 @@ def assert_no_external_references(output_dir: Path) -> None:
     assert "cdn" not in lowered
     assert "script src" not in lowered
     assert "@import" not in lowered
+
+
+STRUCTURALLY_INVALID_LINEAGE_AUDIT = json.dumps(
+    {
+        "kind": "openplazma.observation_lineage_audit",
+        "version": "0.1.0",
+        "auditId": "obs-lineage-audit-invalid",
+        "runId": "OPR-20260613-000001",
+        "runGroupId": "public-observation-lineage-audit-noaa-swpc-l1-6h-20260612",
+        "partitionId": "late-mixed",
+        "timeWindow": [14400.0, 21360.0],
+        "sourceRefs": [
+            {
+                "sourceRefId": "public-snapshot",
+                "sourceKind": "public_snapshot",
+                "artifactName": "public_snapshot",
+                "artifactType": "public_observation_snapshot",
+                "path": "artifacts/public_snapshot.json",
+                "sha256": "0" * 64,
+                "runArtifactId": "OPA-20260613-000001",
+            }
+        ],
+        "transformRefs": [
+            {
+                "transformId": "signal-spectrum:ghost",
+                "transformKind": "signal_spectrum",
+                "sourceRefIds": ["public-snapshot"],
+                "inputSignalIds": ["ghost"],
+                "artifactName": "signal_spectrum_ghost",
+                "artifactType": "signal_spectrum",
+                "path": "artifacts/signal_spectrum_ghost.json",
+                "sha256": "1" * 64,
+                "runArtifactId": "OPA-20260613-000002",
+            }
+        ],
+        "diagnosticArtifactRefs": [
+            {
+                "diagnosticArtifactId": "diagnostic-ghost",
+                "artifactKind": "spectrum",
+                "sourceKind": "public_snapshot",
+                "signalIds": ["ghost"],
+                "sourceRefIds": ["public-snapshot"],
+                "transformRefIds": ["signal-spectrum:ghost"],
+                "calibrationStatus": "unknown",
+                "calibrationResponseKnown": False,
+                "uncertaintyStatus": "unknown",
+                "limitationReasons": ["invalid fixture"],
+            }
+        ],
+        "mediatedReadoutRefs": [],
+        "spectrumLineage": [
+            {
+                "spectrumId": "spectrum-ghost",
+                "sourceSignalId": "ghost",
+                "status": "computed",
+                "transformRefId": "signal-spectrum:ghost",
+            }
+        ],
+        "claimAudits": [],
+        "calibrationSummary": {
+            "status": "unknown",
+            "responseKnown": False,
+            "correctionApplied": False,
+            "limitationReasons": ["invalid fixture"],
+        },
+        "uncertaintySummary": {"status": "limited", "limitationReasons": ["invalid fixture"]},
+        "fusionAssessment": {
+            "fusionStatus": "unsupported",
+            "positiveFusionInference": False,
+            "missingObservables": [],
+            "requiredProductObservables": ["gamma_ray"],
+            "requiredConditionObservables": ["temperature"],
+        },
+        "status": "passed",
+        "failureReasons": [],
+    },
+    sort_keys=True,
+).encode("utf-8") + b"\n"
 
 
 def test_summarize_runstore_and_run(tmp_path: Path):
@@ -288,6 +419,101 @@ def test_export_observatory_html_escapes_run_values(tmp_path: Path):
 def test_export_observatory_html_fails_without_runs(tmp_path: Path):
     with pytest.raises(FileNotFoundError, match="No RunStore runs"):
         op.export_observatory_html(run_store=tmp_path / ".openplazma")
+
+
+@pytest.mark.parametrize(
+    ("name", "raw_payload", "expected_reason"),
+    [
+        ("lineage_malformed", b'{"kind": "openplazma.observation_lineage_audit",', "malformed JSON"),
+        ("lineage_unreadable", b"\xff\xfe\xfd", "artifact file is unreadable"),
+        ("lineage_non_object", b'["not an object"]\n', "expected JSON object, found array"),
+        (
+            "lineage_wrong_kind",
+            b'{"kind": "openplazma.not_observation_lineage_audit"}\n',
+            "Invalid observation_lineage_audit artifact kind",
+        ),
+        (
+            "lineage_right_kind_invalid_schema",
+            b'{"kind": "openplazma.observation_lineage_audit", "version": "0.1.0", "status": "passed"}\n',
+            "schema validation failed",
+        ),
+        (
+            "lineage_right_kind_nested_invalid_schema",
+            STRUCTURALLY_INVALID_LINEAGE_AUDIT,
+            "schema validation failed",
+        ),
+    ],
+)
+def test_observatory_includes_failed_lineage_audit_rows_for_invalid_artifacts(
+    tmp_path: Path,
+    name: str,
+    raw_payload: bytes | None,
+    expected_reason: str,
+):
+    run_store = tmp_path / ".openplazma"
+    run_id = create_sample_run(run_store)
+    add_raw_manifest_artifact(run_store, run_id, name, "observation_lineage_audit", raw_payload)
+
+    summary = op.summarize_runstore_multirun(run_store=run_store)
+
+    rows = [row for row in summary["lineageAudits"] if row["artifactName"] == name]
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["artifactType"] == "observation_lineage_audit"
+    assert row["artifactPath"] == f"artifacts/{name}.json"
+    assert row["auditStatus"] == "failed"
+    assert expected_reason in row["failureReasons"][0]
+
+    output_dir = op.export_observatory_html(run_store=run_store)
+    index_html = (output_dir / "index.html").read_text(encoding="utf-8")
+    detail_html = (output_dir / "runs" / f"{run_id}.html").read_text(encoding="utf-8")
+    assert "Lineage Audit" in index_html
+    assert "Lineage Audit" in detail_html
+    assert "failed" in index_html
+    assert "failed" in detail_html
+    assert expected_reason in index_html
+    assert expected_reason in detail_html
+
+
+def test_observatory_keeps_malformed_non_lineage_artifacts_out_of_lineage_audits(tmp_path: Path):
+    run_store = tmp_path / ".openplazma"
+    run_id = create_sample_run(run_store)
+    add_raw_manifest_artifact(run_store, run_id, "malformed_note", "note", b'{"broken":')
+
+    summary = op.summarize_runstore_multirun(run_store=run_store)
+
+    assert summary["lineageAudits"] == []
+    output_dir = op.export_observatory_html(run_store=run_store)
+    index_html = (output_dir / "index.html").read_text(encoding="utf-8")
+    detail_html = (output_dir / "runs" / f"{run_id}.html").read_text(encoding="utf-8")
+    assert "Invalid observation_lineage_audit" not in index_html
+    assert "Invalid observation_lineage_audit" not in detail_html
+
+
+def test_observatory_flags_lineage_payload_with_wrong_manifest_type(tmp_path: Path):
+    run_store = tmp_path / ".openplazma"
+    run_id = create_sample_run(run_store)
+    add_raw_manifest_artifact(
+        run_store,
+        run_id,
+        "lineage_payload_wrong_manifest_type",
+        "note",
+        STRUCTURALLY_INVALID_LINEAGE_AUDIT,
+    )
+
+    summary = op.summarize_runstore_multirun(run_store=run_store)
+
+    rows = [row for row in summary["lineageAudits"] if row["artifactName"] == "lineage_payload_wrong_manifest_type"]
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["artifactType"] == "note"
+    assert row["auditStatus"] == "failed"
+    assert "manifest type" in row["failureReasons"][0]
+
+    output_dir = op.export_observatory_html(run_store=run_store)
+    detail_html = (output_dir / "runs" / f"{run_id}.html").read_text(encoding="utf-8")
+    assert "lineage_payload_wrong_manifest_type" in detail_html
+    assert "manifest type" in detail_html
 
 
 def test_observatory_rejects_unsafe_run_id_and_artifact_path(tmp_path: Path):

@@ -33,7 +33,7 @@ Stop when required design inputs are missing or contradictions cannot be resolve
 ## Evidence Requirements
 Contract ID, selected direction, rejected parts from each proposal, implementation summary, acceptance criteria, allowed files, disallowed files, required checks, security requirements, nonfunctional requirements, non-goals, risks, fallback plan, and handoff to `implementer`.
 
-Write `situation_read` within 800 characters on either output path (schema tolerance 890 — the band absorbs counting error; the 800 target is the instruction). For verdicts, include role_id, decision, situation_read, and the decision-specific field required by `schemas/aufheben-verdict.schema.json`.
+Write `situation_read` within 1000 characters on either output path (schema tolerance 1100 — the band absorbs counting error; the 1000 target is the instruction). The aufheben band is intentionally wider than designer bands: this role ingests all three designer outputs plus review evidence, so its situation field scales with input count (owner asymmetry principle, 2026-06-13; 19th field violation was the trigger sample). For verdicts, include role_id, decision, situation_read, and the decision-specific field required by `schemas/aufheben-verdict.schema.json`.
 
 ## Interaction With Other Roles
 Consumes `aggressive-designer`, `conservative-designer`, and `genius` outputs. Produces the only input that may instruct `implementer`.

@@ -4,7 +4,8 @@ import type {
   InvestigationFixtureManifest,
   InvestigationPackage,
   InvestigationReport,
-  InvestigationSession
+  InvestigationSession,
+  ObservationLineageAudit
 } from "@openplazma/core";
 
 const versionSchema = z.literal("0.1.0");
@@ -710,6 +711,45 @@ function readsAsPositiveIdentityClaim(claim: z.infer<typeof investigationClaimSc
   return claim.claimType === "plasma_presence" || claim.claimType === "source_identity";
 }
 
+function readsAsPositiveFusionClaim(claim: {
+  claimType: z.infer<typeof investigationClaimSchema>["claimType"];
+  claimStatus: z.infer<typeof investigationClaimSchema>["status"];
+  statement: string;
+}): boolean {
+  if (claim.claimStatus !== "support") {
+    return false;
+  }
+  const statement = normalizedStatement(claim.statement);
+  const negativeMarkers = [
+    "does not support",
+    "unsupported",
+    "untested",
+    "not proof",
+    "not prove",
+    "cannot identify",
+    "cannot prove",
+    "insufficient",
+    "remains untested",
+    "not calibrated",
+    "no calibrated"
+  ];
+  if (negativeMarkers.some((marker) => statement.includes(marker))) {
+    return false;
+  }
+  if (claim.claimType === "fusion_status") {
+    return true;
+  }
+  const positiveMarkers = [
+    "fusion is occurring",
+    " is fusion",
+    "supports fusion",
+    "fusion claim is supported",
+    "proves fusion",
+    "proof of fusion"
+  ];
+  return positiveMarkers.some((marker) => statement.includes(marker));
+}
+
 function checkClaimInterpretationContract(
   claim: z.infer<typeof investigationClaimSchema>,
   path: Array<string | number>,
@@ -1077,6 +1117,347 @@ export const investigationSessionSchema = z
     }
   });
 
+function isRunStoreArtifactPath(path: string): boolean {
+  if (!path.startsWith("artifacts/") || path.startsWith("/") || path.includes("\\")) {
+    return false;
+  }
+  return path.split("/").every((part) => part.length > 0 && part !== ".." && !part.includes(":"));
+}
+
+const observationLineageRunArtifactRefSchema = z.object({
+  artifactName: z.string().min(1),
+  artifactType: z.string().min(1),
+  path: z.string().min(1).refine(isRunStoreArtifactPath, {
+    message: "RunStore artifact path must be a relative path under artifacts/"
+  }),
+  sha256: z.string().regex(/^[a-f0-9]{64}$/),
+  runArtifactId: z.string().regex(/^OPA-\d{8}-\d{6}$/)
+});
+
+const observationLineageSourceRefSchema = observationLineageRunArtifactRefSchema.extend({
+  sourceRefId: z.string().min(1),
+  sourceKind: z.enum(["public_snapshot", "source_provenance"]),
+  datasetId: z.string().min(1).optional(),
+  shotId: z.string().min(1).optional(),
+  provider: z.string().min(1).optional(),
+  sourceLabel: z.string().min(1).optional(),
+  recordPath: z.string().min(1).optional(),
+  provenancePath: z.string().min(1).optional(),
+  bundleSha256: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+  rawFileRefs: z
+    .array(
+      z.object({
+        name: z.string().min(1),
+        path: z.string().min(1),
+        sha256: z.string().regex(/^[a-f0-9]{64}$/),
+        bytes: z.number().int().nonnegative().optional()
+      })
+    )
+    .optional()
+});
+
+const observationLineageTransformRefSchema = observationLineageRunArtifactRefSchema.extend({
+  transformId: z.string().min(1),
+  transformKind: z.string().min(1),
+  status: z.enum(["computed", "not_computed", "carried_forward"]),
+  method: z.string().min(1),
+  sourceRefIds: z.array(z.string().min(1)).min(1),
+  inputSignalIds: z.array(z.string().min(1)),
+  limitationReasons: z.array(z.string().min(1)).min(1)
+});
+
+const observationLineageDiagnosticArtifactRefSchema = z.object({
+  diagnosticArtifactId: z.string().min(1),
+  artifactKind: z.string().min(1),
+  sourceKind: z.string().min(1),
+  signalIds: z.array(z.string().min(1)),
+  sourceRefIds: z.array(z.string().min(1)).min(1),
+  transformRefIds: z.array(z.string().min(1)).min(1),
+  calibrationStatus: z.enum(["calibrated", "estimated", "uncalibrated", "unknown"]),
+  calibrationResponseKnown: z.boolean(),
+  uncertaintyStatus: z.string().min(1),
+  limitationReasons: z.array(z.string().min(1)).min(1)
+});
+
+const observationLineageReadoutRefSchema = z.object({
+  readoutId: z.string().min(1),
+  diagnosticArtifactId: z.string().min(1),
+  signalId: z.string().min(1).optional(),
+  observable: measuredObservableSchema,
+  readoutKind: z.enum([
+    "raw_sample",
+    "summary_statistic",
+    "frequency_band",
+    "frequency_peak",
+    "spectral_feature",
+    "image_feature",
+    "thermal_feature",
+    "field_feature",
+    "particle_count",
+    "absence_statement",
+    "human_report",
+    "model_readout",
+    "unknown"
+  ]),
+  method: z.string().min(1),
+  status: z.enum(["detected", "not_detected", "candidate", "inconclusive", "unknown"]),
+  transformRefIds: z.array(z.string().min(1)).min(1),
+  limitationReasons: z.array(z.string().min(1)).min(1)
+});
+
+const observationLineageSpectrumRefSchema = z.object({
+  spectrumId: z.string().min(1),
+  sourceSignalId: z.string().min(1),
+  status: z.enum(["computed", "not_computed"]),
+  method: z.string().min(1),
+  transformRefId: z.string().min(1),
+  timeRange: timeRangeSchema,
+  limitationReasons: z.array(z.string().min(1)).min(1),
+  supportsPositiveFusionInference: z.boolean()
+});
+
+const observationLineageClaimAuditSchema = z.object({
+  claimId: z.string().min(1),
+  claimSource: z.enum(["InvestigationPackage.claims", "InvestigationReport.claims"]),
+  claimType: z.enum([
+    "plasma_presence",
+    "fusion_status",
+    "fusion_conditions",
+    "plasma_maintenance",
+    "source_identity"
+  ]),
+  claimStatus: z.enum(["support", "contradict", "inconclusive", "untested"]),
+  statement: z.string().min(1),
+  positiveFusionClaim: z.boolean(),
+  evidenceArtifactIds: z.array(z.string().min(1)),
+  evidenceReadoutIds: z.array(z.string().min(1)),
+  admissibility: z.enum(["admissible", "rejected"]),
+  failureReasons: z.array(z.string().min(1))
+});
+
+const observationLineageLimitationsSummarySchema = z.object({
+  status: z.string().min(1),
+  limitationReasons: z.array(z.string().min(1)).min(1)
+});
+
+const observationLineageCalibrationSummarySchema = observationLineageLimitationsSummarySchema.extend({
+  responseKnown: z.boolean(),
+  correctionApplied: z.boolean()
+});
+
+const observationLineageFusionAuditSummarySchema = z.object({
+  fusionStatus: fusionStatusSchema,
+  positiveFusionInference: z.boolean(),
+  missingObservables: z.array(z.string().min(1)),
+  requiredProductObservables: z.array(z.string().min(1)).min(1),
+  requiredConditionObservables: z.array(z.string().min(1)).min(1)
+});
+
+export const observationLineageAuditSchema = z
+  .object({
+    kind: z.literal("openplazma.observation_lineage_audit"),
+    version: versionSchema,
+    auditId: z.string().min(1),
+    runId: z.string().min(1),
+    runGroupId: z.string().min(1),
+    partitionId: z.string().min(1),
+    timeWindow: timeRangeSchema,
+    sourceRefs: z.array(observationLineageSourceRefSchema).min(1),
+    transformRefs: z.array(observationLineageTransformRefSchema).min(1),
+    diagnosticArtifactRefs: z.array(observationLineageDiagnosticArtifactRefSchema).min(1),
+    mediatedReadoutRefs: z.array(observationLineageReadoutRefSchema),
+    spectrumLineage: z.array(observationLineageSpectrumRefSchema).min(1),
+    claimAudits: z.array(observationLineageClaimAuditSchema),
+    calibrationSummary: observationLineageCalibrationSummarySchema,
+    uncertaintySummary: observationLineageLimitationsSummarySchema,
+    fusionAssessment: observationLineageFusionAuditSummarySchema,
+    status: z.enum(["passed", "failed"]),
+    failureReasons: z.array(z.string().min(1))
+  })
+  .superRefine((audit, ctx) => {
+    const sourceRefIds = new Set(audit.sourceRefs.map((ref) => ref.sourceRefId));
+    const transformRefIds = new Set(audit.transformRefs.map((ref) => ref.transformId));
+    const diagnosticArtifactIds = new Set(audit.diagnosticArtifactRefs.map((ref) => ref.diagnosticArtifactId));
+    const signalIds = new Set(audit.transformRefs.flatMap((ref) => ref.inputSignalIds));
+    const readoutIds = new Set(audit.mediatedReadoutRefs.map((ref) => ref.readoutId));
+
+    for (const [index, ref] of audit.transformRefs.entries()) {
+      for (const sourceRefId of ref.sourceRefIds) {
+        if (!sourceRefIds.has(sourceRefId)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `transform '${ref.transformId}' references unknown sourceRef '${sourceRefId}'`,
+            path: ["transformRefs", index, "sourceRefIds"]
+          });
+        }
+      }
+    }
+
+    for (const [index, ref] of audit.diagnosticArtifactRefs.entries()) {
+      for (const sourceRefId of ref.sourceRefIds) {
+        if (!sourceRefIds.has(sourceRefId)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `diagnostic artifact '${ref.diagnosticArtifactId}' references unknown sourceRef '${sourceRefId}'`,
+            path: ["diagnosticArtifactRefs", index, "sourceRefIds"]
+          });
+        }
+      }
+      for (const signalId of ref.signalIds) {
+        if (!signalIds.has(signalId)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `diagnostic artifact '${ref.diagnosticArtifactId}' references unknown signal '${signalId}'`,
+            path: ["diagnosticArtifactRefs", index, "signalIds"]
+          });
+        }
+      }
+      for (const transformRefId of ref.transformRefIds) {
+        if (!transformRefIds.has(transformRefId)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `diagnostic artifact '${ref.diagnosticArtifactId}' references unknown transform '${transformRefId}'`,
+            path: ["diagnosticArtifactRefs", index, "transformRefIds"]
+          });
+        }
+      }
+    }
+
+    for (const [index, ref] of audit.mediatedReadoutRefs.entries()) {
+      if (!diagnosticArtifactIds.has(ref.diagnosticArtifactId)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `mediated readout '${ref.readoutId}' references unknown diagnostic artifact '${ref.diagnosticArtifactId}'`,
+          path: ["mediatedReadoutRefs", index, "diagnosticArtifactId"]
+        });
+      }
+      if (ref.signalId !== undefined && !signalIds.has(ref.signalId)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `mediated readout '${ref.readoutId}' references unknown signal '${ref.signalId}'`,
+          path: ["mediatedReadoutRefs", index, "signalId"]
+        });
+      }
+      for (const transformRefId of ref.transformRefIds) {
+        if (!transformRefIds.has(transformRefId)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `mediated readout '${ref.readoutId}' references unknown transform '${transformRefId}'`,
+            path: ["mediatedReadoutRefs", index, "transformRefIds"]
+          });
+        }
+      }
+    }
+
+    for (const [index, row] of audit.spectrumLineage.entries()) {
+      if (!signalIds.has(row.sourceSignalId)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `spectrum '${row.spectrumId}' references unknown source signal '${row.sourceSignalId}'`,
+          path: ["spectrumLineage", index, "sourceSignalId"]
+        });
+      }
+      if (!transformRefIds.has(row.transformRefId)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `spectrum '${row.spectrumId}' references unknown transform '${row.transformRefId}'`,
+          path: ["spectrumLineage", index, "transformRefId"]
+        });
+      }
+      if (row.status === "not_computed" && row.limitationReasons.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "not_computed spectrum lineage requires a limitation reason",
+          path: ["spectrumLineage", index, "limitationReasons"]
+        });
+      }
+      if (row.status === "not_computed" && row.supportsPositiveFusionInference) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "not_computed spectrum lineage cannot support positive fusion inference",
+          path: ["spectrumLineage", index, "supportsPositiveFusionInference"]
+        });
+      }
+    }
+
+    for (const [index, row] of audit.claimAudits.entries()) {
+      if (["support", "contradict"].includes(row.claimStatus) && row.evidenceReadoutIds.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `claim audit '${row.claimId}' requires mediated readout evidence`,
+          path: ["claimAudits", index, "evidenceReadoutIds"]
+        });
+      }
+      for (const artifactId of row.evidenceArtifactIds) {
+        if (!diagnosticArtifactIds.has(artifactId)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `claim audit '${row.claimId}' references unknown diagnostic artifact '${artifactId}'`,
+            path: ["claimAudits", index, "evidenceArtifactIds"]
+          });
+        }
+      }
+      for (const readoutId of row.evidenceReadoutIds) {
+        if (!readoutIds.has(readoutId)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `claim audit '${row.claimId}' references unknown mediated readout '${readoutId}'`,
+            path: ["claimAudits", index, "evidenceReadoutIds"]
+          });
+        }
+      }
+      const computedPositiveFusionClaim = readsAsPositiveFusionClaim(row);
+      if (row.positiveFusionClaim !== computedPositiveFusionClaim) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `claim audit '${row.claimId}' positiveFusionClaim must match claimType, claimStatus, and statement`,
+          path: ["claimAudits", index, "positiveFusionClaim"]
+        });
+      }
+      if (computedPositiveFusionClaim && row.admissibility !== "rejected") {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `positive fusion claim audit '${row.claimId}' must be rejected for public observation lineage`,
+          path: ["claimAudits", index, "admissibility"]
+        });
+      }
+    }
+
+    if (audit.fusionAssessment.positiveFusionInference) {
+      const notComputed = audit.spectrumLineage.some((row) => row.status === "not_computed");
+      if (notComputed) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "positive fusion inference cannot depend on not_computed spectra",
+          path: ["fusionAssessment", "positiveFusionInference"]
+        });
+      }
+    }
+
+    const rejectedClaims = audit.claimAudits.filter((row) => row.admissibility === "rejected");
+    if (audit.status === "passed" && audit.failureReasons.length > 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "passed audit requires empty failureReasons",
+        path: ["failureReasons"]
+      });
+    }
+    if (audit.status === "passed" && rejectedClaims.length > 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "passed audit cannot include rejected claim audits",
+        path: ["claimAudits"]
+      });
+    }
+    if (audit.status === "failed" && audit.failureReasons.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "failed audit requires at least one failure reason",
+        path: ["failureReasons"]
+      });
+    }
+  });
+
 export function parseFusionConditionAssessment(input: unknown): FusionConditionAssessment {
   return fusionConditionAssessmentSchema.parse(input) as FusionConditionAssessment;
 }
@@ -1095,4 +1476,8 @@ export function parseInvestigationReport(input: unknown): InvestigationReport {
 
 export function parseInvestigationSession(input: unknown): InvestigationSession {
   return investigationSessionSchema.parse(input) as InvestigationSession;
+}
+
+export function parseObservationLineageAudit(input: unknown): ObservationLineageAudit {
+  return observationLineageAuditSchema.parse(input) as ObservationLineageAudit;
 }

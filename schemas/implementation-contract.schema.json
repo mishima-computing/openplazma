@@ -36,7 +36,7 @@
     },
     "situation_read": {
       "type": "string",
-      "maxLength": 890
+      "maxLength": 1100
     },
     "rejected_parts": {
       "type": "array",

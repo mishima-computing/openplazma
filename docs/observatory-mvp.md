@@ -84,11 +84,19 @@ Run detail pages show:
 - limitations
 - metrics
 - artifacts
+- Lineage Audit rows when `openplazma.observation_lineage_audit` artifacts are present
 - events
 
 Artifact links are local relative links to files inside `.openplazma/runs/...`.
 
 The optional compare page shows metrics, artifacts, source, target, capabilities, and limitations for exactly two local Runs. See [Observatory Compare MVP](observatory-compare-mvp.md).
+
+For public observation lineage runs, the index and run detail pages render a
+compact Lineage Audit table with run ID, partition ID, audit status,
+calibration status, spectrum status, claim admissibility, missing observables,
+and failure reasons. The exporter reads these rows from logged audit artifacts;
+it does not recompute evidence, fetch public data, mutate RunStore hashes, or
+add scripts, forms, buttons, external links, or mutating controls.
 
 ## Artifact Link Safety
 

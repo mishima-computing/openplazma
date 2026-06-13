@@ -560,7 +560,7 @@
     },
     "handoff_to_aufheben": {
       "type": "string",
-      "maxLength": 890
+      "maxLength": 1100
     }
   },
   "additionalProperties": false
