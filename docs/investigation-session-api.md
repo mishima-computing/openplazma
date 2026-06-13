@@ -1,83 +1,89 @@
 # Investigation Session API
 
-`InvestigationSession` is the neutral boundary for an external application that
-wants OpenPlazma to organize observation evidence, conservative assessments, and
-evidence-linked reports.
+`InvestigationSession` is the neutral Python API for organizing diagnostic
+evidence, conservative assessment state, and evidence-linked reports.
 
-The external application owns its domain state. OpenPlazma owns the read-only
-investigation contract:
+The evidence spine is:
 
 ```text
-external target or event
-  -> InvestigationTarget
-  -> DiagnosticArtifact[]
-  -> ObservationStatement[]
-  -> InvestigationClaim[]
-  -> InvestigationSession
-  -> InvestigationMeasurementAssessment + InvestigationReport
+DiagnosticArtifact
+  -> ObservationStatement
+  -> InvestigationClaim
+  -> FusionConditionAssessment
+  -> InvestigationReport
+  -> RunStore artifacts
 ```
 
-This API does not encode product-specific progression, scoring, hosted service
-features, facility telemetry, or control. It accepts neutral diagnostic evidence
-and returns neutral evidence state.
+OpenPlazma does not own the external application's domain state. The external
+application converts its own objects into the generic OpenPlazma JSON objects.
+OpenPlazma validates evidence references, checks conservative claim boundaries,
+assesses measurement gaps, and writes local RunStore artifacts.
 
-## Minimum Flow
+This API is local and read-only. It does not perform live network access,
+facility telemetry reads, facility control, hosted execution, or source-specific
+progression logic.
 
-```ts
-import {
-  addDiagnosticArtifact,
-  addInvestigationClaim,
-  addObservationStatement,
-  assessInvestigationSession,
-  buildInvestigationPackage,
-  createInvestigationSession,
-  createInvestigationSessionReport,
-  recordInvestigationReport
-} from "@openplazma/analysis";
+## Minimum Python Flow
 
-const pack = buildInvestigationPackage({
-  packageId: "external-session-001",
-  title: "External investigation session",
-  target,
-  questions,
-  limitations: ["External target semantics are supplied outside OpenPlazma."]
-});
+```python
+import openplazma as op
 
-let session = createInvestigationSession({
-  sessionId: "session-external-001",
-  package: pack,
-  requiredObservables: ["visible_light", "electric_current", "neutron_flux"]
-});
+package = op.build_investigation_package(
+    package_id="external-session-001",
+    title="External investigation session",
+    target=target,
+    questions=questions,
+)
 
-session = addDiagnosticArtifact(session, artifact);
-session = addObservationStatement(session, readout);
-session = addInvestigationClaim(session, claim);
+session = op.create_investigation_session(
+    session_id="session-external-001",
+    package=package,
+    required_observables=["visible_light", "electric_current", "neutron_flux"],
+)
 
-const assessment = assessInvestigationSession(session);
-const report = createInvestigationSessionReport(session);
-session = recordInvestigationReport(session, report);
+session = op.add_diagnostic_artifact(session, artifact)
+session = op.add_observation_statement(session, readout)
+session = op.add_investigation_claim(session, claim)
+
+assessment = op.assess_investigation_session(session)
+report = op.create_investigation_session_report(session)
+session = op.record_investigation_report(session, report)
 ```
+
+The Python function names are snake_case. Stored JSON keeps the shared
+camelCase field names used by the TypeScript schema, such as `packageId`,
+`requiredObservables`, `evidenceArtifactIds`, and `nextObservations`.
 
 ## Function Roles
 
-- `buildInvestigationPackage(input)` creates a neutral package from target,
-  questions, optional artifacts, optional claims, and an optional fusion
-  condition assessment.
-- `createInvestigationSession(input)` wraps a package with required observables,
-  reports, limitations, and session status.
-- `addDiagnosticArtifact(session, artifact)` appends one measured, derived,
-  synthetic, testimony, or unknown-provenance artifact.
-- `addObservationStatement(session, readout)` appends one mediated readout that
-  cites an existing diagnostic artifact.
-- `addInvestigationClaim(session, claim)` appends a claim after checking that all
-  evidence artifact IDs exist in the package. Support and contradiction claims
-  should also cite mediated readouts with `evidenceReadoutIds`.
-- `assessInvestigationSession(session)` returns measurement gaps and whether the
-  session is ready for report generation.
-- `createInvestigationSessionReport(session, options)` creates an
-  evidence-linked report from the session claims.
-- `recordInvestigationReport(session, report)` appends a report and moves the
-  session to `reported`.
+- `build_investigation_package(...)` creates an `InvestigationPackage` from a
+  target, questions, optional artifacts, optional observations, optional claims,
+  and an optional `FusionConditionAssessment`.
+- `default_fusion_assessment(package_id)` returns a conservative unresolved
+  fusion assessment for draft packages.
+- `create_investigation_session(...)` wraps a package with required observables,
+  reports, limitations, timestamps, and derived status.
+- `add_diagnostic_artifact(session, artifact)` appends one diagnostic artifact.
+- `add_observation_statement(session, readout)` appends a mediated readout that
+  must cite an existing diagnostic artifact.
+- `add_investigation_claim(session, claim)` appends a claim after checking that
+  cited diagnostic artifacts exist. Support and contradiction claims are then
+  validated through the full package contract.
+- `assess_diagnostic_artifact(artifact, required_observables)` reports measured
+  observables, calibration state, unresolved contributions, noise or contaminant
+  contributions, missing observables, and conservative source-identifiability.
+- `assess_investigation_measurements(package, required_observables)` summarizes
+  measurement gaps across the package.
+- `assess_investigation_session(session)` combines session status and
+  measurement assessment state.
+- `create_investigation_session_report(session, ...)` creates an
+  evidence-linked report from session claims.
+- `record_investigation_report(session, report)` appends a report and marks the
+  session as `reported`.
+- `save_investigation_session(...)` and `load_investigation_session(...)`
+  persist and validate session JSON.
+- `log_investigation_session(run, session, ...)` writes the session evidence
+  set to a local RunStore.
 
 ## Status Model
 
@@ -92,32 +98,57 @@ reported
   at least one InvestigationReport is attached
 ```
 
-The schema enforces that `reported` sessions have reports, and that every report
-belongs to the same `packageId` as the session package.
+`reported` sessions require at least one report. Report `packageId` values must
+match the session package, and report claims must cite artifacts and readouts
+inside the session package boundary.
+
+## RunStore Artifact Types
+
+`log_investigation_session(run, session)` writes artifacts with stable names and
+stable RunStore artifact `type` values:
+
+```text
+investigation_package
+investigation_session
+investigation_assessment
+investigation_report
+```
+
+The report artifact is written when a report is passed explicitly or when the
+session already contains at least one recorded report. The latest session report
+is used by default.
+
+Example:
+
+```python
+with op.start_run(
+    project="openplazma-python-sdk",
+    campaign="investigation-session",
+    run_type="investigation_session",
+    run_store=".openplazma",
+) as run:
+    artifacts = op.log_investigation_session(run, session)
+```
+
+## Executable Example
+
+Run the local example from the repository root:
+
+```sh
+python3 scripts/run-investigation-session.py --run-store .openplazma --clean
+```
+
+The example builds a generic local session, adds one visible-light artifact, one
+mediated readout, one conservative evidence-gap claim, creates a report, and
+writes the package, session, assessment, and report to the local RunStore.
 
 ## Boundary Rules
 
-- The external application converts its own objects into `InvestigationTarget`,
-  `DiagnosticArtifact`, `ObservationStatement`, and `InvestigationClaim`.
+- The external application supplies target semantics and converts data into
+  `InvestigationTarget`, `DiagnosticArtifact`, `ObservationStatement`, and
+  `InvestigationClaim`.
 - OpenPlazma does not infer source identity from a single artifact.
-- Missing observables remain gaps, not proof of absence.
-- Claims must keep evidence artifact IDs explicit for provenance and mediated
-  readout IDs explicit for evidential support.
-- Reports remain JSON artifacts that an external application can store, display,
-  or use for its own progression logic.
-
-## Validation
-
-Use schema validation before persisting or exchanging session JSON:
-
-```ts
-import { parseInvestigationSession } from "@openplazma/schema";
-
-const validated = parseInvestigationSession(session);
-```
-
-The same fixture/report validation remains available:
-
-```sh
-python scripts/validate-investigation-fixtures.py
-```
+- Missing observables remain measurement gaps, not proof of absence.
+- Claims keep evidence artifact IDs and mediated readout IDs explicit.
+- Reports are JSON artifacts suitable for local storage and inspection.
+- The local RunStore path remains inspectable and file-based.

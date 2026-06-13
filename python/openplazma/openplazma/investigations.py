@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -229,6 +230,14 @@ READOUT_KINDS = {
     "unknown",
 }
 READOUT_STATUSES = {"detected", "not_detected", "candidate", "inconclusive", "unknown"}
+SESSION_STATUSES = {"collecting_evidence", "ready_for_report", "reported"}
+NOISE_CONTRIBUTION_KINDS = {
+    "background",
+    "instrument_noise",
+    "aliasing_artifact",
+    "motion_artifact",
+    "reconstruction_artifact",
+}
 
 
 def _now() -> str:
@@ -841,6 +850,513 @@ def validate_investigation_report(report: dict[str, Any], *, package: dict[str, 
             _check_artifact_refs(artifact_ids, claim["evidenceArtifactIds"], f"claims[{index}].evidenceArtifactIds")
             _check_readout_refs(readout_ids, claim.get("evidenceReadoutIds"), f"claims[{index}].evidenceReadoutIds")
     return report
+
+
+def default_fusion_assessment(package_id: str) -> dict[str, Any]:
+    selected_package_id = require_string(package_id, "package_id")
+    return {
+        "kind": "openplazma.fusion_condition_assessment",
+        "version": VERSION,
+        "assessmentId": f"{selected_package_id}-fusion-assessment",
+        "fusionStatus": "unknown",
+        "conditionMode": "unknown",
+        "reactionCandidates": ["unknown"],
+        "observedOrInferredConditions": [],
+        "requiredConditions": [],
+        "unknowns": ["source identity", "plasma presence", "fusion products", "plasma maintenance"],
+        "assumptions": [],
+        "limitations": ["No fusion condition assessment has been resolved."],
+    }
+
+
+def _require_observable_list(value: Any, name: str) -> list[str]:
+    observables = _require_string_list(value, name)
+    for index, observable in enumerate(observables):
+        _require_enum(observable, OBSERVABLES, f"{name}[{index}]")
+    return observables
+
+
+def _require_unique_artifacts(artifacts: list[Any], name: str) -> list[dict[str, Any]]:
+    seen: set[str] = set()
+    selected: list[dict[str, Any]] = []
+    for index, artifact_ref in enumerate(artifacts):
+        artifact = require_mapping(artifact_ref, f"{name}[{index}]")
+        artifact_id = require_string(artifact.get("artifactId"), f"{name}[{index}].artifactId")
+        if artifact_id in seen:
+            raise ValueError(f"duplicate diagnostic artifact id '{artifact_id}'.")
+        seen.add(artifact_id)
+        selected.append(artifact)
+    return selected
+
+
+def _require_unique_observations(observations: list[Any], name: str) -> list[dict[str, Any]]:
+    seen: set[str] = set()
+    selected: list[dict[str, Any]] = []
+    for index, observation_ref in enumerate(observations):
+        observation = require_mapping(observation_ref, f"{name}[{index}]")
+        readout_id = require_string(observation.get("readoutId"), f"{name}[{index}].readoutId")
+        if readout_id in seen:
+            raise ValueError(f"duplicate mediated readout id '{readout_id}'.")
+        seen.add(readout_id)
+        selected.append(observation)
+    return selected
+
+
+def _assert_claim_artifact_refs(package: dict[str, Any], claim: dict[str, Any]) -> None:
+    artifact_ids = {artifact["artifactId"] for artifact in package["artifacts"]}
+    for artifact_id in _require_string_list(claim.get("evidenceArtifactIds", []), "InvestigationClaim.evidenceArtifactIds"):
+        if artifact_id not in artifact_ids:
+            raise ValueError(f"Investigation claim references unknown diagnostic artifact '{artifact_id}'.")
+
+
+def _assert_investigation_report_contract(package: dict[str, Any], report: dict[str, Any]) -> dict[str, Any]:
+    report = require_mapping(report, "InvestigationReport")
+    if len(require_list(report.get("claims"), "InvestigationReport.claims")) == 0:
+        raise ValueError("Investigation report requires at least one claim.")
+    if len(require_list(report.get("limitations"), "InvestigationReport.limitations")) == 0:
+        raise ValueError("Investigation report requires at least one limitation.")
+    validated_report = validate_investigation_report(report, package=package)
+    if validated_report["packageId"] != package["packageId"]:
+        raise ValueError("Investigation report packageId must match the session package.")
+    for claim in validated_report["claims"]:
+        _assert_claim_artifact_refs(package, claim)
+    return validated_report
+
+
+def _derive_session_status(package: dict[str, Any], reports: list[dict[str, Any]]) -> str:
+    if reports:
+        return "reported"
+    if package["artifacts"] and package["claims"]:
+        return "ready_for_report"
+    return "collecting_evidence"
+
+
+def validate_investigation_session(session: dict[str, Any]) -> dict[str, Any]:
+    session = require_mapping(session, "InvestigationSession")
+    _require_kind_version(session, "openplazma.investigation_session", "InvestigationSession")
+    require_keys(
+        session,
+        ["sessionId", "createdAt", "updatedAt", "status", "package", "requiredObservables", "reports", "limitations"],
+        "InvestigationSession",
+    )
+    require_string(session["sessionId"], "InvestigationSession.sessionId")
+    _require_datetime_string(session["createdAt"], "InvestigationSession.createdAt")
+    _require_datetime_string(session["updatedAt"], "InvestigationSession.updatedAt")
+    _require_enum(session["status"], SESSION_STATUSES, "InvestigationSession.status")
+    package = validate_investigation_package(require_mapping(session["package"], "InvestigationSession.package"))
+    required_observables = _require_observable_list(session["requiredObservables"], "InvestigationSession.requiredObservables")
+    reports: list[dict[str, Any]] = []
+    for index, report_ref in enumerate(require_list(session["reports"], "InvestigationSession.reports")):
+        report = require_mapping(report_ref, f"InvestigationSession.reports[{index}]")
+        if report.get("packageId") != package["packageId"]:
+            raise ValueError("session report packageId must match the session package.")
+        reports.append(_assert_investigation_report_contract(package, report))
+    if session["status"] == "reported" and len(reports) == 0:
+        raise ValueError("reported investigation sessions require at least one report.")
+    _require_string_list(session["limitations"], "InvestigationSession.limitations", min_items=1)
+    session["package"] = package
+    session["requiredObservables"] = required_observables
+    session["reports"] = reports
+    return session
+
+
+def build_investigation_package(
+    *,
+    package_id: str,
+    title: str,
+    target: dict[str, Any],
+    questions: list[dict[str, Any]],
+    artifacts: list[dict[str, Any]] | None = None,
+    observations: list[dict[str, Any]] | None = None,
+    fusion_assessment: dict[str, Any] | None = None,
+    claims: list[dict[str, Any]] | None = None,
+    limitations: list[str] | None = None,
+) -> dict[str, Any]:
+    selected_package_id = require_string(package_id, "package_id")
+    selected_limitations = (
+        _require_string_list(limitations, "limitations", min_items=1)
+        if limitations is not None
+        else ["External investigation package; source-specific limitations must be reviewed."]
+    )
+    package = {
+        "kind": "openplazma.investigation_package",
+        "version": VERSION,
+        "packageId": selected_package_id,
+        "title": require_string(title, "title"),
+        "target": deepcopy(target),
+        "questions": deepcopy(require_list(questions, "questions")),
+        "artifacts": _require_unique_artifacts(deepcopy(require_list(artifacts or [], "artifacts")), "artifacts"),
+        "fusionAssessment": deepcopy(fusion_assessment) if fusion_assessment is not None else default_fusion_assessment(selected_package_id),
+        "claims": deepcopy(require_list(claims or [], "claims")),
+        "limitations": list(selected_limitations),
+    }
+    if observations is not None:
+        package["observations"] = _require_unique_observations(deepcopy(require_list(observations, "observations")), "observations")
+    for claim in package["claims"]:
+        _assert_claim_artifact_refs(package, require_mapping(claim, "InvestigationClaim"))
+    return validate_investigation_package(package)
+
+
+def create_investigation_session(
+    *,
+    session_id: str,
+    package: dict[str, Any],
+    required_observables: list[str] | None = None,
+    created_at: str | None = None,
+    updated_at: str | None = None,
+    status: str | None = None,
+    reports: list[dict[str, Any]] | None = None,
+    limitations: list[str] | None = None,
+) -> dict[str, Any]:
+    selected_package = validate_investigation_package(deepcopy(package))
+    selected_required_observables = _require_observable_list(required_observables or [], "required_observables")
+    selected_reports = [deepcopy(report) for report in require_list(reports or [], "reports")]
+    selected_limitations = (
+        _require_string_list(limitations, "limitations", min_items=1)
+        if limitations is not None
+        else ["Read-only investigation session; no facility telemetry or control path."]
+    )
+    selected_created_at = created_at or _now()
+    session = {
+        "kind": "openplazma.investigation_session",
+        "version": VERSION,
+        "sessionId": require_string(session_id, "session_id"),
+        "createdAt": selected_created_at,
+        "updatedAt": updated_at or selected_created_at,
+        "status": status or _derive_session_status(selected_package, selected_reports),
+        "package": selected_package,
+        "requiredObservables": list(selected_required_observables),
+        "reports": selected_reports,
+        "limitations": list(selected_limitations),
+    }
+    return validate_investigation_session(session)
+
+
+def assess_diagnostic_artifact(
+    artifact: dict[str, Any],
+    required_observables: list[str] | None = None,
+) -> dict[str, Any]:
+    selected_artifact = require_mapping(artifact, "DiagnosticArtifact")
+    region_ids = {selected_artifact["targetRegionId"]} if selected_artifact.get("targetRegionId") is not None else set()
+    _validate_artifact(selected_artifact, "DiagnosticArtifact", region_ids)
+    required = _require_observable_list(list(required_observables or []), "required_observables")
+    instrument = require_mapping(selected_artifact["instrument"], "DiagnosticArtifact.instrument") if selected_artifact.get("instrument") is not None else None
+    measured_observables = list(instrument["observables"]) if instrument is not None else []
+    calibration = require_mapping(instrument["calibration"], "DiagnosticArtifact.instrument.calibration") if instrument is not None else None
+    calibration_status = calibration["status"] if calibration is not None else "missing"
+    contributions = selected_artifact.get("contributions") or []
+    unresolved_contributions: list[str] = []
+    noise_contributions: list[str] = []
+    for contribution_ref in contributions:
+        contribution = require_mapping(contribution_ref, "DiagnosticArtifact.contributions[]")
+        label = f"{contribution['contributionKind']}:{contribution['status']}"
+        if contribution["status"] == "unresolved" or contribution["role"] == "candidate":
+            unresolved_contributions.append(label)
+        if (
+            contribution["role"] in {"noise", "contaminant"}
+            or contribution["contributionKind"] in NOISE_CONTRIBUTION_KINDS
+        ):
+            noise_contributions.append(label)
+    missing_observables = [observable for observable in required if observable not in measured_observables]
+    has_calibration_gap = (
+        calibration is None
+        or calibration["status"] != "calibrated"
+        or calibration["responseKnown"] is not True
+        or calibration["correctionApplied"] is not True
+    )
+    if missing_observables or calibration is None:
+        identifiability = "source_identity_not_supported"
+    elif has_calibration_gap or unresolved_contributions or noise_contributions:
+        identifiability = "source_identity_candidate_only"
+    else:
+        identifiability = "source_identity_constrained"
+
+    limitations = list(selected_artifact["limitations"])
+    limitations.extend(calibration["limitations"] if calibration is not None else ["No instrument calibration metadata is attached."])
+    if missing_observables:
+        limitations.append(f"Missing required observables: {', '.join(missing_observables)}.")
+    if unresolved_contributions:
+        limitations.append(f"Unresolved contributions remain: {', '.join(unresolved_contributions)}.")
+    return {
+        "artifactId": selected_artifact["artifactId"],
+        "instrumentLabel": instrument["label"] if instrument is not None else None,
+        "measuredObservables": measured_observables,
+        "calibrationStatus": calibration_status,
+        "unresolvedContributions": unresolved_contributions,
+        "noiseContributions": noise_contributions,
+        "missingObservables": missing_observables,
+        "identifiability": identifiability,
+        "summary": (
+            "The artifact can constrain a source claim but still needs cross-evidence."
+            if identifiability == "source_identity_constrained"
+            else "The artifact cannot identify the source by itself."
+        ),
+        "limitations": limitations,
+    }
+
+
+def assess_investigation_measurements(
+    package: dict[str, Any],
+    required_observables: list[str] | None = None,
+) -> dict[str, Any]:
+    selected_package = validate_investigation_package(deepcopy(package))
+    required = _require_observable_list(list(required_observables or []), "required_observables")
+    artifact_assessments = [
+        assess_diagnostic_artifact(artifact, required)
+        for artifact in selected_package["artifacts"]
+    ]
+    observed = {
+        observable
+        for assessment in artifact_assessments
+        for observable in assessment["measuredObservables"]
+    }
+    missing_observables = [observable for observable in required if observable not in observed]
+    unresolved_artifact_ids = [
+        assessment["artifactId"]
+        for assessment in artifact_assessments
+        if assessment["identifiability"] != "source_identity_constrained"
+    ]
+    limitations = list(selected_package["limitations"])
+    if missing_observables:
+        limitations.append(f"Package is missing required observables: {', '.join(missing_observables)}.")
+    return {
+        "packageId": selected_package["packageId"],
+        "artifactAssessments": artifact_assessments,
+        "missingObservables": missing_observables,
+        "unresolvedArtifactIds": unresolved_artifact_ids,
+        "summary": (
+            "All supplied artifacts can constrain source claims, subject to package limitations."
+            if not unresolved_artifact_ids
+            else "Some supplied artifacts cannot identify source claims without more diagnostics or calibration."
+        ),
+        "limitations": limitations,
+    }
+
+
+def add_diagnostic_artifact(
+    session: dict[str, Any],
+    artifact: dict[str, Any],
+    updated_at: str | None = None,
+) -> dict[str, Any]:
+    selected_session = validate_investigation_session(deepcopy(session))
+    next_package = deepcopy(selected_session["package"])
+    next_package["artifacts"] = _require_unique_artifacts(
+        [*next_package["artifacts"], deepcopy(artifact)],
+        "InvestigationPackage.artifacts",
+    )
+    next_session = {
+        **selected_session,
+        "updatedAt": updated_at or _now(),
+        "status": _derive_session_status(next_package, selected_session["reports"]),
+        "package": next_package,
+    }
+    return validate_investigation_session(next_session)
+
+
+def add_observation_statement(
+    session: dict[str, Any],
+    observation: dict[str, Any],
+    updated_at: str | None = None,
+) -> dict[str, Any]:
+    selected_session = validate_investigation_session(deepcopy(session))
+    next_package = deepcopy(selected_session["package"])
+    next_package["observations"] = _require_unique_observations(
+        [*(next_package.get("observations") or []), deepcopy(observation)],
+        "InvestigationPackage.observations",
+    )
+    next_session = {
+        **selected_session,
+        "updatedAt": updated_at or _now(),
+        "status": _derive_session_status(next_package, selected_session["reports"]),
+        "package": next_package,
+    }
+    return validate_investigation_session(next_session)
+
+
+def add_investigation_claim(
+    session: dict[str, Any],
+    claim: dict[str, Any],
+    updated_at: str | None = None,
+) -> dict[str, Any]:
+    selected_session = validate_investigation_session(deepcopy(session))
+    selected_claim = require_mapping(deepcopy(claim), "InvestigationClaim")
+    _assert_claim_artifact_refs(selected_session["package"], selected_claim)
+    next_package = deepcopy(selected_session["package"])
+    next_package["claims"] = [*next_package["claims"], selected_claim]
+    next_session = {
+        **selected_session,
+        "updatedAt": updated_at or _now(),
+        "status": _derive_session_status(next_package, selected_session["reports"]),
+        "package": next_package,
+    }
+    return validate_investigation_session(next_session)
+
+
+def _default_next_observations(session: dict[str, Any]) -> list[str]:
+    assessment = assess_investigation_measurements(session["package"], session["requiredObservables"])
+    observables = [
+        f"Add a calibrated diagnostic for {observable}."
+        for observable in assessment["missingObservables"]
+    ]
+    unknowns = [
+        f"Resolve {unknown}."
+        for unknown in session["package"]["fusionAssessment"]["unknowns"]
+    ]
+    selected = [*observables, *unknowns][:4]
+    return selected or ["Add an independent calibrated diagnostic before strengthening the claim."]
+
+
+def create_investigation_session_report(
+    session: dict[str, Any],
+    *,
+    report_id: str | None = None,
+    created_at: str | None = None,
+    claims: list[dict[str, Any]] | None = None,
+    assumptions: list[str] | None = None,
+    limitations: list[str] | None = None,
+    next_observations: list[str] | None = None,
+) -> dict[str, Any]:
+    selected_session = validate_investigation_session(deepcopy(session))
+    selected_claims = [
+        deepcopy(claim)
+        for claim in require_list(
+            claims if claims is not None else selected_session["package"]["claims"],
+            "claims",
+        )
+    ]
+    if not selected_claims:
+        raise ValueError("Investigation report requires at least one claim.")
+    for claim in selected_claims:
+        _assert_claim_artifact_refs(selected_session["package"], require_mapping(claim, "InvestigationClaim"))
+    report = {
+        "kind": "openplazma.investigation_report",
+        "version": VERSION,
+        "reportId": report_id or f"report-{selected_session['sessionId']}",
+        "packageId": selected_session["package"]["packageId"],
+        "createdAt": created_at or _now(),
+        "claims": selected_claims,
+        "assumptions": (
+            _require_string_list(assumptions, "assumptions")
+            if assumptions is not None
+            else list(selected_session["package"]["fusionAssessment"]["assumptions"])
+        ),
+        "limitations": (
+            _require_string_list(limitations, "limitations", min_items=1)
+            if limitations is not None
+            else [*selected_session["limitations"], *selected_session["package"]["limitations"]]
+        ),
+        "nextObservations": (
+            _require_string_list(next_observations, "next_observations")
+            if next_observations is not None
+            else _default_next_observations(selected_session)
+        ),
+    }
+    return _assert_investigation_report_contract(selected_session["package"], report)
+
+
+def record_investigation_report(
+    session: dict[str, Any],
+    report: dict[str, Any],
+    updated_at: str | None = None,
+) -> dict[str, Any]:
+    selected_session = validate_investigation_session(deepcopy(session))
+    selected_report = _assert_investigation_report_contract(selected_session["package"], deepcopy(report))
+    next_session = {
+        **selected_session,
+        "updatedAt": updated_at or _now(),
+        "status": "reported",
+        "reports": [*selected_session["reports"], selected_report],
+    }
+    return validate_investigation_session(next_session)
+
+
+def assess_investigation_session(session: dict[str, Any]) -> dict[str, Any]:
+    selected_session = validate_investigation_session(deepcopy(session))
+    measurement_assessment = assess_investigation_measurements(
+        selected_session["package"],
+        selected_session["requiredObservables"],
+    )
+    ready_for_report = bool(selected_session["package"]["artifacts"]) and bool(selected_session["package"]["claims"])
+    latest_report = selected_session["reports"][-1] if selected_session["reports"] else None
+    return {
+        "sessionId": selected_session["sessionId"],
+        "packageId": selected_session["package"]["packageId"],
+        "status": selected_session["status"],
+        "measurementAssessment": measurement_assessment,
+        "readyForReport": ready_for_report,
+        "reportCount": len(selected_session["reports"]),
+        "latestReportId": latest_report["reportId"] if latest_report is not None else None,
+        "summary": (
+            "The session has evidence and at least one claim ready for a report."
+            if ready_for_report
+            else "The session still needs evidence and a claim before report generation."
+        ),
+        "limitations": [*selected_session["limitations"], *measurement_assessment["limitations"]],
+    }
+
+
+def load_investigation_session(path: str | Path) -> dict[str, Any]:
+    return validate_investigation_session(load_json(path))
+
+
+def save_investigation_session(session: dict[str, Any], path: str | Path) -> None:
+    save_json(validate_investigation_session(session), path)
+
+
+def log_investigation_session(
+    run: Any,
+    session: dict[str, Any],
+    *,
+    assessment: dict[str, Any] | None = None,
+    report: dict[str, Any] | None = None,
+    content_addressed: bool = False,
+) -> dict[str, dict[str, Any]]:
+    selected_session = validate_investigation_session(deepcopy(session))
+    selected_assessment = (
+        deepcopy(assessment)
+        if assessment is not None
+        else assess_investigation_session(selected_session)
+    )
+    selected_report = deepcopy(report) if report is not None else (deepcopy(selected_session["reports"][-1]) if selected_session["reports"] else None)
+    if selected_report is not None:
+        selected_report = _assert_investigation_report_contract(selected_session["package"], selected_report)
+
+    metadata = {
+        "sessionId": selected_session["sessionId"],
+        "packageId": selected_session["package"]["packageId"],
+    }
+    artifacts = {
+        "investigation_package": run.log_artifact(
+            "investigation_package",
+            "investigation_package",
+            selected_session["package"],
+            metadata,
+            content_addressed=content_addressed,
+        ),
+        "investigation_session": run.log_artifact(
+            "investigation_session",
+            "investigation_session",
+            selected_session,
+            metadata,
+            content_addressed=content_addressed,
+        ),
+        "investigation_assessment": run.log_artifact(
+            "investigation_assessment",
+            "investigation_assessment",
+            require_mapping(selected_assessment, "InvestigationSessionAssessment"),
+            metadata,
+            content_addressed=content_addressed,
+        ),
+    }
+    if selected_report is not None:
+        artifacts["investigation_report"] = run.log_artifact(
+            "investigation_report",
+            "investigation_report",
+            selected_report,
+            {**metadata, "reportId": selected_report["reportId"]},
+            content_addressed=content_addressed,
+        )
+    return artifacts
 
 
 def load_investigation_package(path: str | Path) -> dict[str, Any]:

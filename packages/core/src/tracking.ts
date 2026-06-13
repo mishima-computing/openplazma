@@ -2,6 +2,8 @@ import type { CapabilitySet, SourceRef, TargetRef } from "./index";
 
 export type RunStatus = "running" | "finished" | "failed";
 export type RunType = "notebook_analysis" | string;
+export type RunStoreBackendKind = "local_filesystem" | "readonly_observatory_snapshot" | string;
+export type RunStoreBackendAccessMode = "read_write_artifacts" | "read_only_snapshot";
 
 export interface ContextArtifactRef {
   artifactName: string;
@@ -34,12 +36,34 @@ export interface RunRecord {
   limitations: string[];
 }
 
+export interface RunStoreObservatoryDescriptor {
+  observatoryId: string;
+  label: string;
+  dataScope: "local_snapshot" | "public_snapshot" | "unknown";
+  liveFetch: false;
+  remoteTelemetry: false;
+  limitations: string[];
+}
+
+export interface RunStoreBackendDescriptor {
+  backendKind: RunStoreBackendKind;
+  accessMode: RunStoreBackendAccessMode;
+  rootUri?: string | undefined;
+  observatory?: RunStoreObservatoryDescriptor | undefined;
+  liveFetch: false;
+  remoteTelemetry: false;
+  controlPlane: false;
+  description: string;
+  limitations: string[];
+}
+
 export interface RunStoreMetadata {
   kind: "openplazma.run_store";
   version: "0.1.0";
   layoutVersion: string;
   storeId: string;
-  backendKind: "local_filesystem" | string;
+  backendKind: RunStoreBackendKind;
+  backend?: RunStoreBackendDescriptor | undefined;
   createdAt: string;
   machineId?: string | undefined;
   limitations?: string[] | undefined;

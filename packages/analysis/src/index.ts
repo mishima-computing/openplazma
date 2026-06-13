@@ -10,6 +10,7 @@ import type {
   FrequencyAnalysisMethod,
   FrequencyDomain,
   FusionConditionAssessment,
+  FusionConditionParameter,
   InvestigationClaim,
   InvestigationPackage,
   InvestigationQuestion,
@@ -24,6 +25,7 @@ import type {
   PhenomenonEvent,
   RotationTrackPoint,
   SignalSeries,
+  StudyRecord,
   TearingModeHypothesis
 } from "@openplazma/core";
 import {
@@ -721,6 +723,174 @@ export function buildElectromagneticCarrierAnalysis(
 }
 
 // ---------------------------------------------------------------------------
+// Signal evidence bridge
+// ---------------------------------------------------------------------------
+
+export interface StudyRecordSignalEvidenceOptions {
+  signalIds?: string[] | undefined;
+  artifactIdPrefix?: string | undefined;
+  readoutIdPrefix?: string | undefined;
+  maxFrequencyHz?: number | undefined;
+  domainByQuantity?: Partial<Record<string, FrequencyDomain>> | undefined;
+}
+
+export interface StudyRecordSignalEvidence {
+  artifacts: DiagnosticArtifact[];
+  observations: ObservationStatement[];
+  frequencyAnalyses: FrequencyAnalysis[];
+}
+
+function safeIdSegment(value: string): string {
+  const sanitized = value.replace(/[^A-Za-z0-9_.-]+/g, "-").replace(/^-+|-+$/g, "");
+  return sanitized.length > 0 ? sanitized : "signal";
+}
+
+function inferFrequencyDomainForSignal(series: SignalSeries, options: StudyRecordSignalEvidenceOptions): FrequencyDomain {
+  const explicit = options.domainByQuantity?.[series.quantity];
+  if (explicit !== undefined) {
+    return explicit;
+  }
+  if (series.quantity.includes("current")) {
+    return "electric_variation";
+  }
+  if (series.quantity.includes("magnetic")) {
+    return "magnetic_variation";
+  }
+  if (series.quantity.includes("acoustic") || series.quantity.includes("pressure")) {
+    return "acoustic_modulation";
+  }
+  if (series.quantity.includes("gravity")) {
+    return "gravity_variation";
+  }
+  return "intensity_modulation";
+}
+
+function diagnosticProvenanceFromStudyRecord(record: StudyRecord): DiagnosticArtifact["provenanceKind"] {
+  switch (record.shot.source.kind) {
+    case "measured":
+    case "derived":
+    case "synthetic":
+      return record.shot.source.kind;
+    default:
+      return "unknown";
+  }
+}
+
+export function buildStudyRecordSignalEvidence(
+  record: StudyRecord,
+  options: StudyRecordSignalEvidenceOptions = {}
+): StudyRecordSignalEvidence {
+  const selectedIds = options.signalIds === undefined ? undefined : new Set(options.signalIds);
+  const provenanceKind = diagnosticProvenanceFromStudyRecord(record);
+  const artifacts: DiagnosticArtifact[] = [];
+  const observations: ObservationStatement[] = [];
+  const frequencyAnalyses: FrequencyAnalysis[] = [];
+
+  for (const series of record.signals) {
+    if (selectedIds !== undefined && !selectedIds.has(series.signalId)) {
+      continue;
+    }
+    const id = safeIdSegment(series.signalId);
+    const artifactId = `${options.artifactIdPrefix ?? "signal"}-${id}`;
+    const readoutId = `${options.readoutIdPrefix ?? "readout"}-${id}-dominant-frequency`;
+    const analysis = analyzeTemporalFrequency(series, {
+      analysisId: `${artifactId}-frequency`,
+      domain: inferFrequencyDomainForSignal(series, options),
+      ...(options.maxFrequencyHz !== undefined ? { maxFrequencyHz: options.maxFrequencyHz } : {})
+    });
+    frequencyAnalyses.push(analysis);
+
+    const startTime = series.time[0] ?? 0;
+    const endTime = series.time[series.time.length - 1] ?? startTime;
+    const artifact: DiagnosticArtifact = {
+      kind: "openplazma.diagnostic_artifact",
+      version: "0.1.0",
+      artifactId,
+      artifactKind: "signal_series",
+      label: series.label,
+      provenanceKind,
+      signalIds: [series.signalId],
+      signalWindows: [
+        {
+          windowId: `${artifactId}-window`,
+          signalId: series.signalId,
+          role: "primary",
+          timeRange: [startTime, endTime],
+          sampleCount: series.values.length,
+          description: `Analysis window for ${series.label}.`,
+          limitations: ["Window bounds come from the stored signal timestamps."]
+        }
+      ],
+      frequencyAnalyses: [analysis],
+      source: {
+        sourceKind: "derived_artifact",
+        label: record.source.sourceLabel,
+        signalIds: [series.signalId],
+        ...(record.source.uri !== undefined ? { uri: record.source.uri } : {}),
+        ...(record.source.sha256 !== undefined ? { sha256: record.source.sha256 } : {}),
+        limitations: ["Derived from a StudyRecord signal; no live data fetch is performed."]
+      },
+      quantity: series.quantity,
+      unit: series.unit,
+      description: `Diagnostic artifact bridged from StudyRecord signal '${series.signalId}'.`,
+      limitations: [
+        "Signal-derived evidence is mediated by analysis choices.",
+        "Frequency structure alone does not establish energy source or fusion status."
+      ]
+    };
+    artifacts.push(artifact);
+
+    const peak = analysis.peaks[0];
+    const observation: ObservationStatement = {
+      kind: "openplazma.observation_statement",
+      version: "0.1.0",
+      readoutId,
+      artifactId,
+      signalId: series.signalId,
+      observable: "unknown",
+      readoutKind: peak === undefined ? "summary_statistic" : "frequency_peak",
+      method: analysis.method,
+      ...(peak !== undefined
+        ? {
+            selector: `frequencyAnalyses[${analysis.analysisId}].peaks[${peak.peakId}]`,
+            value: peak.frequencyHz,
+            unit: "Hz"
+          }
+        : {}),
+      status: peak === undefined ? "unknown" : "candidate",
+      ...(analysis.frequencyResolutionHz !== undefined
+        ? {
+            uncertaintyEstimate: {
+              value: analysis.frequencyResolutionHz,
+              unit: "Hz",
+              description: "Frequency-bin resolution from the bridged signal window.",
+              limitations: ["Resolution does not include instrument response or timestamp uncertainty."]
+            }
+          }
+        : {}),
+      assumptions: ["Samples are treated as evenly spaced for the bridge analysis."],
+      limitations: ["This readout is evidence for signal content, not direct source identity."],
+      alternatives: ["instrument response", "aliasing", "noise", "source modulation"]
+    };
+    observations.push(observation);
+  }
+
+  return { artifacts, observations, frequencyAnalyses };
+}
+
+export function addSignalEvidenceToInvestigationPackage(
+  pack: InvestigationPackage,
+  evidence: StudyRecordSignalEvidence
+): InvestigationPackage {
+  const nextPackage: InvestigationPackage = {
+    ...pack,
+    artifacts: uniqueArtifacts([...pack.artifacts, ...evidence.artifacts]),
+    observations: uniqueObservations([...(pack.observations ?? []), ...evidence.observations])
+  };
+  return parseInvestigationPackage(nextPackage);
+}
+
+// ---------------------------------------------------------------------------
 // Mixed-signal diagnostic assessment
 // ---------------------------------------------------------------------------
 
@@ -849,6 +1019,214 @@ export function assessInvestigationMeasurements(
         ? [`Package is missing required observables: ${missingObservables.join(", ")}.`]
         : [])
     ]
+  };
+}
+
+export type ConservativeFusionClaimDisposition =
+  | "fusion_claim_supported"
+  | "fusion_claim_contradicted"
+  | "fusion_claim_not_supported"
+  | "fusion_claim_unknown"
+  | "fusion_claim_untested";
+
+export interface ConservativeFusionClaimAssessmentOptions {
+  claimId?: string | undefined;
+  requiredObservables?: MeasuredObservable[] | undefined;
+  method?: string | undefined;
+}
+
+export interface ConservativeFusionClaimAssessment {
+  packageId: string;
+  fusionAssessment: FusionConditionAssessment;
+  claim: InvestigationClaim;
+  disposition: ConservativeFusionClaimDisposition;
+  missingObservables: MeasuredObservable[];
+  missingRequiredConditions: FusionConditionParameter[];
+  hasUnspecifiedRequiredConditions: boolean;
+  supportingReadoutIds: string[];
+  supportingArtifactIds: string[];
+  nextObservations: string[];
+  summary: string;
+  limitations: string[];
+}
+
+const defaultFusionClaimObservables: MeasuredObservable[] = [
+  "neutron_flux",
+  "gamma_ray",
+  "particle_flux",
+  "temperature",
+  "density"
+];
+
+const fusionProductObservables = new Set<MeasuredObservable>([
+  "neutron_flux",
+  "gamma_ray",
+  "particle_flux",
+  "neutrino_flux"
+]);
+
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values)];
+}
+
+function artifactHasCalibratedResponse(artifact: DiagnosticArtifact | undefined): boolean {
+  const calibration = artifact?.instrument?.calibration;
+  return (
+    calibration !== undefined &&
+    calibration.status === "calibrated" &&
+    calibration.responseKnown &&
+    calibration.correctionApplied &&
+    calibration.response !== undefined
+  );
+}
+
+function conditionIsResolved(condition: FusionConditionAssessment["observedOrInferredConditions"][number]): boolean {
+  return (
+    ["measured", "inferred", "bounded"].includes(condition.status) &&
+    (condition.evidenceReadoutIds ?? []).length > 0 &&
+    condition.method !== undefined
+  );
+}
+
+export function assessConservativeFusionClaim(
+  pack: InvestigationPackage,
+  options: ConservativeFusionClaimAssessmentOptions = {}
+): ConservativeFusionClaimAssessment {
+  const parsed = parseInvestigationPackage(pack);
+  const readouts = parsed.observations ?? [];
+  const readoutById = new Map(readouts.map((readout) => [readout.readoutId, readout]));
+  const artifactById = new Map(parsed.artifacts.map((artifact) => [artifact.artifactId, artifact]));
+  const requiredObservables = options.requiredObservables ?? defaultFusionClaimObservables;
+  const observedObservables = new Set<MeasuredObservable>([
+    ...parsed.artifacts.flatMap((artifact) => artifact.instrument?.observables ?? []),
+    ...readouts.map((readout) => readout.observable)
+  ]);
+  const missingObservables = requiredObservables.filter((observable) => !observedObservables.has(observable));
+  const requiredConditions = parsed.fusionAssessment.requiredConditions.filter(
+    (condition) => condition.logicalRole === "necessary"
+  );
+  const resolvedParameters = new Set(
+    parsed.fusionAssessment.observedOrInferredConditions
+      .filter(conditionIsResolved)
+      .map((condition) => condition.parameter)
+  );
+  const missingRequiredConditions = requiredConditions
+    .filter((condition) => !resolvedParameters.has(condition.parameter))
+    .map((condition) => condition.parameter);
+  const hasUnspecifiedRequiredConditions = requiredConditions.length === 0;
+  const productReadouts = readouts.filter((readout) => fusionProductObservables.has(readout.observable));
+  const calibratedProductReadouts = productReadouts.filter(
+    (readout) => readout.status === "detected" && artifactHasCalibratedResponse(artifactById.get(readout.artifactId))
+  );
+  const conditionReadoutIds = parsed.fusionAssessment.observedOrInferredConditions.flatMap(
+    (condition) => condition.evidenceReadoutIds ?? []
+  );
+  const contradictingReadoutIds = parsed.fusionAssessment.observedOrInferredConditions
+    .filter((condition) => condition.status === "contradicted" || condition.logicalRole === "contradicting")
+    .flatMap((condition) => condition.evidenceReadoutIds ?? []);
+  const supportingReadoutIds = uniqueStrings([
+    ...calibratedProductReadouts.map((readout) => readout.readoutId),
+    ...conditionReadoutIds.filter((readoutId) => readoutById.has(readoutId))
+  ]);
+  const supportingArtifactIds = uniqueStrings([
+    ...supportingReadoutIds.map((readoutId) => readoutById.get(readoutId)?.artifactId).filter((value): value is string => value !== undefined),
+    ...parsed.fusionAssessment.observedOrInferredConditions.flatMap((condition) => condition.evidenceArtifactIds)
+  ]).filter((artifactId) => artifactById.has(artifactId));
+  const alternativeSources = parsed.target.candidateEnergySources
+    .filter((source) => source !== "fusion" && source !== "unknown")
+    .map((source) => source.replace(/_/g, " "));
+  const alternatives = alternativeSources.length > 0
+    ? alternativeSources
+    : ["non-fusion source", "instrument response", "insufficient diagnostic coverage"];
+  const method = options.method ?? "conservative_fusion_condition_review";
+  const canSupportFusion =
+    parsed.fusionAssessment.fusionStatus === "supported" &&
+    parsed.fusionAssessment.conditionMode !== "inverse_from_fusion_condition" &&
+    !hasUnspecifiedRequiredConditions &&
+    missingRequiredConditions.length === 0 &&
+    missingObservables.length === 0 &&
+    calibratedProductReadouts.length > 0;
+
+  let disposition: ConservativeFusionClaimDisposition;
+  let claimStatus: InvestigationClaim["status"];
+  let statement: string;
+  if (canSupportFusion) {
+    disposition = "fusion_claim_supported";
+    claimStatus = "support";
+    statement = "Current mediated observations support a fusion claim within the stated limitations.";
+  } else if (contradictingReadoutIds.length > 0 || parsed.fusionAssessment.fusionStatus === "contradicted") {
+    disposition = "fusion_claim_contradicted";
+    claimStatus = supportingReadoutIds.length > 0 || contradictingReadoutIds.length > 0 ? "contradict" : "inconclusive";
+    statement = "Current mediated observations contradict at least one necessary fusion-condition claim.";
+  } else if (parsed.fusionAssessment.fusionStatus === "unsupported" && supportingReadoutIds.length > 0) {
+    disposition = "fusion_claim_not_supported";
+    claimStatus = "support";
+    statement = "Current mediated observations do not support a fusion claim.";
+  } else if (supportingReadoutIds.length === 0) {
+    disposition = "fusion_claim_untested";
+    claimStatus = "untested";
+    statement = "Fusion remains untested because no mediated fusion-relevant readouts are available.";
+  } else {
+    disposition = "fusion_claim_unknown";
+    claimStatus = "inconclusive";
+    statement = "Fusion remains unresolved because necessary conditions or diagnostics are still missing.";
+  }
+
+  const evidenceReadoutIds = uniqueStrings([
+    ...supportingReadoutIds,
+    ...contradictingReadoutIds.filter((readoutId) => readoutById.has(readoutId))
+  ]);
+  const evidenceArtifactIds = uniqueStrings([
+    ...supportingArtifactIds,
+    ...evidenceReadoutIds.map((readoutId) => readoutById.get(readoutId)?.artifactId).filter((value): value is string => value !== undefined)
+  ]);
+  const nextObservations = uniqueStrings([
+    ...missingObservables.map((observable) => `Add a calibrated mediated readout for ${observable}.`),
+    ...missingRequiredConditions.map((parameter) => `Resolve fusion condition '${parameter}'.`),
+    ...(hasUnspecifiedRequiredConditions ? ["State the necessary fusion conditions before strengthening the claim."] : []),
+    ...parsed.fusionAssessment.unknowns.map((unknown) => `Resolve ${unknown}.`)
+  ]).slice(0, 6);
+  const limitations = uniqueStrings([
+    "Fusion is assessed as a claim, not treated as a premise.",
+    "Candidate energy-source labels are not evidence by themselves.",
+    ...parsed.fusionAssessment.limitations,
+    ...(missingObservables.length > 0 ? [`Missing observables: ${missingObservables.join(", ")}.`] : []),
+    ...(missingRequiredConditions.length > 0
+      ? [`Missing required fusion conditions: ${missingRequiredConditions.join(", ")}.`]
+      : []),
+    ...(hasUnspecifiedRequiredConditions ? ["Required fusion conditions are not enumerated."] : []),
+    ...(calibratedProductReadouts.length === 0
+      ? ["No calibrated fusion-product readout with structured instrument response is available."]
+      : [])
+  ]);
+  const claim: InvestigationClaim = {
+    kind: "openplazma.investigation_claim",
+    version: "0.1.0",
+    claimId: options.claimId ?? `${parsed.packageId}-conservative-fusion-claim`,
+    claimType: "fusion_status",
+    statement,
+    status: claimStatus,
+    evidenceArtifactIds,
+    ...(evidenceReadoutIds.length > 0 ? { evidenceReadoutIds } : {}),
+    method,
+    assumptions: ["The assessment only uses mediated package evidence and condition estimates."],
+    limitations,
+    alternatives
+  };
+
+  return {
+    packageId: parsed.packageId,
+    fusionAssessment: parsed.fusionAssessment,
+    claim,
+    disposition,
+    missingObservables,
+    missingRequiredConditions,
+    hasUnspecifiedRequiredConditions,
+    supportingReadoutIds,
+    supportingArtifactIds,
+    nextObservations,
+    summary: statement,
+    limitations
   };
 }
 

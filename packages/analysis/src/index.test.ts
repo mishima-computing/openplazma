@@ -3,7 +3,8 @@ import type {
   DiagnosticArray,
   InvestigationPackage,
   RotationTrackPoint,
-  SignalSeries
+  SignalSeries,
+  StudyRecord
 } from "@openplazma/core";
 import { describe, expect, it } from "vitest";
 import {
@@ -15,8 +16,10 @@ import {
   assessDiagnosticArtifact,
   assessInvestigationMeasurements,
   assessInvestigationSession,
+  assessConservativeFusionClaim,
   buildElectromagneticCarrierAnalysis,
   buildInvestigationPackage,
+  buildStudyRecordSignalEvidence,
   buildInferenceFromArray,
   crashStats,
   createInvestigationSession,
@@ -29,6 +32,7 @@ import {
   estimatePoloidalModeNumber,
   estimateToroidalModeNumber,
   forwardTearingModeSignals,
+  addSignalEvidenceToInvestigationPackage,
   recordInvestigationReport,
   trackRotationFrequency
 } from "./index";
@@ -307,6 +311,82 @@ describe("investigation frequency analysis", () => {
 });
 
 describe("mixed-signal diagnostic assessment", () => {
+  function studyRecordForSignal(series: SignalSeries): StudyRecord {
+    return {
+      kind: "openplazma.study_record",
+      version: "0.1.0",
+      studyId: "study-signal-bridge",
+      createdAt: "2026-06-13T00:00:00.000Z",
+      source: {
+        provider: "STATIC_FIXTURE",
+        sourceLabel: "Static signal fixture",
+        inspiredBy: "FAIR_MAST",
+        shotId: "shot-signal-bridge"
+      },
+      shotRef: {
+        provider: "STATIC_FIXTURE",
+        shotId: "shot-signal-bridge"
+      },
+      signalsViewed: [{ signalId: series.signalId, label: series.label, quantity: series.quantity, unit: series.unit }],
+      observations: [],
+      limitations: ["Static signal bridge fixture."],
+      context: {
+        kind: "openplazma.experiment_context",
+        version: "0.1.0",
+        contextId: "ctx-signal-bridge",
+        projectId: "openplazma-test",
+        datasetId: "signal-bridge",
+        description: "Signal bridge fixture.",
+        safetyClassification: "public-educational-fixture",
+        createdAt: "2026-06-13T00:00:00.000Z",
+        target: {
+          type: "static_fixture",
+          id: "signal-bridge-target",
+          label: "Signal bridge target"
+        },
+        source: {
+          provider: "STATIC_FIXTURE",
+          sourceLabel: "Static signal fixture",
+          inspiredBy: "FAIR_MAST"
+        },
+        capabilities: {
+          readData: true,
+          writeArtifacts: true,
+          runSimulation: false,
+          submitComputeJob: false,
+          readFacilityTelemetry: false,
+          controlFacility: false
+        },
+        shotRef: {
+          provider: "STATIC_FIXTURE",
+          shotId: "shot-signal-bridge"
+        },
+        signals: [{ signalId: series.signalId, label: series.label, quantity: series.quantity, unit: series.unit }],
+        observations: [],
+        limitations: ["Read-only fixture."]
+      },
+      shot: {
+        kind: "openplazma.shot_metadata",
+        version: "0.1.0",
+        shotId: "shot-signal-bridge",
+        displayName: "Signal bridge shot",
+        sourceLabel: "Static signal fixture",
+        recordedAt: "2026-06-13T00:00:00.000Z",
+        source: {
+          kind: "fixture",
+          provider: "STATIC_FIXTURE",
+          sourceLabel: "Static signal fixture",
+          inspiredBy: "FAIR_MAST",
+          uri: "static-fixture:signal-bridge",
+          license: "MIT"
+        },
+        signalIds: [series.signalId],
+        tags: ["test"]
+      },
+      signals: [series]
+    };
+  }
+
   function humanEyeArtifact(): DiagnosticArtifact {
     return {
       kind: "openplazma.diagnostic_artifact",
@@ -459,6 +539,103 @@ describe("mixed-signal diagnostic assessment", () => {
     expect(assessment.artifactAssessments).toHaveLength(2);
     expect(assessment.missingObservables).toEqual(["neutron_flux"]);
     expect(assessment.unresolvedArtifactIds).toEqual(["eye-report", "mixed-current"]);
+  });
+
+  it("bridges StudyRecord signals into mediated evidence and keeps fusion untested", () => {
+    const time = timeGrid(200, 0.01);
+    const series: SignalSeries = {
+      kind: "openplazma.signal_series",
+      version: "0.1.0",
+      signalId: "thermal-brightness",
+      label: "Thermal brightness",
+      quantity: "brightness",
+      unit: "a.u.",
+      timeUnit: "s",
+      time,
+      values: time.map((t) => 1 + 0.2 * Math.cos(TWO_PI * 2 * t))
+    };
+    const evidence = buildStudyRecordSignalEvidence(studyRecordForSignal(series), { maxFrequencyHz: 10 });
+    const pack = buildInvestigationPackage({
+      packageId: "signal-bridge-package",
+      title: "Signal bridge package",
+      target: {
+        kind: "openplazma.investigation_target",
+        version: "0.1.0",
+        targetId: "signal-bridge-target",
+        targetKind: "unknown",
+        label: "Signal bridge target",
+        description: "Unknown energy-source target.",
+        candidateEnergySources: ["fusion", "sensor_artifact", "unknown"],
+        limitations: ["Candidate labels are hypotheses, not evidence."]
+      },
+      questions: [
+        {
+          questionId: "q-fusion",
+          questionKind: "is_fusion",
+          text: "Is a fusion claim supported?"
+        }
+      ]
+    });
+    const withEvidence = addSignalEvidenceToInvestigationPackage(pack, evidence);
+    const assessment = assessConservativeFusionClaim(withEvidence);
+
+    expect(evidence.artifacts[0]?.signalWindows?.[0]?.signalId).toBe("thermal-brightness");
+    expect(evidence.observations[0]?.readoutKind).toBe("frequency_peak");
+    expect(withEvidence.observations).toHaveLength(1);
+    expect(assessment.disposition).toBe("fusion_claim_untested");
+    expect(assessment.claim.status).toBe("untested");
+    expect(assessment.limitations.join(" ")).toContain("not treated as a premise");
+  });
+
+  it("does not treat inverse fusion-condition assumptions as a supported claim", () => {
+    const pack = buildInvestigationPackage({
+      packageId: "inverse-claim-package",
+      title: "Inverse claim package",
+      target: {
+        kind: "openplazma.investigation_target",
+        version: "0.1.0",
+        targetId: "inverse-target",
+        targetKind: "stellar_object",
+        label: "Inverse target",
+        description: "Target with an inverse fusion-condition premise.",
+        candidateEnergySources: ["fusion", "unknown"],
+        limitations: ["The premise still needs evidence."]
+      },
+      questions: [
+        {
+          questionId: "q-fusion",
+          questionKind: "is_fusion",
+          text: "Is the fusion claim supported?"
+        }
+      ],
+      fusionAssessment: {
+        kind: "openplazma.fusion_condition_assessment",
+        version: "0.1.0",
+        assessmentId: "inverse-claim-assessment",
+        fusionStatus: "supported",
+        conditionMode: "inverse_from_fusion_condition",
+        reactionCandidates: ["proton_proton_chain"],
+        observedOrInferredConditions: [],
+        requiredConditions: [
+          {
+            parameter: "ion_temperature",
+            status: "required",
+            logicalRole: "necessary",
+            evidenceArtifactIds: [],
+            assumptions: ["A fusion premise would require ion temperature support."],
+            limitations: ["No mediated ion temperature readout is present."]
+          }
+        ],
+        unknowns: ["ion temperature", "particle products"],
+        assumptions: ["Fusion is only an inverse-stage premise."],
+        limitations: ["Inverse reasoning does not prove fusion."]
+      }
+    });
+    const assessment = assessConservativeFusionClaim(pack);
+
+    expect(assessment.disposition).toBe("fusion_claim_untested");
+    expect(assessment.claim.status).toBe("untested");
+    expect(assessment.missingRequiredConditions).toContain("ion_temperature");
   });
 
   it("supports a neutral external investigation session from evidence to report", () => {
@@ -958,8 +1135,11 @@ describe("mixed-signal diagnostic assessment", () => {
             statement: "The report references evidence outside the package.",
             status: "support",
             evidenceArtifactIds: ["missing-artifact"],
+            evidenceReadoutIds: ["missing-readout"],
+            method: "boundary_review",
             assumptions: [],
-            limitations: []
+            limitations: [],
+            alternatives: ["unknown source"]
           }
         ],
         assumptions: [],
