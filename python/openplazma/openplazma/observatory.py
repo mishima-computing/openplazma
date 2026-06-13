@@ -9,7 +9,7 @@ from typing import Any
 
 from ._json import loads_json
 from .observation_lineage import validate_observation_lineage_audit
-from .runstore import describe_runstore_backend, load_events, load_manifest, load_metrics, load_run
+from .runstore import describe_runstore_backend, load_artifacts, load_events, load_manifest, load_metrics, load_run
 
 _RUN_ID_RE = re.compile(r"^OPR-\d{8}(?:-\d{6,}|-[A-Za-z0-9_.-]+-[a-f0-9]{12})$")
 _SVG_RENDER_POINT_LIMIT = 80
@@ -302,11 +302,7 @@ def summarize_runstore(run_store: str | Path = ".openplazma") -> list[dict[str, 
 
 
 def load_run_artifacts(run_id: str, run_store: str | Path = ".openplazma") -> list[dict[str, Any]]:
-    manifest = load_manifest(run_id, run_store=run_store)
-    artifacts = manifest.get("artifacts", [])
-    if not isinstance(artifacts, list):
-        raise ValueError("Run manifest artifacts must be a list.")
-    return artifacts
+    return load_artifacts(run_id, run_store=run_store)
 
 
 def load_run_events(run_id: str, run_store: str | Path = ".openplazma") -> list[dict[str, Any]]:

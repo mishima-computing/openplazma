@@ -43,9 +43,11 @@ RunStore metadata is written to `.openplazma/runstore.json` and includes a stabl
 OpenPlazma no longer treats fixed metric-count, artifact-count, or artifact-byte constants as correctness boundaries. Scaling must be expressed through backend policy and through bounded APIs:
 
 - `iter_metrics` and `iter_events` stream JSONL records.
+- `iter_artifacts` streams artifact records from `artifacts.jsonl` when available.
 - `iter_runs` scans runs without forcing a full-store materialization.
 - `list_runs_page` returns stable cursor pages.
 - `list_metrics_page` and `list_events_page` return bounded cursor pages for long Runs.
+- `list_artifacts_page` returns bounded cursor pages for large artifact indexes.
 - `list_run_group` and `summarize_run_group` group machine or partition runs for one logical campaign.
 - content-addressed artifact blobs store large payload bytes once under `.openplazma/blobs/sha256/...`, while Run manifests keep small artifact records and pointer files.
 - `merge_run_store` imports another local RunStore without overwriting colliding Run IDs; identical run trees are skipped, different run trees fail closed.
@@ -69,6 +71,7 @@ Each Run is written as inspectable files:
     OPR-YYYYMMDD-000001/
       run.json
       config.json
+      artifacts.jsonl
       metrics.jsonl
       events.jsonl
       artifacts/
@@ -79,6 +82,7 @@ Each Run is written as inspectable files:
     OPR-YYYYMMDD-node-a-abcdef123456/
       run.json
       config.json
+      artifacts.jsonl
       metrics.jsonl
       events.jsonl
       artifacts/
@@ -131,6 +135,7 @@ for metric in op.iter_metrics(runs[0]["runId"]):
     ...
 
 page = op.list_runs_page(page_size=100)
+artifact_page = op.list_artifacts_page(runs[0]["runId"], page_size=100)
 metric_page = op.list_metrics_page(runs[0]["runId"], page_size=1000)
 event_page = op.list_events_page(runs[0]["runId"], page_size=1000)
 group_summary = op.summarize_run_group("will-o-wisp-campaign")

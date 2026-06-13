@@ -69,6 +69,7 @@ RUNSTORE_QUERY_CAPABILITIES = {
     "loadEvents": True,
     "pageEvents": True,
     "loadManifest": True,
+    "pageArtifacts": True,
     "loadArtifactBlob": True,
     "mutatesRunStore": False,
     "executesCode": False,
@@ -262,7 +263,7 @@ def _validate_runstore_backend_descriptor(descriptor: dict[str, Any]) -> dict[st
         require_mapping(descriptor["queryCapabilities"], "RunStoreBackendDescriptor.queryCapabilities"),
         RUNSTORE_QUERY_CAPABILITIES,
         "RunStoreBackendDescriptor.queryCapabilities",
-        compatibility_defaults={"pageRuns", "pageMetrics", "pageEvents"},
+        compatibility_defaults={"pageRuns", "pageMetrics", "pageEvents", "pageArtifacts"},
     )
 
     policy = require_mapping(descriptor["policy"], "RunStoreBackendDescriptor.policy")
@@ -1158,6 +1159,7 @@ class Run:
         self.artifacts_dir = run_dir / "artifacts"
         self.run_json_path = run_dir / "run.json"
         self.manifest_path = run_dir / "manifest.json"
+        self.artifacts_index_path = run_dir / "artifacts.jsonl"
         self.metrics_path = run_dir / "metrics.jsonl"
         self.events_path = run_dir / "events.jsonl"
 
@@ -1298,7 +1300,9 @@ class Run:
         _require_running_run(run_record)
         manifest = self._manifest()
 
-        snapshot = _snapshot_files([artifact_path, self.manifest_path, self.run_json_path, self.events_path])
+        snapshot = _snapshot_files(
+            [artifact_path, self.manifest_path, self.artifacts_index_path, self.run_json_path, self.events_path]
+        )
         self.artifacts_dir.mkdir(parents=True, exist_ok=True)
         created_blob_path: Path | None = None
         try:
@@ -1374,6 +1378,7 @@ class Run:
             manifest["artifacts"].append(record)
             manifest["updatedAt"] = created_at
             self._save_manifest(manifest)
+            _write_jsonl(self.artifacts_index_path, record)
 
             run_record["artifactCount"] = artifact_count
             if artifact_type == "experiment_context":
@@ -1494,6 +1499,7 @@ def _start_run_unlocked(
     store_metadata = _load_or_create_runstore_metadata(run_store)
     run_id, run_dir = _allocate_run_dir(run_store, machine_id=machine_id and selected_machine_id)
     (run_dir / "artifacts").mkdir(parents=True, exist_ok=True)
+    (run_dir / "artifacts.jsonl").touch()
     (run_dir / "metrics.jsonl").touch()
     (run_dir / "events.jsonl").touch()
 
@@ -1689,6 +1695,64 @@ def load_run(run_id: str, run_store: str | Path = ".openplazma") -> dict[str, An
 
 def load_metrics(run_id: str, run_store: str | Path = ".openplazma") -> list[dict[str, Any]]:
     return list(iter_metrics(run_id, run_store=run_store))
+
+
+def load_artifacts(run_id: str, run_store: str | Path = ".openplazma") -> list[dict[str, Any]]:
+    return list(iter_artifacts(run_id, run_store=run_store))
+
+
+def _artifact_index_is_current(run_dir: Path) -> bool:
+    artifacts_index_path = run_dir / "artifacts.jsonl"
+    manifest_path = run_dir / "manifest.json"
+    if not artifacts_index_path.exists():
+        return False
+    if not manifest_path.exists():
+        return True
+    return manifest_path.stat().st_mtime <= artifacts_index_path.stat().st_mtime
+
+
+def iter_artifacts(run_id: str, run_store: str | Path = ".openplazma") -> Iterator[dict[str, Any]]:
+    with _run_store_write_lock(run_store):
+        run_dir = _run_dir(run_id, run_store)
+        artifacts_index_path = run_dir / "artifacts.jsonl"
+        if _artifact_index_is_current(run_dir):
+            for record in _iter_jsonl(artifacts_index_path):
+                yield _validate_artifact_record(record, expected_run_id=run_id)
+            return
+
+        manifest = load_manifest(run_id, run_store=run_store)
+        for artifact in manifest["artifacts"]:
+            yield _validate_artifact_record(artifact, expected_run_id=run_id)
+
+
+def list_artifacts_page(
+    run_id: str,
+    run_store: str | Path = ".openplazma",
+    *,
+    page_size: int = 100,
+    cursor: str | None = None,
+) -> dict[str, Any]:
+    with _run_store_write_lock(run_store):
+        run_dir = _run_dir(run_id, run_store)
+        artifacts_index_path = run_dir / "artifacts.jsonl"
+        if _artifact_index_is_current(run_dir):
+            return _list_jsonl_page(
+                artifacts_index_path,
+                item_key="artifacts",
+                page_size=page_size,
+                cursor=cursor,
+                validator=lambda record: _validate_artifact_record(record, expected_run_id=run_id),
+            )
+
+        artifacts = load_manifest(run_id, run_store=run_store)["artifacts"]
+        selected_page_size = _validate_page_size(page_size)
+        start_index = _parse_record_page_cursor(cursor)
+        selected = [
+            _validate_artifact_record(artifact, expected_run_id=run_id)
+            for artifact in artifacts[start_index : start_index + selected_page_size]
+        ]
+        next_cursor = str(start_index + selected_page_size) if start_index + selected_page_size < len(artifacts) else None
+        return {"artifacts": selected, "nextCursor": next_cursor}
 
 
 def list_metrics_page(

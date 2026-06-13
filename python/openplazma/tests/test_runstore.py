@@ -212,6 +212,94 @@ def test_log_artifact_records_json_byte_size_without_fixed_cap(tmp_path: Path):
     assert op.load_run(run.run_id, run_store=run_store)["artifactCount"] == 1
 
 
+def test_artifact_index_and_pages_read_bounded_records(tmp_path: Path):
+    run_store = run_store_path(tmp_path)
+    run = op.start_run(
+        project="openplazma-demo",
+        campaign="scale-out",
+        run_type="notebook_analysis",
+        context=sample_context(),
+        run_store=run_store,
+    )
+    for index in range(5):
+        run.log_artifact(f"artifact_{index}", "note", {"index": index})
+
+    artifact_index_path = run_store / "runs" / run.run_id / "artifacts.jsonl"
+    assert artifact_index_path.is_file()
+    assert len(artifact_index_path.read_text(encoding="utf-8").splitlines()) == 5
+    assert [artifact["name"] for artifact in op.iter_artifacts(run.run_id, run_store=run_store)] == [
+        "artifact_0",
+        "artifact_1",
+        "artifact_2",
+        "artifact_3",
+        "artifact_4",
+    ]
+
+    first_page = op.list_artifacts_page(run.run_id, run_store=run_store, page_size=2)
+    assert [artifact["name"] for artifact in first_page["artifacts"]] == ["artifact_0", "artifact_1"]
+    assert first_page["nextCursor"] == "2"
+
+    second_page = op.list_artifacts_page(
+        run.run_id,
+        run_store=run_store,
+        page_size=2,
+        cursor=first_page["nextCursor"],
+    )
+    assert [artifact["name"] for artifact in second_page["artifacts"]] == ["artifact_2", "artifact_3"]
+    assert second_page["nextCursor"] == "4"
+
+    final_page = op.list_artifacts_page(
+        run.run_id,
+        run_store=run_store,
+        page_size=2,
+        cursor=second_page["nextCursor"],
+    )
+    assert [artifact["name"] for artifact in final_page["artifacts"]] == ["artifact_4"]
+    assert final_page["nextCursor"] is None
+
+
+def test_artifact_pages_use_index_without_loading_full_manifest(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    run_store = run_store_path(tmp_path)
+    run = op.start_run(
+        project="openplazma-demo",
+        campaign="scale-out",
+        run_type="notebook_analysis",
+        context=sample_context(),
+        run_store=run_store,
+    )
+    run.log_artifact("indexed_artifact", "note", {"ok": True})
+
+    def fail_manifest_load(run_id: str, run_store: str | Path = ".openplazma") -> dict:
+        raise AssertionError("artifact paging must not materialize the manifest when artifacts.jsonl exists")
+
+    monkeypatch.setattr(runstore_module, "load_manifest", fail_manifest_load)
+
+    page = op.list_artifacts_page(run.run_id, run_store=run_store, page_size=1)
+
+    assert [artifact["name"] for artifact in page["artifacts"]] == ["indexed_artifact"]
+
+
+def test_artifact_pages_fall_back_to_manifest_for_legacy_runs(tmp_path: Path):
+    run_store = run_store_path(tmp_path)
+    run = op.start_run(
+        project="openplazma-demo",
+        campaign="scale-out",
+        run_type="notebook_analysis",
+        context=sample_context(),
+        run_store=run_store,
+    )
+    run.log_artifact("legacy_artifact", "note", {"ok": True})
+    (run_store / "runs" / run.run_id / "artifacts.jsonl").unlink()
+
+    page = op.list_artifacts_page(run.run_id, run_store=run_store, page_size=1)
+
+    assert [artifact["name"] for artifact in page["artifacts"]] == ["legacy_artifact"]
+    assert page["nextCursor"] is None
+
+
 def test_log_artifact_uses_shallow_run_record_instead_of_deep_run_load(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -661,7 +749,7 @@ def test_runstore_query_capabilities_fill_paged_read_defaults_for_existing_metad
     )
     metadata_path = run_store / "runstore.json"
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-    for key in ["pageRuns", "pageMetrics", "pageEvents"]:
+    for key in ["pageRuns", "pageMetrics", "pageEvents", "pageArtifacts"]:
         metadata["backend"]["queryCapabilities"].pop(key, None)
     metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
 
@@ -670,6 +758,7 @@ def test_runstore_query_capabilities_fill_paged_read_defaults_for_existing_metad
     assert capabilities["pageRuns"] is True
     assert capabilities["pageMetrics"] is True
     assert capabilities["pageEvents"] is True
+    assert capabilities["pageArtifacts"] is True
 
 
 def test_runstore_query_capabilities_still_require_existing_safety_fields(tmp_path: Path):

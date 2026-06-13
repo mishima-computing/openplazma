@@ -142,7 +142,7 @@ Direction:
 - Inspectable by default.
 - Collision-resistant Run IDs for machine-scoped writers.
 - `storeId`, `machineId`, `runGroupId`, and `partitionId` on Run records when scale-out workflows need them.
-- Streaming and paged read APIs for runs, metrics, and events instead of fixed global caps.
+- Streaming and paged read APIs for runs, artifacts, metrics, and events instead of fixed global caps.
 - Content-addressed artifact blobs for large payload bytes, with small Run-local pointer artifacts and manifest records.
 - No binary-first run format in the local backend.
 - No cloud dependency in the local backend.
